@@ -3174,7 +3174,7 @@ const ScreenAdmin = {
     const cs = s.claudeSession;
     if (cs && cs.status === 'running' && !cs._started) {
       this.setState({ claudeSession: { ...cs, _started: true } });
-      const AGENT_URL = 'http://localhost:3001';
+      const AGENT_URL = 'https://platforminfinite-scalebe-production.up.railway.app';
       const AGENT_SECRET = 'claude-agent-local-2026';
       (async () => {
         // Try local agent first (full execution), fall back to Vercel (planning only)
