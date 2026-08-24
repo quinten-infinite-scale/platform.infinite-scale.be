@@ -37,9 +37,6 @@ export default async function handler(req, res) {
     }
     fetchBody = JSON.stringify(patchBody);
   } else if (method === 'post') {
-    if (table === 'appointments' && body && !String(body.phone || '').trim()) {
-      return res.status(400).json({ ok: false, error: 'phone required' });
-    }
     url = base;
     fetchMethod = 'POST';
     fetchBody = JSON.stringify(body);

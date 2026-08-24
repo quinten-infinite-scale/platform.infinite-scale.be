@@ -561,7 +561,8 @@ class Component extends DCLogic {
     const dateLogged = this.iso(this.today());
     const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, f.lead, f.phone, f.dateAppt, dateLogged, amount);
     if (!result) {
-      this.toast('Error', 'Vul alle velden in, inclusief telefoonnummer', 'var(--down)');
+      this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.' } }));
+      this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
       return;
     }
     const saved = Array.isArray(result) ? result[0] : result;
