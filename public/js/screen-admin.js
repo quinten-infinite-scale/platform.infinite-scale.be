@@ -990,13 +990,13 @@ const ScreenAdmin = {
             return [
               TD('', { textAlign: 'center', fontSize: 11, borderLeft: '2px solid var(--border)', background: darkBg2 }),
               TD('', { textAlign: 'center', background: darkBg2 }),
-              TD(v === null ? e('span', { style: { color: 'var(--text-dim)' } }, '—') : isRatio ? PCT(v) : EUR(v, 'white'), { textAlign: 'right', background: darkBg2 })
+              TD(v === null ? e('span', { style: { color: 'var(--text-dim)' } }, '—') : isRatio ? e('span', { style: css(mono, { color: 'white', fontWeight: 700 }) }, Math.round(v * 100) + '%') : EUR(v, 'white'), { textAlign: 'right', background: darkBg2 })
             ];
           }).flat(),
           // Week total
-          (() => { const wv = getVal(wk.days.flatMap(d => d.appts)); return TD(wv === null ? '—' : isRatio ? PCT(wv) : EUR(wv, 'white'), { textAlign: 'right', fontWeight: 800, borderLeft: '3px solid var(--accent)', background: wkBg }); })()
+          (() => { const wv = getVal(wk.days.flatMap(d => d.appts)); return TD(wv === null ? '—' : isRatio ? e('span', { style: css(mono, { color: 'white', fontWeight: 700 }) }, Math.round(wv * 100) + '%') : EUR(wv, 'white'), { textAlign: 'right', fontWeight: 800, borderLeft: '3px solid var(--accent)', background: wkBg }); })()
         ]).flat(),
-        TD(isRatio ? PCT(total) : EUR(total, 'white'), { textAlign: 'right', fontWeight: 700, borderLeft: '2px solid var(--border)', background: darkBg }));
+        TD(isRatio ? e('span', { style: css(mono, { color: 'white', fontWeight: 700 }) }, Math.round(total * 100) + '%') : EUR(total, 'white'), { textAlign: 'right', fontWeight: 700, borderLeft: '2px solid var(--border)', background: darkBg }));
     };
 
     // % vs avg day row for IS Totaal section
@@ -1165,9 +1165,9 @@ const ScreenAdmin = {
                   sectionHeader('Infinite Scale — Totaal', darkBg, 'var(--info)'),
                   isMetricRow('Kosten', null, 'var(--warn)', false),
                   isMetricRow('Omzet', null, 'var(--info)', false),
-                  isPctRow(),
                   isMetricRow('Winst', null, 'var(--up)', false),
                   isMetricRow('Ratio', null, 'var(--up)', true),
+                  isPctRow(),
 
                   // Per client sections
                   ...activeClients.map(cl => [
