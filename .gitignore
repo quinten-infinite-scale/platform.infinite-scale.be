@@ -42,7 +42,6 @@ next-env.d.ts
 
 # claude design source files (compiled into public/)
 Infinite Scale Platform.dc.html
-support.js
 
 # backend (not part of static frontend)
 backend/
