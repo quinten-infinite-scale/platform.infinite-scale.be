@@ -1,0 +1,13 @@
+{
+  "name": "platform-infinite-scale",
+  "version": "1.0.0",
+  "description": "Infinite Scale platform agent",
+  "main": "server-claude.js",
+  "scripts": {
+    "start": "node server-claude.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

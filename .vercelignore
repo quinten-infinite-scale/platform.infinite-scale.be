@@ -1,0 +1,6 @@
+.claude
+.env*
+backend/
+.next/
+node_modules/
+Infinite Scale Platform.dc.html

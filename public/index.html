@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script>!function(){var MOON='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><\/svg>';var SUN='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"\/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"\/><\/svg>';window.ispApplyTheme=function(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('isp-theme',theme);var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=theme==='light'?SUN:MOON;};var t=localStorage.getItem('isp-theme');if(t)document.documentElement.setAttribute('data-theme',t);document.addEventListener('click',function(e){if(e.target.closest('#isp-theme-btn')){var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';window.ispApplyTheme(next);}});document.addEventListener('DOMContentLoaded',function(){var cur=document.documentElement.getAttribute('data-theme')||'dark';var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=cur==='light'?SUN:MOON;});}();</script>
+<script>!function(){var V='20260824a';if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);if(window.performance&&window.performance.navigation&&window.performance.navigation.type!==1)window.location.reload(true);}}();</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+<script src="./js/config.js?v=20260630c"></script>
+<script src="./js/sb.js?v=20260818a"></script>
+<script src="./js/helpers.js?v=20260630c"></script>
+<script src="./js/ui.js?v=20260823b"></script>
+<script src="./js/contract-templates.js?v=20260823a"></script>
+<script src="./js/screen-shared.js?v=20260818a"></script>
+<script src="./js/screen-agent.js?v=20260823h"></script>
+<script src="./js/screen-client.js?v=20260818a"></script>
+<script src="./js/screen-subclient.js?v=20260821b"></script>
+<script src="./js/screen-admin.js?v=20260824a"></script>
+<script src="./js/pdf-ttf.js?v=20260815a"></script>
+<script src="./js/modals.js?v=20260823c"></script>
+<script src="./js/app.js?v=20260823h"></script>
+<script src="./js/api.js?v=20260820a"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: oklch(0.165 0.012 256);
+    --bg-2: oklch(0.195 0.013 256);
+    --header-bg: oklch(0.165 0.012 256 / .82);
+    --surface: oklch(0.215 0.014 256);
+    --surface-2: oklch(0.255 0.015 256);
+    --surface-3: oklch(0.30 0.016 256);
+    --border: oklch(0.32 0.016 256);
+    --border-soft: oklch(0.27 0.014 256);
+    --text: oklch(0.97 0.004 256);
+    --text-dim: oklch(0.76 0.012 256);
+    --text-mute: oklch(0.58 0.014 256);
+  }
+  :root[data-theme="light"]{
+    --bg: oklch(0.97 0.004 256);
+    --bg-2: oklch(0.93 0.006 256);
+    --header-bg: oklch(0.93 0.006 256 / .92);
+    --surface: oklch(0.99 0.002 256);
+    --surface-2: oklch(0.91 0.007 256);
+    --surface-3: oklch(0.86 0.009 256);
+    --border: oklch(0.80 0.012 256);
+    --border-soft: oklch(0.87 0.008 256);
+    --text: oklch(0.14 0.012 256);
+    --text-dim: oklch(0.32 0.012 256);
+    --text-mute: oklch(0.52 0.012 256);
+  }
+  :root[data-theme="light"]::-webkit-scrollbar-thumb{ background: oklch(0.75 0.012 256); }
+  :root[data-theme="light"] ::-webkit-scrollbar-thumb{ background: oklch(0.75 0.012 256); }
+  :root{
+    /* REVERT: --accent: oklch(0.84 0.16 194); --accent-press: oklch(0.74 0.16 152); --accent-ink: oklch(0.24 0.06 152); --up: oklch(0.80 0.16 152); */
+    --accent: oklch(0.84 0.16 194);
+    --accent-press: oklch(0.72 0.17 194);
+    --accent-ink: oklch(0.18 0.07 194);
+    --up: oklch(0.80 0.16 152);
+    --down: oklch(0.68 0.19 25);
+    --warn: oklch(0.83 0.15 85);
+    --info: oklch(0.74 0.13 240);
+    --violet: oklch(0.74 0.14 295);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text); }
+  body{ font-family:'Manrope',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background:var(--surface-3); border-radius:8px; border:2px solid var(--bg); }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  input,select,textarea,button{ font-family:inherit; }
+  @keyframes isp-fade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes isp-slidein{ from{opacity:0; transform:translateX(24px);} to{opacity:1; transform:translateX(0);} }
+  @keyframes isp-pulse{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
+  @keyframes isp-spin{ to{ transform:rotate(360deg); } }
+  @keyframes isp-grow{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
+  @media (max-width:900px){
+    .isp-loginwrap{ grid-template-columns:1fr !important; }
+    .isp-loginhero{ display:none !important; }
+  }
+  @media (max-width:860px){
+    .isp-sidebar{ position:fixed !important; left:0; top:0; z-index:50; transform:translateX(-100%); transition:transform .22s ease; box-shadow:0 0 40px rgba(0,0,0,.5); }
+    .isp-sidebar.isp-open{ transform:translateX(0); }
+    .isp-burger{ display:grid !important; place-items:center; }
+    .isp-hide-sm{ display:none !important; }
+    .isp-stack{ grid-template-columns:1fr !important; }
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:var(--bg); color:var(--text); font-family:'Manrope',sans-serif;">
+
+  <sc-if value="{{ loggedOut }}" hint-placeholder-val="{{ true }}">
+    <div class="isp-loginwrap" style="min-height:100vh; display:grid; grid-template-columns:1.05fr 1fr;">
+      <div style="position:relative; padding:48px; display:flex; flex-direction:column; justify-content:space-between; background:linear-gradient(150deg, var(--bg-2), var(--bg)); border-right:1px solid var(--border-soft); overflow:hidden;" class="isp-loginhero">
+        <div style="position:absolute; inset:0; opacity:.5; background:radial-gradient(900px 500px at 18% 12%, oklch(0.30 0.11 194 / .5), transparent 60%), radial-gradient(700px 500px at 88% 88%, oklch(0.30 0.06 256 / .45), transparent 55%);"></div>
+        <div style="position:relative; display:flex; align-items:center; gap:12px;">
+          <img src="/logo.svg" width="38" height="38" alt="Infinite Scale" style="border-radius:50%;" />
+          <span style="font-family:'Space Grotesk'; font-weight:700; font-size:18px; letter-spacing:-.01em;">Infinite Scale</span>
+        </div>
+        <div style="position:relative; max-width:460px;">
+          <h1 style="font-family:'Space Grotesk'; font-weight:700; font-size:44px; line-height:1.05; letter-spacing:-.03em; margin:0;">Prospects omzetten in klanten. Op schaal.</h1>
+        </div>
+        <div style="height:120px;"></div>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:center; padding:40px;">
+        <div style="width:100%; max-width:420px; animation:isp-fade .5s ease both;">
+          <h2 style="font-family:'Space Grotesk'; font-weight:600; font-size:26px; margin:0 0 6px;">Sign in</h2>
+          <p style="color:var(--text-mute); font-size:14px; margin:0 0 26px;">Enter your credentials to access the platform.</p>
+
+          <form onSubmit="{{ onLoginSubmit }}" style="display:flex; flex-direction:column; gap:14px;">
+            <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--text-dim);">
+              Email
+              <input type="email" value="{{ loginEmail }}" onChange="{{ onLoginEmailChange }}" placeholder="you@company.be" required style="padding:11px 14px; border-radius:11px; background:var(--surface); border:1px solid var(--border); color:var(--text); font-size:14px; outline:none; font-family:inherit;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:var(--text-dim);">
+              Password
+              <input type="password" value="{{ loginPassword }}" onChange="{{ onLoginPasswordChange }}" placeholder="••••••••" required style="padding:11px 14px; border-radius:11px; background:var(--surface); border:1px solid var(--border); color:var(--text); font-size:14px; outline:none; font-family:inherit;" />
+            </label>
+            <sc-if value="{{ loginError }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:10px 13px; border-radius:10px; background:oklch(0.30 0.06 25 / .25); border:1px solid oklch(0.45 0.12 25); font-size:13px; color:var(--down);">{{ loginError }}</div>
+            </sc-if>
+            <button type="submit" style="padding:12px 20px; border-radius:11px; border:none; background:var(--accent); color:var(--accent-ink); font-weight:800; font-size:14px; cursor:pointer; margin-top:4px;">Sign in</button>
+          </form>
+
+          <div style="margin-top:14px; text-align:center;">
+            <a href="/reset-password" style="font-size:13px; color:var(--text-mute); text-decoration:none;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-mute)'">Forgot your password?</a>
+          </div>
+
+          <div style="margin-top:14px; padding:13px 15px; border-radius:12px; background:var(--bg-2); border:1px solid var(--border-soft); font-size:12.5px; color:var(--text-mute); line-height:1.5;">
+            Credentials are sent when your account is created. Contact your admin if you can't log in.
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ loggedIn }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex; min-height:100vh;">
+
+      <!-- Sidebar -->
+      <aside class="isp-sidebar {{ sidebarCls }}" style="width:248px; flex:none; background:var(--bg-2); border-right:1px solid var(--border-soft); display:flex; flex-direction:column; position:sticky; top:0; height:100vh;">
+        <div style="padding:18px 18px 14px; display:flex; align-items:center; gap:11px; border-bottom:1px solid var(--border-soft);">
+          <img src="/logo.svg" width="32" height="32" alt="Infinite Scale" style="border-radius:50%; flex:none;" />
+          <div style="line-height:1.1;">
+            <div style="font-family:'Space Grotesk'; font-weight:700; font-size:14.5px;">Infinite Scale</div>
+            <div style="font-size:11px; color:var(--text-mute); font-family:'JetBrains Mono';">{{ roleLabel }}</div>
+          </div>
+        </div>
+        <nav style="flex:1; overflow-y:auto; padding:12px 10px; display:flex; flex-direction:column; gap:2px;">
+          <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+            <button onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="background:var(--surface); color:var(--text);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="{{ n.icon }}"/></svg>
+              <span style="flex:1; text-align:left;">{{ n.label }}</span>
+              <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px; font-weight:700; font-family:'JetBrains Mono'; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 7px;">{{ n.badge }}</span></sc-if>
+            </button>
+          </sc-for>
+        </nav>
+        <div style="padding:12px 10px; border-top:1px solid var(--border-soft);">
+          <button onClick="{{ onLogout }}" style="display:flex; align-items:center; gap:11px; width:100%; padding:9px 12px; border-radius:10px; border:none; background:transparent; color:var(--text-mute); cursor:pointer; font-size:13.5px; font-weight:600;" style-hover="background:var(--surface); color:var(--text);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M11 8l-4 4 4 4M7 12h9"/></svg>
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main column -->
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+
+        <!-- Topbar -->
+        <header style="position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:14px; padding:13px 22px; background:var(--header-bg); backdrop-filter:blur(12px); border-bottom:1px solid var(--border-soft);">
+          <button onClick="{{ onToggleSidebar }}" class="isp-burger" style="display:none; width:36px; height:36px; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div style="min-width:0;">
+            <div style="font-family:'Space Grotesk'; font-weight:600; font-size:18px; letter-spacing:-.01em; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ pageTitle }}</div>
+            <div style="font-size:12px; color:var(--text-mute);">{{ pageSub }}</div>
+          </div>
+
+          <div style="flex:1;"></div>
+
+          <!-- agency client switcher -->
+          <sc-if value="{{ showAgencySwitch }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; gap:8px;" class="isp-hide-sm">
+              <span style="font-size:12px; color:var(--text-mute);">Viewing</span>
+              <select onChange="{{ onAgencyClientChange }}" value="{{ agencyView }}" style="padding:8px 12px; border-radius:10px; background:var(--surface); border:1px solid var(--border); color:var(--text); font-weight:600; font-size:13px; cursor:pointer;">
+                <sc-for list="{{ agencyClients }}" as="ac" hint-placeholder-count="3"><option value="{{ ac.value }}">{{ ac.label }}</option></sc-for>
+              </select>
+            </div>
+          </sc-if>
+
+          <!-- working switch (agent) -->
+          <sc-if value="{{ showWorkingSwitch }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ onToggleWorking }}" style="{{ workingBtnStyle }}">
+              <span style="width:8px; height:8px; border-radius:50%; background:{{ workingDot }}; box-shadow:0 0 0 3px {{ workingDotRing }}; {{ workingDotAnim }}"></span>
+              <span style="font-weight:700; font-size:13px;">{{ workingLabel }}</span>
+              <span class="isp-hide-sm" style="font-family:'JetBrains Mono'; font-size:11.5px; opacity:.75;">{{ workingTime }}</span>
+            </button>
+          </sc-if>
+
+          <!-- theme toggle -->
+          <button id="isp-theme-btn" title="Switch to light mode" style="width:38px; height:38px; border-radius:10px; border:none; background:var(--accent); color:var(--accent-ink); cursor:pointer; display:grid; place-items:center; line-height:1; flex:none;">
+            <span id="isp-theme-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+          </button>
+
+          <!-- notifications -->
+          <div style="position:relative;">
+            <button onClick="{{ onToggleNotif }}" style="position:relative; width:38px; height:38px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); cursor:pointer; display:grid; place-items:center;" style-hover="color:var(--text);">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:50%; background:var(--down); border:2px solid var(--surface);"></span></sc-if>
+            </button>
+            <sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute; right:0; top:46px; width:360px; max-width:92vw; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:0 24px 64px oklch(0 0 0 / .35), 0 4px 16px oklch(0 0 0 / .2); overflow:hidden; animation:isp-fade .15s ease both; z-index:40;">
+                <!-- header -->
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 18px 14px; border-bottom:1px solid var(--border-soft);">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-family:'Space Grotesk'; font-weight:700; font-size:15px; letter-spacing:-.01em;">Notifications</span>
+                    <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex; align-items:center; justify-content:center; background:var(--accent); color:var(--accent-ink); font-size:10px; font-weight:800; font-family:'JetBrains Mono'; border-radius:20px; padding:1px 6px; line-height:1.5;">NEW</span></sc-if>
+                  </div>
+                  <button onClick="{{ onMarkAllRead }}" style="background:oklch(0.25 0.02 256 / .6); border:1px solid var(--border-soft); color:var(--text-dim); font-size:11.5px; font-weight:700; cursor:pointer; border-radius:8px; padding:4px 10px; font-family:'Manrope';">Mark all read</button>
+                </div>
+                <!-- list -->
+                <div style="max-height:380px; overflow-y:auto; padding:8px 0;">
+                  <sc-for list="{{ notifications }}" as="nt" hint-placeholder-count="4">
+                    <div style="{{ nt.style }}" onClick="{{ nt.onClick }}" style-hover="background:oklch(0.20 0.018 256 / .7)!important;">
+                      <!-- icon bubble -->
+                      <div style="width:36px; height:36px; border-radius:10px; flex:none; display:grid; place-items:center; background:{{ nt.iconBg }};">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ nt.dot }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ nt.iconPath }}</svg>
+                      </div>
+                      <!-- content -->
+                      <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; font-weight:600; color:var(--text); line-height:1.4; white-space:normal;">{{ nt.text }}</div>
+                        <div style="font-size:11px; color:var(--text-mute); margin-top:3px; font-family:'JetBrains Mono';">{{ nt.time }}</div>
+                      </div>
+                      <!-- unread dot -->
+                      <sc-if value="{{ nt.unread }}" hint-placeholder-val="{{ true }}"><span style="width:7px; height:7px; border-radius:50%; flex:none; background:var(--accent); margin-top:4px;"></span></sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- profile -->
+          <div style="display:flex; align-items:center; gap:10px; padding-left:6px;" class="isp-hide-sm">
+            <div style="width:34px; height:34px; border-radius:10px; background:{{ avatarTint }}; color:{{ avatarInk }}; display:grid; place-items:center; font-weight:800; font-size:13px; font-family:'Space Grotesk';">{{ initials }}</div>
+            <div style="line-height:1.15;">
+              <div style="font-size:13px; font-weight:700;">{{ meName }}</div>
+              <div style="font-size:11px; color:var(--text-mute);">{{ meSub }}</div>
+            </div>
+          </div>
+        </header>
+
+        <!-- toasts -->
+        <div style="position:fixed; top:74px; right:22px; z-index:60; display:flex; flex-direction:column; gap:10px; pointer-events:none;">
+          <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+            <div onClick="{{ onOpenNotifs }}" style="pointer-events:auto; min-width:280px; max-width:340px; background:var(--surface); border:1px solid var(--border); border-left:3px solid {{ t.color }}; border-radius:12px; padding:12px 14px; box-shadow:var(--shadow); animation:isp-slidein .25s ease both; cursor:pointer;">
+              <div style="font-size:12.5px; font-weight:800; color:{{ t.color }}; font-family:'JetBrains Mono'; text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px;">{{ t.tag }}</div>
+              <div style="font-size:13.5px; font-weight:600; line-height:1.4;">{{ t.text }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- screen router -->
+        <main style="flex:1; min-width:0; padding:24px 24px 60px; max-width:1320px; width:100%; margin:0 auto; animation:isp-fade .35s ease both;" key="{{ routeKey }}">
+          {{ screen }}
+        </main>
+      </div>
+
+      <!-- backdrop for mobile sidebar -->
+      <sc-if value="{{ sidebarOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ onToggleSidebar }}" class="isp-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:35;"></div>
+      </sc-if>
+
+      <!-- floating appointment log (call agent) -->
+      <sc-if value="{{ showFab }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ onFabLog }}" style="position:fixed; right:24px; bottom:24px; z-index:40; display:flex; align-items:center; gap:9px; padding:14px 20px; border-radius:30px; border:none; background:var(--accent); color:var(--accent-ink); font-weight:800; font-size:14px; cursor:pointer; box-shadow:0 8px 28px oklch(0.84 0.16 194 / .4);" style-hover="transform:translateY(-2px);">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Log appointment
+        </button>
+      </sc-if>
+
+      <!-- modal mount -->
+      <sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ onCloseModal }}" style="position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.6); backdrop-filter:blur(3px); display:flex; align-items:flex-start; justify-content:center; padding:40px 18px; overflow-y:auto; animation:isp-fade .15s ease both;">
+          <div onClick="{{ stop }}" style="width:100%; max-width:{{ modalWidth }}; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow); margin:auto; animation:isp-fade .2s ease both;">
+            {{ modalBody }}
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- tour overlay rendered from JS via tourOverlay React element -->
+      {{ tourOverlay }}
+
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;}}">
+// Main application controller — thin delegation layer over modules
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const session = SB.loadSession();
+    this.myAgentId = null;
+    this.myClientId = null;
+    this.state = {
+      role: null,
+      route: 'dashboard',
+      modal: null, modalKind: null,
+      toasts: [], notifOpen: false, sidebarOpen: false,
+      tourStep: null, agencyView: 'all', form: {},
+      loading: !!session,
+      loginError: null,
+      loginEmail: '', loginPassword: '',
+      data: this._emptyData(),
+    };
+    this._escHandler = e => { if (e.key === 'Escape' && this.state.modal) this.closeModal(); };
+  }
+
+  componentDidMount() {
+    document.addEventListener('keydown', this._escHandler);
+    // Load data here (not constructor) so this.__host is set and setState works
+    if (SB.getSession()) this._loadData(false);
+  }
+  componentWillUnmount() { document.removeEventListener('keydown', this._escHandler); }
+
+  _emptyData() {
+    return { agents: [], clients: [], appointments: [], dials: {}, tickets: [], recruits: [], prospects: [], contracts: [], events: [], notifs: {}, eods: [], leaderPeriod: 'daily' };
+  }
+
+  _tourSeenKey(uid) { return 'is_tour_seen_' + uid; }
+  _markTourSeen(uid) { try { localStorage.setItem(this._tourSeenKey(uid), '1'); } catch (e) { } }
+
+  // ---- Auth ----
+  async _doLogin(email, password) {
+    this.setState({ loading: true, loginError: null });
+    const res = await SB.signIn(email, password);
+    if (!res.access_token) {
+      this.setState({ loading: false, loginError: 'Invalid email or password.' });
+      return;
+    }
+    await this._loadData(true);
+  }
+
+  // freshLogin: true only right after the user submits the login form — the tour
+  // should never reappear on a page reload/session restore.
+  async _loadData(freshLogin) {
+    const session = SB.getSession();
+    if (!session) { this.setState({ loading: false }); return; }
+    const uid = session.user?.id;
+
+    // Stale-while-revalidate: show cached data instantly, then refresh in background.
+    // Skip cache on fresh login so the user always gets live data after signing in.
+    if (!freshLogin) {
+      try {
+        const cached = JSON.parse(localStorage.getItem('is_cache_' + uid) || 'null');
+        if (cached && cached.data && cached.role) {
+          this.myAgentId = cached.agentId;
+          this.myClientId = cached.clientId;
+          if (cached.role === 'subclient') { this.scClientId = cached.clientId; this.scSubId = cached.subClientId; this.scClientName = cached.scClientName || ''; this.scSubName = cached.scSubName || ''; }
+          this._sessionId = 'ses_' + Date.now() + Math.random().toString(36).slice(2, 6);
+          const { invApproved: cachedApproved, invoiceStatus: cachedStatus } = this._deriveInvState(cached.data);
+          this.setState({ role: cached.role, loading: false, data: cached.data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved: cachedApproved, invoiceStatus: cachedStatus });
+          this._updatePresence('dashboard');
+          if (cached.role === 'client' || cached.role === 'agency' || cached.role === 'agent') this._startClickTracking();
+          this._refreshCache(uid, cached.role, cached.agentId, cached.clientId, cached.subClientId);
+          return;
+        }
+      } catch(e) {}
+    }
+
+    await this._doFullLoad(uid, freshLogin);
+  }
+
+  async _doFullLoad(uid, freshLogin) {
+    const role = await SB.rpc('get_user_role', { uid });
+    if (!role) {
+      await SB.signOut();
+      this.setState({ loading: false, loginError: 'Je account heeft geen toegangsrol. Contacteer de admin.' });
+      return;
+    }
+    let agentId = null, clientId = null, subClientId = null;
+    if (role === 'agent') {
+      agentId = await SB.rpc('get_agent_id', { uid });
+      if (!agentId) {
+        await SB.signOut();
+        this.setState({ loading: false, loginError: 'Geen agent-profiel gevonden voor dit account. Contacteer de admin.' });
+        return;
+      }
+    }
+    if (role === 'client' || role === 'agency') {
+      clientId = await SB.rpc('get_client_id', { uid });
+      if (!clientId) {
+        await SB.signOut();
+        this.setState({ loading: false, loginError: 'Geen klantprofiel gevonden voor dit account. Contacteer de admin.' });
+        return;
+      }
+    }
+    if (role === 'subclient') {
+      const allClients = await SB.get('clients', '?select=id,name,subclients');
+      for (const cl of allClients) {
+        const sc = (cl.subclients || []).find(x => x.user_id === uid);
+        if (sc) { clientId = cl.id; subClientId = sc.id; break; }
+      }
+      if (!subClientId) {
+        await SB.signOut();
+        this.setState({ loading: false, loginError: 'Geen subclient-profiel gevonden voor dit account. Contacteer de admin.' });
+        return;
+      }
+      this.scClientId = clientId;
+      this.scSubId = subClientId;
+      // Cache resolved names so scrSubclient doesn't need d.clients (blocked by RLS)
+      const scClientRow = allClients.find(c => c.id === clientId);
+      const scSubRow = scClientRow && (scClientRow.subclients || []).find(x => x.id === subClientId);
+      this.scClientName = scClientRow?.name || '';
+      this.scSubName = scSubRow?.name || '';
+    }
+    this.myAgentId = agentId;
+    this.myClientId = clientId;
+    const data = await API.loadAll(role, agentId, clientId, subClientId);
+    let tourSeen = true;
+    try { tourSeen = !!localStorage.getItem(this._tourSeenKey(uid)); } catch (e) { }
+    const tourStep = (freshLogin && !tourSeen && (role === 'agent' || role === 'client' || role === 'agency')) ? 0 : null;
+    this._sessionId = 'ses_' + Date.now() + Math.random().toString(36).slice(2, 6);
+    const { invApproved, invoiceStatus } = this._deriveInvState(data);
+    this.setState({ role, loading: false, data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus });
+    this._updatePresence('dashboard');
+    if (freshLogin) this._logActivity('login', 'Logged in as ' + role);
+    if (role === 'client' || role === 'agency' || role === 'agent') this._startClickTracking();
+    try {
+      localStorage.setItem('is_cache_' + uid, JSON.stringify({ data, role, agentId, clientId, subClientId, scClientName: this.scClientName || '', scSubName: this.scSubName || '' }));
+    } catch(e) {}
+  }
+
+  async _refreshCache(uid, role, agentId, clientId, subClientId) {
+    try {
+      const data = await API.loadAll(role, agentId, clientId, subClientId);
+      localStorage.setItem('is_cache_' + uid, JSON.stringify({ data, role, agentId, clientId, subClientId, scClientName: this.scClientName || '', scSubName: this.scSubName || '' }));
+      const { invApproved: refreshedApproved, invoiceStatus: refreshedStatus } = this._deriveInvState(data);
+      this.setState({ data, invApproved: refreshedApproved, invoiceStatus: refreshedStatus });
+    } catch(e) {}
+  }
+
+  async _doLogout() {
+    API.clearPresence(this._getPresenceId());
+    if (this._heartbeatTimer) { clearInterval(this._heartbeatTimer); this._heartbeatTimer = null; }
+    try { const uid = SB.getSession()?.user?.id; if (uid) localStorage.removeItem('is_cache_' + uid); } catch(e) {}
+    await SB.signOut();
+    this.myAgentId = null;
+    this.myClientId = null;
+    this.setState({ role: null, modal: null, notifOpen: false, tourStep: null, data: this._emptyData(), loginEmail: '', loginPassword: '' });
+  }
+
+  // ---- Navigation ----
+  go(route) {
+    this._updatePresence(route);
+    this.setState({ route, notifOpen: false, sidebarOpen: false });
+    const s = this.state;
+    if (s.role === 'client' || s.role === 'agency') {
+      const labels = { appointments: 'Appointments', billing: 'Billing', contracts: 'Contracts', support: 'Support', legal: 'Legal', dashboard: 'Dashboard' };
+      if (labels[route]) this._logActivity('navigate', 'Viewed ' + labels[route] + ' page');
+    }
+  }
+
+  _getPresenceId() { const session = SB.getSession(); return session?.user?.id || null; }
+  _getPresenceName() {
+    const s = this.state;
+    if (s.role === 'agent' && this.myAgentId) return (s.data.agents || []).find(a => a.id === this.myAgentId)?.name || '';
+    if ((s.role === 'client' || s.role === 'agency') && this.myClientId) return (s.data.clients || []).find(c => c.id === this.myClientId)?.name || '';
+    if (s.role === 'admin') return SB.getSession()?.user?.email?.split('@')[0] || 'Admin';
+    return '';
+  }
+  _updatePresence(route) {
+    const uid = this._getPresenceId(); if (!uid) return;
+    const labels = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support' };
+    API.updatePresence(uid, this._getPresenceName(), this.state.role, route, labels[route] || route);
+  }
+  openModal(kind, form) { this.setState({ modal: true, modalKind: kind, form: form || {}, notifOpen: false }); }
+  closeModal() { this.setState({ modal: null, modalKind: null, form: {} }); }
+  setForm(k, v) { this.setState(s => ({ form: { ...s.form, [k]: v, apptError: null } })); }
+  _saveInvState(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
+  _loadInvState(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : {}; } catch(e) { return {}; } }
+  _deriveInvState(data) {
+    const invApproved = {}, invoiceStatus = {};
+    for (const [key, is] of Object.entries((data && data.invoiceStates) || {})) {
+      if (is.approved) invApproved[key] = true;
+      if (is.payStatus && is.payStatus !== 'open') invoiceStatus[key] = is.payStatus;
+    }
+    return { invApproved, invoiceStatus };
+  }
+
+  _pushNotif(role, text, kind, action) {
+    const n = { id: 'rt' + Date.now(), text, time: new Date().toISOString().slice(0, 16).replace('T', ' '), read: false, kind: kind || 'info', action };
+    this.mutLocal(d => { if (!d.notifs[role]) d.notifs[role] = []; d.notifs[role].unshift(n); });
+    API.pushNotif(role, text, kind, action);
+  }
+
+  handleNotifClick(n) {
+    if (!n || !n.action) return;
+    const a = n.action;
+    this.setState({ notifOpen: false });
+    if (a.invExpanded) this.setState(st => ({ invExpanded: { ...(st.invExpanded || {}), [a.invExpanded]: true } }));
+    if (a.route) this.setState({ route: a.route });
+    if (a.modal) setTimeout(() => this.openModal(a.modal, a.modalForm || {}), 40);
+  }
+
+  // ---- Mutations (update local state + persist to Supabase) ----
+  mutLocal(fn) {
+    this.setState(s => { const d = JSON.parse(JSON.stringify(s.data)); fn(d, s); return { data: d }; });
+  }
+
+  async setApptStatus(id, status) {
+    const d = this.state.data;
+    const ap = d.appointments.find(x => x.id === id);
+    const clientRate = ap ? (d.clients.find(c => c.id === ap.client) || {}).rate || 0 : 0;
+    const amount = status === 'show' ? clientRate : 0;
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
+    await API.setApptStatus(id, status, amount);
+    const m = { show: 'Marked as Show', no_show: 'Marked as No-show', cancel: 'Marked as Cancelled' };
+    this.toast('Updated', m[status] || 'Status updated', status === 'show' ? 'var(--up)' : 'var(--down)');
+  }
+
+  async toggleWorking() {
+    const me = this.state.data.agents.find(a => a.id === this.myAgentId);
+    if (!me) return;
+    const working = !me.working;
+    const workSince = working ? new Date().toISOString() : null;
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === this.myAgentId); if (a) { a.working = working; a.workSince = workSince; } });
+    await API.setWorking(this.myAgentId, working);
+    this.toast('Status', working ? 'You are now online' : 'You are now offline', 'var(--accent)');
+  }
+
+  async toggleTodo(id, me) {
+    const agent = me || this.state.data.agents.find(a => a.id === this.myAgentId);
+    if (!agent) return;
+    const todos = (agent.todos || []).map(t => t.id === id ? { ...t, done: !t.done } : t);
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === agent.id); if (a) a.todos = todos; });
+    await API.saveTodos(agent.id, todos);
+  }
+
+  async addTodo(text) {
+    if (!text) return;
+    const agent = this.state.data.agents.find(a => a.id === this.myAgentId);
+    if (!agent) return;
+    const todos = [...(agent.todos || []), { id: 't' + Date.now(), text, done: false }];
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === this.myAgentId); if (a) a.todos = todos; });
+    await API.saveTodos(this.myAgentId, todos);
+    this.toast('Added', 'To-do created', 'var(--accent)');
+  }
+
+  async markAllRead() {
+    this.mutLocal(d => { (d.notifs[this.state.role] || []).forEach(n => n.read = true); });
+    await API.markAllNotifsRead(this.state.role);
+  }
+
+  async markPaid(clientId) {
+    this.mutLocal(d => { const c = d.clients.find(x => x.id === clientId); if (c) c.billStatus = 'paid'; d.appointments.forEach(a => { if (a.client === clientId && a.invoiced) a.paid = true; }); });
+    await API.markInvoicePaid(clientId);
+    this.toast('Billing', 'Invoice marked as paid', 'var(--up)');
+  }
+
+  async unmarkPaid(clientId) {
+    this.mutLocal(d => { const c = d.clients.find(x => x.id === clientId); if (c) c.billStatus = 'pending'; d.appointments.forEach(a => { if (a.client === clientId) a.paid = false; }); });
+    await API.setBillStatus(clientId, 'pending');
+    this.toast('Billing', 'Reset to pending', 'var(--warn)');
+  }
+
+  async cycleClientStatus(clientId) {
+    const cycle = { active: 'starting', starting: 'inactive', inactive: 'active' };
+    const cur = (this.state.data.clients.find(x => x.id === clientId) || {}).status || 'active';
+    const next = cycle[cur] || 'active';
+    this.mutLocal(d => { const c = d.clients.find(x => x.id === clientId); if (c) c.status = next; });
+    await API.setClientStatus(clientId, next);
+    this.toast('Status', next.charAt(0).toUpperCase() + next.slice(1), 'var(--accent)');
+  }
+
+  async moveProspect(id, stage) {
+    this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p) p.stage = stage; });
+    await API.updateProspectStage(id, stage);
+  }
+
+  async addProspect(f) {
+    if (!f.company) { this.toast('Error', 'Add a company', 'var(--down)'); return; }
+    const row = { company: f.company, contact: f.contact || '', phone: f.phone || '', assigned: f.assigned || 'Quinten', source: f.source || 'LinkedIn', stage: 'new', next_action: 'Qualify', next_date: this.iso(this.today()), notes: f.notes || '' };
+    this.mutLocal(d => d.prospects.unshift({ id: 'p' + Date.now(), ...row, next: row.next_action, nextDate: row.next_date }));
+    await API.addProspect(row);
+    this.closeModal();
+    this.toast('Prospect', 'Added to pipeline', 'var(--accent)');
+  }
+
+  async advanceRecruit(id, stage) {
+    this.mutLocal(d => { const r = d.recruits.find(x => x.id === id); if (r) r.stage = stage; });
+    await API.advanceRecruit(id, stage);
+    this.toast('Recruitment', 'Candidate moved to ' + stage.replace('_', ' '), 'var(--accent)');
+  }
+
+  async createClient(f) {
+    const row = { name: f.name, type: 'direct', status: 'starting', crm: f.crm || 'none', crm_on: f.crm && f.crm !== 'none', kickoff: this.iso(this.today()), rate: +(String(f.rate || '45').replace(/\D/g, '')) || 45, contact_person: f.name, email: f.email || '', company: f.name, bill_status: 'pending', subclients: [] };
+    const res = await API.createClient(row);
+    if (res) { const norm = { ...row, id: res[0]?.id || 'c' + Date.now(), agents: [], clients: [], crmOn: row.crm_on, contactPerson: row.contact_person, billStatus: row.bill_status }; this.mutLocal(d => d.clients.push(norm)); }
+    this.closeModal();
+    this.toast('Created', 'Client added & email sent', 'var(--up)');
+  }
+
+  async createAgent(f) {
+    const row = { name: f.name, email: f.email || '', phone: f.phone || '', vat: f.vat || '', business: '', active: true, status: 'signed', lifetime_paid: 0, working: false, feedback: [], todos: [] };
+    const res = await API.createAgent(row);
+    if (res) { const norm = { ...row, id: res[0]?.id || 'a' + Date.now(), clients: [], rates: {}, lifetime: 0 }; this.mutLocal(d => d.agents.push(norm)); }
+    this.closeModal();
+    this.toast('Created', 'Agent added & email sent', 'var(--up)');
+  }
+
+  async toggleAgent(id, active) {
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === id); if (a) a.active = active; });
+    await API.toggleAgentActive(id, active);
+    this.toast('Agent', active ? 'Reactivated' : 'Deactivated', active ? 'var(--up)' : 'var(--down)');
+  }
+
+  async deactivateClient(id) {
+    this.mutLocal(d => { const c = d.clients.find(x => x.id === id); if (c) c.status = 'inactive'; });
+    await API.deactivateClient(id);
+    this.toast('Client', 'Deactivated', 'var(--down)');
+  }
+
+  async logAppointment() {
+    const f = this.state.form;
+    let apptError = null;
+    if (!f.client || !f.lead || !f.dateAppt) apptError = 'Vul client, lead en datum in.';
+    else if (!String(f.phone || '').trim()) apptError = 'Telefoonnummer is verplicht — vul het in voor je submit.';
+    if (apptError) { this.setState(s => ({ form: { ...s.form, apptError } })); this.toast('Fout', apptError, 'var(--down)'); return; }
+    this.setState(s => ({ form: { ...s.form, apptError: null } }));
+    const c = this.state.data.clients.find(x => x.id === f.client);
+    let amount = c ? c.rate : 0;
+    if (f.sub && c && c.subclients) {
+      const sc = c.subclients.find(s => s.id === f.sub);
+      if (sc) amount = sc.rate || amount;
+    }
+    const dateLogged = this.iso(this.today());
+    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, f.lead, f.phone, f.dateAppt, dateLogged, amount);
+    if (!result) { this.toast('Fout', 'Vul alle velden in, inclusief telefoonnummer', 'var(--down)'); return; }
+    const saved = Array.isArray(result) ? result[0] : result;
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: f.lead, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false }));
+    this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + f.lead + ' (€' + amount + ')');
+    this.closeModal();
+    this.toast('Logged', 'Appointment added', 'var(--up)');
+  }
+
+  async submitEOD() {
+    const f = this.state.form;
+    const date = this.iso(this.today());
+    const callBlocks = f.callBlocks || [];
+    this.mutLocal(d => d.eods.unshift({ id: 'e' + Date.now(), agent: this.myAgentId, date, clients: f.clients || [], calls: f.calls || {}, appts: f.appts || {}, well: f.well || '', bad: f.bad || '', goal: f.goal || '', callBlocks }));
+    await API.submitEOD(this.myAgentId, date, f.clients || [], f.calls || {}, f.appts || {}, f.well || '', f.bad || '', f.goal || '', callBlocks);
+    this._logActivity('eod_submitted', 'Submitted EOD report for ' + date + (callBlocks.length ? ' · ' + callBlocks.length + ' call block(s)' : ''));
+    this.closeModal();
+    this.toast('Report', 'End-of-day report submitted', 'var(--up)');
+  }
+
+  async deleteAppointment(id) {
+    await API.deleteAppointment(id);
+    this.mutLocal(d => { d.appointments = d.appointments.filter(a => a.id !== id); });
+    this.closeModal();
+    this.toast('Deleted', 'Appointment removed', 'var(--down)');
+  }
+
+  async submitTicket() {
+    const f = this.state.form;
+    if (!f.title) { this.toast('Error', 'Add a title first', 'var(--down)'); return; }
+    this.mutLocal(d => d.tickets.push({ id: 'tk' + Date.now(), time: this.iso(this.today()) + ' ' + new Date().toTimeString().slice(0, 5), title: f.title, cat: f.cat || 'General', client: this.myClientId, desc: f.desc || '', status: 'open' }));
+    await API.submitTicket(this.myClientId, f.title, f.cat || 'General', f.desc || '');
+    this.closeModal();
+    this.toast('Support', 'Ticket submitted', 'var(--accent)');
+  }
+
+  requestChange(id) { this.toast('Request sent', 'Status-change request sent to admin', 'var(--info)'); }
+  approveInvoice(...a) { return Component.prototype.approveInvoice ? Component.prototype.approveInvoice.call(this, ...a) : this.toast('Approved', 'Invoicing approved', 'var(--up)'); }
+  async sendContract() {
+    const f = this.state.form;
+    if (!f.email) { this.toast('Fout', 'Voeg een e-mailadres toe', 'var(--down)'); return; }
+    const partyType = f.partyType || 'client';
+    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const signingLink = 'https://platform.infinite-scale.be/sign?token=' + token;
+    const party = partyType === 'agent' ? (f.agentName || '') : (f.company || '');
+    const contractType = f.ctype || 'Contract';
+    const contractValue = f.rate ? '€' + f.rate + ' / afspraak' : (f.duration || '—');
+    // Grab edited HTML from the editable iframe if available
+    const contractHtml = window._editedContractHtml || null;
+    window._editedContractHtml = null;
+    const contract = {
+      id: 'ct' + Date.now(), party, party_type: partyType, type: contractType,
+      value: f.rate ? '€' + f.rate + '/afspraak' : (f.duration || ''),
+      sent: new Date().toISOString().slice(0, 10), status: 'sent',
+      email: f.email, vat: f.vat || '', address: f.address || '',
+      contact: f.contact || '', duration: f.duration || '', notes: f.notes || '',
+      setup_fee: f.setupFee ? Number(f.setupFee) : null,
+      sign_token: token, signing_link: signingLink,
+      contract_html: contractHtml,
+    };
+    this.mutLocal(d => d.contracts.unshift(contract));
+    this.closeModal();
+    this.toast('Verzenden…', 'Contract wordt verstuurd naar ' + f.email, 'var(--accent)');
+    try {
+      await API.addContract(contract);
+    } catch(e) {
+      this.mutLocal(d => { d.contracts = d.contracts.filter(c => c.id !== contract.id); });
+      this.toast('FOUT: Contract NIET opgeslagen', 'DB write mislukt — probeer opnieuw: ' + (e.message || e), 'var(--down)');
+      return;
+    }
+    API.sendContractEmail({ to: f.email, party, contractType, contractValue, signingLink, notes: f.notes || '' })
+      .then(() => this.toast('Verzonden', 'Contract e-mail bezorgd aan ' + f.email, 'var(--up)'))
+      .catch(() => this.toast('E-mail mislukt', 'Contract opgeslagen maar e-mail niet bezorgd', 'var(--down)'));
+  }
+
+  // ---- Tour ----
+  tourData() {
+    const map = {
+      agent: [{ t: 'Welcome, ' + (this.state.data.agents.find(a => a.id === this.myAgentId) || {}).name?.split(' ')[0] || 'agent', b: 'This is your command center. Your most recent appointments sit up top, with live daily stats and your to-do list beside them.' }, { t: 'Flip the work switch', b: 'Use the green switch in the top bar when you start dialing. It logs your working time for the team.' }, { t: 'Log appointments fast', b: 'The floating button opens the form. Submit and it locks — instantly reflected in your stats and payments.' }, { t: 'Track your money', b: 'The Payments tab shows a live running total and your monthly approval of invoicing. You\'re all set.' }],
+      client: [{ t: 'Welcome to Infinite Scale', b: 'Every appointment your agents book lands here in real time — no more spreadsheets.' }, { t: 'Set the status', b: 'On each appointment choose Show, No-show or Cancel. This drives your monthly billing automatically.' }, { t: 'Billing made simple', b: 'Five days before month-end you get a reminder. When the month closes, your billing summary appears in the Billing tab.' }],
+      agency: [{ t: 'Welcome to your agency workspace', b: 'Your lead-agency dashboard shows every appointment across all of your clients in one login.' }, { t: 'Switch between clients', b: 'Use the selector in the top bar to view appointments and stats broken down per client.' }, { t: 'One billing relationship', b: 'You invoice as the agency — statuses you set across all clients roll into a single monthly summary.' }],
+    };
+    return map[this.state.role] || [];
+  }
+
+  // ---- Main render ----
+  renderVals() {
+    const s = this.state, d = s.data, R = React.createElement;
+
+    // Loading screen
+    if (s.loading) {
+      return {
+        loggedOut: false, loggedIn: false,
+        screen: R('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' } },
+          R('div', { style: { textAlign: 'center' } },
+            R('div', { style: { width: 40, height: 40, border: '3px solid var(--border)', borderTop: '3px solid var(--accent)', borderRadius: '50%', animation: 'isp-spin 1s linear infinite', margin: '0 auto 16px' } }),
+            R('div', { style: { color: 'var(--text-mute)', fontSize: 14 } }, 'Loading…'))),
+        modal: false, tourActive: false, toasts: [],
+      };
+    }
+
+    const out = {
+      loggedOut: !s.role, loggedIn: !!s.role,
+      stop: e => e.stopPropagation(),
+      onLogout: () => this._doLogout(),
+      onCloseModal: () => this.closeModal(),
+      onToggleSidebar: () => this.setState(x => ({ sidebarOpen: !x.sidebarOpen })),
+      onToggleNotif: () => this.setState(x => ({ notifOpen: !x.notifOpen })),
+      onMarkAllRead: () => this.markAllRead(),
+      sidebarOpen: s.sidebarOpen, notifOpen: s.notifOpen, modal: s.modal,
+      routeKey: (s.role || '') + '/' + s.route, sidebarCls: s.sidebarOpen ? 'isp-open' : '',
+      showFab: s.role === 'agent' && s.route !== 'log', onFabLog: () => this.openModal('log'),
+    };
+
+    // Login
+    out.loginError = s.loginError;
+    out.loginEmail = s.loginEmail;
+    out.loginPassword = s.loginPassword;
+    out.onLoginEmailChange = e => this.setState({ loginEmail: e.target.value });
+    out.onLoginPasswordChange = e => this.setState({ loginPassword: e.target.value });
+    out.onLoginSubmit = e => { e.preventDefault(); this._doLogin(s.loginEmail, s.loginPassword); };
+
+    if (!s.role) { return out; }
+
+    // Me
+    const roleLabels = { admin: 'Admin workspace', agency: 'Lead agency', client: 'Client portal', agent: 'Call agent' };
+    out.roleLabel = roleLabels[s.role];
+    const me = d.agents.find(a => a.id === this.myAgentId);
+    const cl = d.clients.find(c => c.id === this.myClientId);
+    const session = SB.getSession();
+    const profileName = me?.name || cl?.contactPerson || session?.user?.email?.split('@')[0] || 'User';
+    const scCl = d.clients.find(c => c.id === this.scClientId);
+    const scSub = scCl && (scCl.subclients || []).find(x => x.id === this.scSubId);
+    const meMap = { admin: { name: 'Quinten Eeckhoudt', sub: 'Admin', tint: 'oklch(0.30 0.06 295)', ink: 'var(--violet)' }, agency: { name: cl?.name || 'Agency', sub: 'Lead agency', tint: 'oklch(0.30 0.06 240)', ink: 'var(--info)' }, client: { name: cl?.name || 'Client', sub: 'Client', tint: 'oklch(0.30 0.11 194)', ink: 'var(--accent)' }, agent: { name: me?.name || 'Agent', sub: 'Call agent', tint: 'oklch(0.30 0.05 85)', ink: 'var(--warn)' }, subclient: { name: scSub?.name || scCl?.name || 'Subclient', sub: scCl?.name || 'Subclient', tint: 'oklch(0.30 0.06 160)', ink: 'var(--up)' } };
+    const meInfo = meMap[s.role];
+    out.meName = meInfo.name; out.meSub = meInfo.sub; out.initials = this.initialsOf(meInfo.name); out.avatarTint = meInfo.tint; out.avatarInk = meInfo.ink;
+
+    // Nav
+    const navDefs = {
+      agent: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['log', 'Appointment Log', 'M5 3h14v18H5zM9 9h6M9 13h6M9 17h4'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['eod', 'End of Day', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['payments', 'Payments', 'M3 6h18v12H3zM3 10h18M7 15h3'], ['clients', 'My Clients', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Rooster', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      client: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      agency: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      subclient: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z']],
+      admin: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+    };
+    const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
+    out.nav = (navDefs[s.role] || []).map(([key, label, icon]) => {
+      const active = s.route === key;
+      return { label, icon, badge: (badges[s.role] && badges[s.role][key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') };
+    });
+
+    // Notifications
+    const myNotifs = d.notifs[s.role] || [];
+    out.hasUnread = myNotifs.some(n => !n.read);
+    const ndot = { appt: 'var(--accent)', pay: 'var(--warn)', todo: 'var(--info)', remind: 'var(--warn)', bill: 'var(--accent)', eod: 'var(--info)', recruit: 'var(--violet)', ticket: 'var(--down)', contract: 'var(--accent)' };
+    const nicon = {
+      appt: '<path d="M8 2v4M16 2v4M3 10h18M3 6h18a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z"/>',
+      pay: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+      todo: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+      remind: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+      bill: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+      eod: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+      recruit: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>',
+      ticket: '<path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1s1 .4 1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1h6a1 1 0 0 0 1-1v-2c0-.6.4-1 1-1s1-.4 1-1v-2c0-.6-.4-1-1-1s-1-.4-1-1V3a1 1 0 0 0-1-1z"/>',
+      contract: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+      info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+    };
+    const nibg = { appt: 'oklch(0.22 0.04 256 / .8)', pay: 'oklch(0.24 0.05 80 / .8)', todo: 'oklch(0.22 0.07 194 / .8)', remind: 'oklch(0.24 0.05 80 / .8)', bill: 'oklch(0.22 0.04 256 / .8)', eod: 'oklch(0.22 0.04 200 / .8)', recruit: 'oklch(0.22 0.04 290 / .8)', ticket: 'oklch(0.22 0.05 25 / .8)', contract: 'oklch(0.22 0.04 256 / .8)', info: 'oklch(0.22 0.04 200 / .8)' };
+    out.notifications = myNotifs.map(n => ({ text: n.text, time: n.time, dot: ndot[n.kind] || 'var(--accent)', iconPath: nicon[n.kind] || nicon.info, iconBg: nibg[n.kind] || 'oklch(0.22 0.04 256 / .8)', unread: !n.read, hasAction: !!n.action, onClick: n.action ? () => this.handleNotifClick(n) : null, style: 'display:flex; align-items:flex-start; gap:12px; padding:11px 16px; cursor:' + (n.action ? 'pointer' : 'default') + '; ' + (!n.read ? 'background:oklch(0.18 0.015 256 / .5);' : 'opacity:.7;') }));
+
+    out.onOpenNotifs = () => this.setState({ notifOpen: true });
+    out.toasts = s.toasts;
+
+    // Working switch
+    out.showWorkingSwitch = s.role === 'agent';
+    if (s.role === 'agent' && me) {
+      out.workingLabel = me.working ? 'Working' : 'Offline';
+      out.workingDot = me.working ? 'var(--up)' : 'var(--text-mute)';
+      out.workingDotRing = me.working ? 'oklch(0.84 0.16 194 / .25)' : 'transparent';
+      out.workingDotAnim = me.working ? 'animation:isp-pulse 2s infinite;' : '';
+      out.workingTime = me.working && me.workSince ? ('since ' + (me.workSince || '').slice(11, 16)) : '';
+      out.workingBtnStyle = 'display:flex; align-items:center; gap:9px; padding:8px 14px; border-radius:11px; cursor:pointer; border:1px solid ' + (me.working ? 'oklch(0.84 0.16 194 / .4)' : 'var(--border)') + '; background:' + (me.working ? 'oklch(0.30 0.10 194 / .4)' : 'var(--surface)') + '; color:var(--text);';
+      out.onToggleWorking = () => this.toggleWorking();
+    }
+
+    // Agency switch
+    out.showAgencySwitch = s.role === 'agency';
+    if (s.role === 'agency' && cl) {
+      out.agencyClients = [{ value: 'all', label: 'All clients' }, ...(cl.subclients || []).map(sc => ({ value: sc.id, label: sc.name }))];
+      out.agencyView = s.agencyView;
+      out.onAgencyClientChange = e => this.setState({ agencyView: e.target.value });
+    }
+
+    // Page title
+    const titles = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', apptadmin: 'Appointments', eod: 'End of Day Report', payments: 'Payments', clients: s.role === 'admin' ? 'Clients' : 'My Clients', stats: 'Statistics', settings: 'Settings', billing: 'Billing', legal: 'Legal & Contracts', support: 'Support', finances: 'Finances', agents: 'Call Agents', eodadmin: 'End of Day Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', contracts: 'Contracts', todos: 'To-Do' };
+    out.pageTitle = titles[s.route] || 'Dashboard';
+    const subMap = { dashboard: { agent: 'Welcome back', client: 'Live appointment overview', agency: 'All clients, one view', admin: 'Everything, in real time' } };
+    out.pageSub = (subMap[s.route] && subMap[s.route][s.role]) || roleLabels[s.role];
+
+    // Tour
+    const tour = this.tourData();
+    out.tourActive = s.tourStep != null && tour.length > 0 && s.tourStep < tour.length;
+    if (out.tourActive) {
+      out.tourTitle = tour[s.tourStep].t; out.tourBody = tour[s.tourStep].b;
+      out.tourCounter = 'Quick tour · ' + (s.tourStep + 1) + ' of ' + tour.length;
+      out.tourNextLabel = s.tourStep === tour.length - 1 ? 'Get started' : 'Next';
+      out.onTourNext = () => this.setState(x => {
+        const done = x.tourStep + 1 >= tour.length;
+        if (done) this._markTourSeen(session?.user?.id);
+        return { tourStep: done ? null : x.tourStep + 1 };
+      });
+      out.onTourSkip = () => { this._markTourSeen(session?.user?.id); this.setState({ tourStep: null }); };
+    }
+
+    // Screen render
+    try { out.screen = this.renderScreen(R, d, s); } catch (err) { out.screen = R('div', { style: { color: 'var(--down)', padding: 20 } }, 'Render error: ' + err.message + ' — ' + err.stack?.split('\n')[0]); }
+
+    const mod = this.renderModalBody(R, d, s);
+    out.modalBody = mod ? mod.body : null;
+    out.modalWidth = mod ? mod.width : '520px';
+
+    return out;
+  }
+
+  renderScreen(R, d, s) {
+    if (s.role === 'agent') return ScreenAgent.scrAgent.call(this, d, s);
+    if (s.role === 'client' || s.role === 'agency') return ScreenClient.scrClient.call(this, d, s);
+    if (s.role === 'admin') return ScreenAdmin.scrAdmin.call(this, d, s);
+    if (s.role === 'subclient') return ScreenSubclient.scrSubclient.call(this, d, s);
+    return R('div', null, '');
+  }
+
+  renderModalBody(R, d, s) { return Modals.renderModalBody.call(this, R, d, s); }
+
+  // Delegate mixin methods
+  euro(n) { return Helpers.euro.call(this, n); }
+  pad(n) { return Helpers.pad.call(this, n); }
+  iso(d) { return Helpers.iso.call(this, d); }
+  today() { return Helpers.today.call(this); }
+  daysAgo(n) { return Helpers.daysAgo.call(this, n); }
+  fmtDate(s) { return Helpers.fmtDate.call(this, s); }
+  fmtFull(s) { return Helpers.fmtFull.call(this, s); }
+  initialsOf(n) { return Helpers.initialsOf.call(this, n); }
+  toast(tag, text, color) { return Helpers.toast.call(this, tag, text, color); }
+  clientName(id, d) { return Helpers.clientName.call(this, id, d); }
+  agentName(id, d) { return Helpers.agentName.call(this, id, d); }
+  _kv(k, v) { return Helpers._kv.call(this, k, v); }
+  C(...a) { return UI.C(...a); }
+  Row(...a) { return UI.Row(...a); }
+  Col(...a) { return UI.Col(...a); }
+  Grid(...a) { return UI.Grid(...a); }
+  Hd(...a) { return UI.Hd(...a); }
+  Sub(...a) { return UI.Sub(...a); }
+  Mono(...a) { return UI.Mono(...a); }
+  Pill(...a) { return UI.Pill(...a); }
+  statusPill(st) { return UI.statusPill(st); }
+  Btn(...a) { return UI.Btn(...a); }
+  Field(...a) { return UI.Field(...a); }
+  Input(...a) { return UI.Input(...a); }
+  Select(...a) { return UI.Select(...a); }
+  Area(...a) { return UI.Area(...a); }
+  Stat(...a) { return UI.Stat(...a); }
+  Donut(...a) { return UI.Donut(...a); }
+  Bars(...a) { return UI.Bars(...a); }
+  Line(...a) { return UI.Line(...a); }
+  Table(...a) { return UI.Table(...a); }
+  SectionHd(...a) { return UI.SectionHd(...a); }
+  Seg(...a) { return UI.Seg(...a); }
+  _settings(...a) { return ScreenShared._settings.call(this, ...a); }
+  _apptToolbar(...a) { return ScreenShared._apptToolbar.call(this, ...a); }
+  _filterAppts(...a) { return ScreenShared._filterAppts.call(this, ...a); }
+  _finCard(...a) { return ScreenAdmin._finCard.call(this, ...a); }
+  _fin(d) { return ScreenAdmin._fin.call(this, d); }
+  _agentDash(...a) { return ScreenAgent._agentDash.call(this, ...a); }
+  _agentLog(...a) { return ScreenAgent._agentLog.call(this, ...a); }
+  _agentAppointments(...a) { return ScreenAgent._agentAppointments.call(this, ...a); }
+  _agentEod(...a) { return ScreenAgent._agentEod.call(this, ...a); }
+  _agentPayments(...a) { return ScreenAgent._agentPayments.call(this, ...a); }
+  _agentClients(...a) { return ScreenAgent._agentClients.call(this, ...a); }
+  _agentStats(...a) { return ScreenAgent._agentStats.call(this, ...a); }
+  _admDash(...a) { return ScreenAdmin._admDash.call(this, ...a); }
+  _admFin(...a) { return ScreenAdmin._admFin.call(this, ...a); }
+  _admStats(...a) { return ScreenAdmin._admStats.call(this, ...a); }
+  _admClients(...a) { return ScreenAdmin._admClients.call(this, ...a); }
+  _admAgents(...a) { return ScreenAdmin._admAgents.call(this, ...a); }
+  _admEod(...a) { return ScreenAdmin._admEod.call(this, ...a); }
+  _admTimeline(...a) { return ScreenAdmin._admTimeline.call(this, ...a); }
+  _admProspects(...a) { return ScreenAdmin._admProspects.call(this, ...a); }
+  _admRecruit(...a) { return ScreenAdmin._admRecruit.call(this, ...a); }
+  _admAppointments(...a) { return ScreenAdmin._admAppointments.call(this, ...a); }
+  _admContracts(...a) { return ScreenAdmin._admContracts.call(this, ...a); }
+  _admContractTemplates(...a) { return ScreenAdmin._admContractTemplates.call(this, ...a); }
+  _admRooster(...a) { return ScreenAdmin._admRooster.call(this, ...a); }
+  _admActivity(...a) { return ScreenAdmin._admActivity.call(this, ...a); }
+  _admTodos(...a) { return ScreenAdmin._admTodos.call(this, ...a); }
+  _agentRooster(...a) { return ScreenAgent._agentRooster.call(this, ...a); }
+  _weekStart(dateStr) { const d = new Date((dateStr || new Date().toISOString().slice(0,10)) + 'T12:00:00'); const day = d.getDay(); d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d.toISOString().slice(0, 10); }
+  _logActivity(action, details, extra) { const s = this.state; if (!s.role || s.loading) return; let userName = ''; if (s.role === 'agent' && this.myAgentId) { const me = (s.data.agents || []).find(a => a.id === this.myAgentId); userName = me?.name || ''; } else if ((s.role === 'client' || s.role === 'agency') && this.myClientId) { const me = (s.data.clients || []).find(c => c.id === this.myClientId); userName = me?.name || ''; } else if (s.role === 'admin') { const sess = SB.getSession(); userName = sess?.user?.email?.split('@')[0] || 'Admin'; } API.logActivity(userName, s.role, action, details, this._sessionId || null, extra || null); }
+
+  _startClickTracking() {
+    if (this._clickTracker) document.removeEventListener('click', this._clickTracker, true);
+    const self = this;
+    let lastClickTime = 0;
+    this._clickTracker = function(ev) {
+      const now = Date.now();
+      if (now - lastClickTime < 300) return; // debounce
+      lastClickTime = now;
+      const t = ev.target;
+      const el = t.closest('button,a,[data-track],[role="row"],[role="button"]') || t;
+      let label = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      if (!label || label.length < 2) return;
+      const route = self.state.route || '';
+      self._logActivity('click', label, { route });
+    };
+    document.addEventListener('click', this._clickTracker, true);
+  }
+  _startPolling() {
+    if (this._pollTimer) return;
+    this._pollTimer = setInterval(() => this._poll(), 5000);
+    if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
+    this._heartbeatTimer = setInterval(() => this._updatePresence(this.state.route), 30000);
+  }
+  async _poll() {
+    if (this.state.role !== 'admin') return;
+    try {
+      const [rawAppts, rawAgents, rawPresence] = await Promise.all([
+        SB.get('appointments', '?order=date_logged.desc'),
+        SB.get('agents', '?order=name'),
+        SB.get('presence', '').catch(() => []),
+      ]);
+      const d = this.state.data;
+      for (const rec of (rawAppts || [])) {
+        if (!d.appointments.find(a => a.id === rec.id)) {
+          const appt = { id: rec.id, agent: rec.agent_id, client: rec.client_id, sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '', dateLog: rec.date_logged, dateAppt: rec.date_appt, status: rec.status, amount: rec.amount || 0, invoiced: rec.invoiced || false, paid: rec.paid || false, agentRate: rec.agent_rate != null ? rec.agent_rate : null };
+          const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
+          const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
+          this.mutLocal(dd => dd.appointments.unshift(appt));
+          this._pushAdminNotif(agentName + ' booked an appointment for ' + clientName);
+          this.toast('New appointment', agentName + ' · ' + appt.lead, 'var(--info)');
+        }
+      }
+      for (const rec of (rawAgents || [])) {
+        const cur = d.agents.find(a => a.id === rec.id);
+        if (cur && cur.working !== rec.working) {
+          this.mutLocal(dd => { const a = dd.agents.find(x => x.id === rec.id); if (a) { a.working = rec.working; a.workSince = rec.work_since || null; } });
+          this._pushAdminNotif(cur.name + ' is now ' + (rec.working ? 'online' : 'offline'));
+          this.toast(cur.name, rec.working ? 'Now online' : 'Now offline', rec.working ? 'var(--up)' : 'var(--text-mute)');
+        }
+      }
+      if (rawPresence) this.mutLocal(dd => { dd.presence = rawPresence; });
+    } catch(e) {}
+  }
+  _pushAdminNotif(text) {
+    const n = { id: 'rt' + Date.now(), text, time: new Date().toISOString().slice(0, 16).replace('T', ' '), read: false, kind: 'info' };
+    this.mutLocal(d => { if (!d.notifs.admin) d.notifs.admin = []; d.notifs.admin.unshift(n); });
+  }
+  _clientDash(...a) { return ScreenClient._clientDash.call(this, ...a); }
+  _clientAppointments(...a) { return ScreenClient._clientAppointments.call(this, ...a); }
+  _clientBilling(...a) { return ScreenClient._clientBilling.call(this, ...a); }
+  _clientLegal(...a) { return ScreenClient._clientLegal.call(this, ...a); }
+  _clientSupport(...a) { return ScreenClient._clientSupport.call(this, ...a); }
+  _adminModals(...a) { return Modals._adminModals.call(this, ...a); }
+
+  async saveDials(count) {
+    const today = this.iso(this.today());
+    const n = Math.max(0, parseInt(count) || 0);
+    this.mutLocal(d => { if (!d.dials[this.myAgentId]) d.dials[this.myAgentId] = {}; d.dials[this.myAgentId][today] = n; });
+    await API.upsertDials(this.myAgentId, today, n);
+    this.toast('Dials', 'Logged ' + n + ' dials', 'var(--accent)');
+  }
+
+  async saveApptFeedback(id, feedback) {
+    this.mutLocal(d => { const a = d.appointments.find(x => x.id === id); if (a) a.clientFeedback = feedback; });
+    await API.saveApptFeedback(id, feedback);
+    this.toast('Saved', 'Feedback saved', 'var(--up)');
+  }
+
+  async updateContract(contractId, updates) {
+    this.mutLocal(d => { const c = d.contracts.find(x => x.id === contractId); if (c) Object.assign(c, updates); });
+    await API.updateContract(contractId, updates);
+  }
+
+  async saveApptEdits(id) {
+    const f = this.state.form;
+    const d = this.state.data;
+    const ap = d.appointments.find(x => x.id === id); if (!ap) return;
+    const rawAgentRate = f.eApptAgentRate !== undefined ? f.eApptAgentRate : (ap.agentRate != null ? String(ap.agentRate) : '');
+    const rawCommission = f.eApptCommission !== undefined ? f.eApptCommission : (ap.dealCommission != null ? String(ap.dealCommission) : '');
+    const rawDealAmount = f.eApptDealAmount !== undefined ? f.eApptDealAmount : (ap.dealAmount != null ? String(ap.dealAmount) : '');
+    const fields = {
+      lead_name: f.eApptLead !== undefined ? f.eApptLead.trim() : ap.lead,
+      phone: f.eApptPhone !== undefined ? f.eApptPhone : (ap.phone || ''),
+      client_id: f.eApptClient !== undefined ? f.eApptClient : ap.client,
+      sub_client_id: f.eApptSub !== undefined ? (f.eApptSub || null) : (ap.sub || null),
+      agent_id: f.eApptAgent !== undefined ? f.eApptAgent : ap.agent,
+      amount: f.eApptAmount !== undefined ? (parseFloat(f.eApptAmount) || 0) : (ap.amount || 0),
+      date_appt: f.eApptDate !== undefined ? f.eApptDate : ap.dateAppt,
+      date_logged: f.eApptDateLog !== undefined ? f.eApptDateLog : ap.dateLog,
+      agent_rate: rawAgentRate !== '' ? (parseFloat(rawAgentRate) ?? null) : null,
+      deal_commission: rawCommission !== '' ? (parseFloat(rawCommission) || null) : null,
+      deal_amount: rawDealAmount !== '' ? (parseFloat(rawDealAmount) || null) : null,
+    };
+    this.mutLocal(dd => {
+      const a = dd.appointments.find(x => x.id === id); if (!a) return;
+      a.lead = fields.lead_name; a.phone = fields.phone;
+      a.client = fields.client_id; a.sub = fields.sub_client_id || '';
+      a.agent = fields.agent_id; a.amount = fields.amount;
+      a.dateAppt = fields.date_appt; a.dateLog = fields.date_logged;
+      a.agentRate = fields.agent_rate;
+      a.dealCommission = fields.deal_commission;
+      a.dealAmount = fields.deal_amount;
+    });
+    const ok = await API.patchAppointment(id, fields);
+    this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
+    if (ok && ok.ok !== false) this.toast('Saved ✓', 'Appointment updated', 'var(--up)');
+    else this.toast('Fout', 'Opslaan mislukt', 'var(--down)');
+  }
+
+  async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus) {
+    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed' };
+    this.mutLocal(d => {
+      const c = d.clients.find(x => x.id === clientId); if (!c) return;
+      c.agentStartDate = agentStartDate; c.linkedAgentId = linkedAgentId; c.linkedRecruitId = linkedRecruitId; c.agentVacancy = agentStatus;
+    });
+    await API.updateClient(clientId, updates);
+    this.toast('Saved', 'Timeline updated', 'var(--up)');
+  }
+
+  async saveClientEdits() {
+    const f = this.state.form;
+    const id = f.id;
+    const d = this.state.data;
+    const c = d.clients.find(x => x.id === id);
+    if (!c) return;
+    const name = f.editName !== undefined ? f.editName : c.name;
+    const contact = f.editContact !== undefined ? f.editContact : (c.contactPerson || '');
+    const email = f.editEmail !== undefined ? f.editEmail : (c.email || '');
+    const phone = f.editPhone !== undefined ? f.editPhone : (c.phone || '');
+    const vat = f.editVat !== undefined ? f.editVat : (c.vat || '');
+    const rate = f.editRate !== undefined ? +(String(f.editRate).replace(/\D/g, '')) || 0 : c.rate;
+    const status = f.editStatus !== undefined ? f.editStatus : (c.status || 'starting');
+    const crm = f.editCrm !== undefined ? f.editCrm : (c.crm || 'none');
+    const koDate = f.editKickoffDate !== undefined ? f.editKickoffDate : (c.kickoff || '').slice(0, 10);
+    const koTime = f.editKickoffTime !== undefined ? f.editKickoffTime : ((c.kickoff || '').slice(11, 16) || '09:00');
+    const kickoff = koDate ? koDate + 'T' + koTime : null;
+    const type = f.editType !== undefined ? f.editType : (c.type || 'direct');
+    let subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
+    if (f._newScName && f._newScName.trim()) {
+      const entry = { id: 'sc-' + Date.now(), name: f._newScName.trim(), rate: +(String(f._newScRate || '0').replace(/\D/g, '')) || 0 };
+      subclients = [...subclients, entry];
+    }
+    const updates = { name, contact_person: contact, email, vat, rate, status, crm, crm_on: crm !== 'none', kickoff, type, subclients: type === 'agency' ? subclients : (c.subclients || []) };
+    this.mutLocal(dd => {
+      const cl = dd.clients.find(x => x.id === id); if (!cl) return;
+      cl.name = name; cl.contactPerson = contact; cl.email = email;
+      cl.phone = phone; cl.vat = vat; cl.rate = rate;
+      cl.status = status; cl.crm = crm; cl.crmOn = crm !== 'none'; cl.kickoff = kickoff;
+      cl.type = type; if (type === 'agency') cl.subclients = subclients;
+    });
+    this.setForm('editing', false);
+    const ok = await API.updateClient(id, updates);
+    if (ok !== null) this.toast('Saved ✓', 'Client updated', 'var(--up)');
+    else this.toast('Fout', 'Opslaan mislukt — check console', 'var(--down)');
+  }
+
+  async saveAgentEdits() {
+    const f = this.state.form;
+    const id = f.id;
+    const updates = {};
+    if (f.editName !== undefined) updates.name = f.editName;
+    if (f.editEmail !== undefined) updates.email = f.editEmail;
+    if (f.editPhone !== undefined) updates.phone = f.editPhone;
+    if (f.editStage !== undefined) updates.status = f.editStage;
+    this.mutLocal(d => {
+      const a = d.agents.find(x => x.id === id); if (!a) return;
+      if (updates.name) a.name = updates.name;
+      if (updates.email !== undefined) a.email = updates.email;
+      if (updates.phone !== undefined) a.phone = updates.phone;
+      if (updates.status !== undefined) a.status = updates.status;
+    });
+    await API.updateAgent(id, updates);
+    this.setForm('editing', false);
+    this.toast('Saved', 'Agent updated', 'var(--up)');
+  }
+
+  async addAgentFeedback(agentId, text) {
+    if (!text.trim()) return;
+    const agent = this.state.data.agents.find(a => a.id === agentId);
+    if (!agent) return;
+    const feedback = [...(agent.feedback || []), text.trim()];
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === agentId); if (a) a.feedback = feedback; });
+    await API.addFeedback(agentId, feedback);
+    this.setForm('feedbackInput', '');
+    this.toast('Saved', 'Feedback added', 'var(--up)');
+  }
+
+  async removeAgentFeedback(agentId, idx) {
+    const agent = this.state.data.agents.find(a => a.id === agentId);
+    if (!agent) return;
+    const feedback = (agent.feedback || []).filter((_, i) => i !== idx);
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === agentId); if (a) a.feedback = feedback; });
+    await API.addFeedback(agentId, feedback);
+  }
+
+  async toggleAgentClient(agentId, clientId, rate) {
+    const agent = this.state.data.agents.find(a => a.id === agentId);
+    if (!agent) return;
+    const hasClient = (agent.clients || []).includes(clientId);
+    if (hasClient) {
+      this.mutLocal(d => { const a = d.agents.find(x => x.id === agentId); if (a) { a.clients = a.clients.filter(c => c !== clientId); delete (a.rates || {})[clientId]; } });
+      await API.removeAgentClient(agentId, clientId);
+      this.toast('Updated', 'Client removed from agent', 'var(--down)');
+    } else {
+      const r = +(rate || 0);
+      this.mutLocal(d => { const a = d.agents.find(x => x.id === agentId); if (a) { if (!a.clients) a.clients = []; a.clients.push(clientId); if (!a.rates) a.rates = {}; a.rates[clientId] = r; } });
+      await API.setAgentClient(agentId, clientId, r);
+      this.toast('Updated', 'Client assigned to agent', 'var(--up)');
+    }
+  }
+
+  async updateAgentRate(agentId, clientId, rate) {
+    const r = +(rate || 0);
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === agentId); if (a) { if (!a.rates) a.rates = {}; a.rates[clientId] = r; } });
+    await API.setAgentClient(agentId, clientId, r);
+    this.toast('Saved', 'Rate updated', 'var(--up)');
+  }
+
+  async addEvent(title, tag, date, desc) {
+    if (!title || !date) { this.toast('Error', 'Add title and date', 'var(--down)'); return; }
+    const ev = { id: 'ev' + Date.now(), title, tag: tag || 'Update', date, desc: desc || '' };
+    this.mutLocal(d => d.events.push(ev));
+    await API.addEvent({ title, tag: tag || 'Update', event_date: date, description: desc || '' });
+    this.setForm('evTitle', ''); this.setForm('evDate', ''); this.setForm('evTag', ''); this.setForm('evDesc', '');
+    this.toast('Added', 'Event created', 'var(--accent)');
+  }
+
+  async deleteEvent(id) {
+    this.mutLocal(d => { d.events = d.events.filter(e => e.id !== id); });
+    await API.deleteEvent(id);
+    this.toast('Deleted', 'Event removed', 'var(--down)');
+  }
+
+  async updateProspectDetail(id, data) {
+    this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p) Object.assign(p, data); });
+    await API.updateProspect(id, data);
+  }
+
+  async saveSettings() {
+    const f = this.state.form;
+    const s = this.state;
+    const d = s.data;
+    if (f.newPassword && f.newPassword !== f.confirmPassword) { this.toast('Error', 'Passwords do not match', 'var(--down)'); return; }
+    if (f.newPassword && f.newPassword.length < 8) { this.toast('Error', 'Password must be at least 8 characters', 'var(--down)'); return; }
+    if (f.newPassword) { const r = await API.changePassword(f.newPassword); if (!r) { this.toast('Error', 'Password update failed', 'var(--down)'); return; } }
+    const me = d.agents.find(a => a.id === this.myAgentId);
+    const cl = d.clients.find(c => c.id === this.myClientId);
+    if (me && (f.settingName || f.settingPhone)) {
+      const upd = {}; if (f.settingName) upd.name = f.settingName; if (f.settingPhone) upd.phone = f.settingPhone;
+      this.mutLocal(dd => { const a = dd.agents.find(x => x.id === this.myAgentId); if (a) Object.assign(a, upd); });
+      await API.updateAgent(this.myAgentId, upd);
+    }
+    if (cl && (f.settingName || f.settingContact || f.settingEmail)) {
+      const upd = {}; if (f.settingName) upd.name = f.settingName; if (f.settingContact) upd.contact_person = f.settingContact; if (f.settingEmail) upd.email = f.settingEmail;
+      this.mutLocal(dd => { const c = dd.clients.find(x => x.id === this.myClientId); if (c) { if (upd.name) c.name = upd.name; if (upd.contact_person) c.contactPerson = upd.contact_person; if (upd.email) c.email = upd.email; } });
+      await API.updateClient(this.myClientId, upd);
+    }
+    this.setState({ form: {} });
+    this.toast('Saved', 'Settings updated', 'var(--up)');
+  }
+}
+</script>
+</body>
+</html>

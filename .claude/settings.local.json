@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(extract-text \"/Users/quinteneeckhoudt/Downloads/IS_Platform_Spec_v2 \\(1\\).docx\")",
+      "Bash(pandoc \"/Users/quinteneeckhoudt/Downloads/IS_Platform_Spec_v2 \\(1\\).docx\" -t markdown)",
+      "Bash(ls \"/Users/quinteneeckhoudt/Downloads/\" | grep -i IS_Platform)",
+      "Read(//Users/quinteneeckhoudt/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/9733c051-5e2c-4f35-96a8-3d06e35d1152/74cb77be-2898-4c1a-85c7-f8594b0bbe9a/skills/docx/**)",
+      "Bash(python scripts/office/unpack.py \"/Users/quinteneeckhoudt/Downloads/IS_Platform_Spec_v2 \\(1\\).docx\" /tmp/is_platform_unpacked/)",
+      "Bash(python3 \"/Users/quinteneeckhoudt/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/9733c051-5e2c-4f35-96a8-3d06e35d1152/74cb77be-2898-4c1a-85c7-f8594b0bbe9a/skills/docx/scripts/office/unpack.py\" \"/Users/quinteneeckhoudt/Downloads/IS_Platform_Spec_v2 \\(1\\).docx\" /tmp/is_platform_unpacked/)",
+      "Read(//private/tmp/**)",
+      "Bash(unzip -o \"/Users/quinteneeckhoudt/Downloads/IS_Platform_Spec_v2 \\(1\\).docx\" -d is_platform_unpacked/)",
+      "Read(//tmp/is_platform_unpacked/word/**)",
+      "Read(//Users/quinteneeckhoudt/.claude/**)",
+      "Bash(npm info *)",
+      "Bash(npx --yes @supabase/mcp-server-supabase --help)",
+      "Bash(sudo chmod -R 755 /Users/quinteneeckhoudt/.npm/_cacache/)",
+      "Bash(NPM_CONFIG_CACHE=/tmp/npm-mcp-cache npx -y @supabase/mcp-server-supabase@latest --help)"
+    ]
+  }
+}

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contract ondertekenen — Infinite Scale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --teal: #67dcdf; --teal-dark: #1da8ab;
+      --bg: #0f1117; --surface: #181c27;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f4ff; --muted: #8b9bbf; --dim: #5a6a8a;
+      --up: #4ade80; --down: #f87171;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Manrope', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px 60px; }
+    .header { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
+    .logo-name { font-family: 'Space Grotesk'; font-weight: 700; font-size: 17px; color: var(--text); letter-spacing: -0.01em; }
+    .card { width: 100%; max-width: 620px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
+    .card-bar { height: 4px; background: linear-gradient(90deg, var(--teal), var(--teal-dark)); }
+    .card-body { padding: 36px 44px; }
+    .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--teal); font-weight: 700; margin-bottom: 8px; }
+    h1 { font-family: 'Space Grotesk'; font-weight: 800; font-size: 24px; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 22px; }
+    .details { background: var(--bg); border: 1px solid rgba(103,220,223,0.15); border-radius: 12px; margin-bottom: 22px; overflow: hidden; }
+    .detail-row { display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-cell { flex: 1; padding: 13px 18px; }
+    .detail-cell + .detail-cell { border-left: 1px solid rgba(255,255,255,0.05); }
+    .detail-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 700; margin-bottom: 4px; }
+    .detail-value { font-size: 14px; font-weight: 600; color: var(--text); }
+    .detail-value.accent { color: var(--teal); }
+    .preview-toggle { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .preview-label { font-size: 11px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+    .btn-text { background: none; border: none; color: var(--teal); font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; padding: 0; text-decoration: underline; }
+    .contract-preview { width: 100%; height: 560px; border: 1px solid var(--border); border-radius: 12px; background: #fff; margin-bottom: 12px; display: block; }
+    .agreement { background: rgba(103,220,223,0.05); border: 1px solid rgba(103,220,223,0.15); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 1.65; color: var(--muted); margin-bottom: 22px; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 12px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+    .field input { width: 100%; padding: 11px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color .15s; }
+    .field input:focus { border-color: var(--teal); }
+    .sig-label { font-size: 12px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+    .sig-wrap { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); overflow: hidden; margin-bottom: 18px; }
+    canvas#sig { display: block; width: 100%; height: 200px; cursor: crosshair; touch-action: none; }
+    .sig-actions { display: flex; justify-content: flex-end; padding: 6px 10px; border-top: 1px solid var(--border); }
+    .btn-clear { background: none; border: none; color: var(--dim); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; padding: 2px 6px; }
+    .btn-clear:hover { color: var(--muted); }
+    .btn-sign { width: 100%; padding: 15px; background: var(--teal); border: none; border-radius: 12px; color: #071a1a; font-size: 15px; font-weight: 800; font-family: 'Space Grotesk'; cursor: pointer; letter-spacing: -0.01em; transition: opacity .15s, transform .1s; }
+    .btn-sign:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-sign:active { transform: translateY(0); }
+    .btn-sign:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .footnote { font-size: 11px; color: var(--dim); text-align: center; margin-top: 12px; line-height: 1.5; }
+    #state-loading, #state-error, #state-signed, #state-form, #state-onboarding { display: none; }
+    .spinner { width: 36px; height: 36px; border: 3px solid rgba(103,220,223,0.2); border-top-color: var(--teal); border-radius: 50%; animation: spin .7s linear infinite; margin: 60px auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .state-center { text-align: center; padding: 52px 44px; }
+    .state-icon { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 20px; font-size: 26px; }
+    .state-icon.ok { background: rgba(74,222,128,0.15); }
+    .state-icon.err { background: rgba(248,113,113,0.15); }
+    .state-title { font-family: 'Space Grotesk'; font-weight: 700; font-size: 22px; margin-bottom: 10px; }
+    .state-sub { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .btn-primary { width: 100%; padding: 14px; background: var(--teal); border: none; border-radius: 12px; color: #071a1a; font-size: 14px; font-weight: 800; font-family: 'Space Grotesk'; cursor: pointer; transition: opacity .15s; margin-bottom: 10px; }
+    .btn-primary:hover { opacity: .88; }
+    .btn-soft { width: 100%; padding: 13px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s; }
+    .btn-soft:hover { background: rgba(255,255,255,0.1); }
+    @media print {
+      .header, .card { display: none !important; }
+      #print-contract { display: block !important; }
+    }
+    #print-contract { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <img src="/logo.svg" width="38" height="38" alt="Infinite Scale" />
+    <span class="logo-name">Infinite Scale</span>
+  </div>
+
+  <div class="card">
+    <div class="card-bar"></div>
+
+    <div id="state-loading">
+      <div class="spinner"></div>
+      <p style="text-align:center;color:var(--muted);font-size:13px;padding-bottom:40px;">Contract laden…</p>
+    </div>
+
+    <div id="state-error" class="state-center">
+      <div class="state-icon err">✕</div>
+      <p class="state-title" style="color:var(--down);">Link niet gevonden</p>
+      <p class="state-sub">Deze ondertekeningslink is ongeldig of werd al gebruikt.<br>Neem contact op via <a href="mailto:info@infinite-scale.be" style="color:var(--teal);">info@infinite-scale.be</a> als u een nieuwe nodig heeft.</p>
+    </div>
+
+    <div id="state-signed" class="state-center">
+      <div class="state-icon ok">✓</div>
+      <p class="state-title" style="color:var(--up);">Contract ondertekend</p>
+      <p class="state-sub" style="margin-bottom:24px;">Dit contract werd al eerder ondertekend. U kunt hieronder een kopie downloaden.</p>
+      <button class="btn-soft" style="max-width:260px;margin:0 auto;" onclick="downloadPdf()">Contract PDF downloaden</button>
+    </div>
+
+    <div id="state-form" class="card-body">
+      <p class="eyebrow">Contract klaar om te ondertekenen</p>
+      <h1 id="contract-title">Uw contract van<br>Infinite Scale</h1>
+      <div class="details" id="details-box"></div>
+      <div class="preview-toggle">
+        <span class="preview-label">Volledig contract</span>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <button class="btn-text" onclick="openInTab()">↗ Openen in nieuw tabblad</button>
+          <button class="btn-text" onclick="togglePreview()">Verbergen</button>
+        </div>
+      </div>
+      <iframe id="contract-iframe" class="contract-preview" title="Contract"></iframe>
+      <div class="agreement">
+        Door hieronder te ondertekenen bevestigt u dat u de volledige inhoud van dit contract heeft gelezen, begrepen en ermee akkoord gaat. Uw digitale handtekening is rechtsgeldig onder het toepasselijk Belgisch recht en de EU-regelgeving inzake elektronische handtekeningen.
+      </div>
+      <div class="field">
+        <label>Uw volledige naam</label>
+        <input id="signer-name" type="text" placeholder="Voornaam Achternaam" autocomplete="name" />
+      </div>
+      <div class="sig-label">Teken hier uw handtekening</div>
+      <div class="sig-wrap">
+        <canvas id="sig"></canvas>
+        <div class="sig-actions">
+          <button class="btn-clear" onclick="clearSig()">Wissen</button>
+        </div>
+      </div>
+      <button class="btn-sign" id="btn-sign" onclick="submitSign()">Contract ondertekenen</button>
+      <p class="footnote">Ondertekende contracten worden veilig opgeslagen. Beide partijen ontvangen een bevestiging.</p>
+    </div>
+
+    <div id="state-onboarding">
+      <div class="card-bar" style="background:linear-gradient(90deg,var(--up),#22c55e);"></div>
+      <div class="card-body">
+        <!-- Step 1: signed confirmation + account setup -->
+        <div id="onboard-step-1">
+          <div class="state-icon ok" style="margin:0 0 16px;">✓</div>
+          <p class="eyebrow" style="color:var(--up);">Ondertekend &amp; opgeslagen</p>
+          <h1 style="margin-bottom:10px;">Stel uw account in</h1>
+          <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:24px;">
+            Uw contract is ondertekend. Maak nu uw account aan op het Infinite Scale platform om uw afspraken, facturen en rapporten te bekijken.
+          </p>
+          <div style="background:var(--bg);border:1px solid rgba(103,220,223,0.15);border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px;color:var(--muted);">
+            <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:3px;">Inloggen met</span>
+            <span id="onboard-email" style="font-weight:700;color:var(--text);font-size:14px;"></span>
+          </div>
+          <div class="field">
+            <label>Kies een wachtwoord</label>
+            <input id="onboard-pw" type="password" placeholder="Minimaal 8 tekens" autocomplete="new-password" />
+          </div>
+          <div class="field">
+            <label>Bevestig wachtwoord</label>
+            <input id="onboard-pw2" type="password" placeholder="Herhaal wachtwoord" autocomplete="new-password" />
+          </div>
+          <div class="field">
+            <label>Telefoonnummer (optioneel)</label>
+            <input id="onboard-phone" type="tel" placeholder="+32 …" autocomplete="tel" />
+          </div>
+          <div id="onboard-error" style="display:none;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--down);margin-bottom:14px;"></div>
+          <button class="btn-primary" id="btn-create-account" onclick="createAccount()">Account aanmaken →</button>
+          <button class="btn-soft" style="margin-top:8px;" onclick="downloadPdf()">Contract downloaden (PDF)</button>
+        </div>
+
+        <!-- Step 2: account created success -->
+        <div id="onboard-step-2" style="display:none;text-align:center;">
+          <div class="state-icon ok" style="margin:0 auto 16px;">✓</div>
+          <p class="eyebrow" style="color:var(--up);">Account aangemaakt</p>
+          <h1 style="margin-bottom:12px;">U bent klaar!</h1>
+          <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:28px;">
+            Uw account is aangemaakt. U kunt nu inloggen met uw e-mailadres en wachtwoord op het platform.
+          </p>
+          <button class="btn-primary" onclick="window.location.href='https://platform.infinite-scale.be'">Naar het platform →</button>
+          <button class="btn-soft" style="margin-top:8px;" onclick="downloadPdf()">Contract downloaden (PDF)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="print-contract"></div>
+
+  <script>
+    const SUPABASE_URL = 'https://database.infinite-scale.be';
+    const SUPABASE_ANON = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE3ODI0NTQ1MTgsICJleHAiOiAxOTQwMTM0NTE4fQ.E3H9jIqXLe_BrrO7Qf-pWsrXPGXkqMP12ccRw561INQ';
+
+    const token = new URLSearchParams(location.search).get('token');
+    let contractId = null, contractData = null, contractHtml = '', hasSig = false, previewVisible = true;
+
+    function show(id) {
+      ['state-loading','state-error','state-signed','state-form','state-onboarding'].forEach(s => {
+        document.getElementById(s).style.display = s === id ? 'block' : 'none';
+      });
+    }
+
+    async function sbGet(table, query) {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+        headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON }
+      });
+      return r.json();
+    }
+
+    function logContractEvent(action, details, contractId) {
+      const body = {
+        id: 'al' + Date.now() + Math.random().toString(36).slice(2, 5),
+        user_id: '', user_name: '', user_role: 'client',
+        action, details,
+        session_id: null,
+        extra: contractId ? { contract_id: contractId } : null,
+      };
+      fetch(`${SUPABASE_URL}/rest/v1/activity_log`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+    }
+
+    async function sbPatch(table, query, data) {
+      return fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {
+        method: 'PATCH',
+        headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(data)
+      });
+    }
+
+    function buildFallbackContractHtml(c, signerName, sigImage, signedAt) {
+      const isAgent = c.party_type === 'agent';
+      const d = signedAt
+        ? new Date(signedAt).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' })
+        : new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+      const rate = (c.value || '').replace(/[^0-9.,]/g, '');
+      const rateStr = rate ? `€ ${rate} excl. btw per effectief doorgegane afspraak` : (c.value || '(zie overeenkomst)');
+
+      const sigBlock = signerName ? `
+        <div class="sig-area">
+          <div class="sig-col">
+            ${sigImage ? `<img src="${sigImage}" class="sig-img" alt="Handtekening">` : ''}
+            <div class="sig-line">${signerName}<br>Ondertekend op ${d}</div>
+          </div>
+        </div>` : `
+        <div class="sig-area">
+          <div class="sig-col"><div class="sig-line">${c.party || 'Opdrachtgever'}${c.contact ? `<br>${c.contact}` : ''}<br>Handtekening &amp; datum</div></div>
+        </div>`;
+
+      return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.65;color:#1a1a1a;background:#fff;padding:40px 56px;max-width:800px;margin:0 auto;}
+  .doc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:18px;border-bottom:2px solid #1a1a1a;}
+  .doc-header-logo{display:flex;align-items:center;gap:10px;}
+  .doc-header-logo img{width:36px;height:36px;}
+  .doc-header-logo span{font-size:17px;font-weight:700;}
+  .doc-header-meta{font-size:9pt;color:#555;text-align:right;line-height:1.5;}
+  .doc-title{font-size:15pt;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:center;margin-bottom:4px;}
+  .doc-subtitle{font-size:11pt;color:#444;text-align:center;margin-bottom:28px;}
+  .parties-box{border:1px solid #ccc;border-radius:4px;margin-bottom:28px;overflow:hidden;}
+  .parties-box-title{background:#1a1a1a;color:#fff;font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:8px 16px;}
+  .party-row{display:flex;border-top:1px solid #e0e0e0;}
+  .party-num{width:26px;background:#f5f5f5;display:flex;align-items:flex-start;justify-content:center;padding:12px 4px;font-weight:700;font-size:10pt;border-right:1px solid #e0e0e0;flex-shrink:0;}
+  .party-info{padding:12px 16px;font-size:10pt;line-height:1.55;flex:1;}
+  .party-label{display:inline-block;background:#1a1a1a;color:#fff;font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 7px;border-radius:2px;margin-top:4px;}
+  .article{margin-bottom:20px;}
+  .article-title{font-size:10.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding-bottom:5px;border-bottom:1.5px solid #1a1a1a;margin-bottom:10px;}
+  p{margin-bottom:8px;}
+  .highlight{background:#f7f7f0;border-left:3px solid #b8a000;padding:10px 14px;margin:10px 0;}
+  .sig-area{margin-top:40px;}
+  .sig-col{display:inline-block;min-width:260px;}
+  .sig-img{max-width:200px;max-height:60px;display:block;margin-bottom:6px;}
+  .sig-line{border-top:1px solid #333;padding-top:6px;font-size:9.5pt;color:#444;}
+  .dated{font-size:9.5pt;color:#555;margin-top:20px;}
+  @media print{body{padding:20px 32px;}}
+</style></head><body>
+<div class="doc-header">
+  <div class="doc-header-logo">
+    <img src="https://platform.infinite-scale.be/logo.svg" alt="Infinite Scale"/>
+    <span>Infinite Scale</span>
+  </div>
+  <div class="doc-header-meta">Curabond BV &bull; BTW BE1016721633<br>Schoolstraat 43, 9200 Appels</div>
+</div>
+<p class="doc-title">Dienstverleningsovereenkomst</p>
+<p class="doc-subtitle">${c.type || (isAgent ? 'Zelfstandige Samenwerkingsovereenkomst' : 'Leadopvolging &amp; Appointment Setting')}</p>
+<div class="parties-box">
+  <div class="parties-box-title">De ondergetekenden</div>
+  <div class="party-row">
+    <div class="party-num">1.</div>
+    <div class="party-info"><strong>Curabond BV</strong>, handelend onder de naam <strong>Infinite Scale</strong>, Schoolstraat 43, 9200 Appels, BTW BE1016721633<br><span class="party-label">${isAgent ? 'Opdrachtgever' : 'Dienstverlener'}</span></div>
+  </div>
+  <div class="party-row">
+    <div class="party-num">2.</div>
+    <div class="party-info"><strong>${c.party || '—'}</strong>${c.vat ? `, BTW ${c.vat}` : ''}${c.address ? `, ${c.address}` : ''}${c.contact ? `, ${c.contact}` : ''}<br><span class="party-label">${isAgent ? 'Opdrachtnemer' : 'Opdrachtgever'}</span></div>
+  </div>
+</div>
+<div class="article"><div class="article-title">1. Voorwerp</div>
+<p>${isAgent ? `${c.party || 'De Opdrachtnemer'} treedt op als zelfstandige voor het uitvoeren van telefonische leadopvolging, prospectie en het inplannen van afspraken voor klanten van Infinite Scale.` : `Infinite Scale verzorgt telefonische leadopvolging, kwalificatie van leads en het inplannen van afspraken voor ${c.party || 'de Opdrachtgever'}.`}</p></div>
+<div class="article"><div class="article-title">2. Vergoeding</div>
+<div class="highlight"><strong>${rateStr}</strong></div></div>
+<div class="article"><div class="article-title">3. Looptijd</div>
+<p>${c.duration || 'Zoals overeengekomen tussen partijen.'}</p></div>
+<div class="article"><div class="article-title">4. Toepasselijk recht</div>
+<p>Belgisch recht. Rechtbank van Onderneming van het arrondissement van de Dienstverlener.</p></div>
+${c.notes ? `<div class="article"><div class="article-title">Bijzondere voorwaarden</div><p>${c.notes}</p></div>` : ''}
+<p class="dated">Opgemaakt op ${d}</p>
+${sigBlock}
+</body></html>`;
+    }
+
+    function getContractHtmlForDisplay(c) {
+      // Prefer stored edited HTML, else build fallback
+      return c.contract_html || buildFallbackContractHtml(c, null, null, null);
+    }
+
+    function getSignedContractHtml(c, signerName, sigImage, signedAt) {
+      if (c.contract_html) {
+        // Inject signature into stored HTML by appending before </body>
+        const d = new Date(signedAt).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+        const sigHtml = `<div style="margin-top:40px;page-break-inside:avoid;">
+          <p style="font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#555;margin-bottom:16px;">Handtekening</p>
+          ${sigImage ? `<img src="${sigImage}" style="max-width:200px;max-height:60px;display:block;margin-bottom:6px;" alt="Handtekening">` : ''}
+          <div style="border-top:1px solid #333;padding-top:6px;font-size:9.5pt;color:#444;min-width:260px;display:inline-block;">${signerName}<br>Ondertekend op ${d}</div>
+        </div>`;
+        return c.contract_html.replace(/<\/body>/i, sigHtml + '</body>');
+      }
+      return buildFallbackContractHtml(c, signerName, sigImage, signedAt);
+    }
+
+    async function load() {
+      show('state-loading');
+      if (!token) { show('state-error'); return; }
+      let rows = await sbGet('contracts', `?id=eq.${token}&limit=1`);
+      if (!rows || !rows.length) {
+        rows = await sbGet('contracts', `?signing_link=like.*${token}*&limit=1`);
+      }
+      if (!rows || !rows.length) { show('state-error'); return; }
+      const c = rows[0];
+      contractId = c.id;
+      contractData = c;
+
+      if (c.status === 'signed') {
+        contractHtml = getSignedContractHtml(c, c.signer_name, c.signature_image, c.signed_at);
+        const isSetupFlow = new URLSearchParams(location.search).get('setup') === '1';
+        if (isSetupFlow) {
+          // Coming from welcome email — show account creation onboarding
+          document.getElementById('onboard-email').textContent = c.email || '';
+          show('state-onboarding');
+        } else {
+          show('state-signed');
+        }
+        return;
+      }
+
+      document.getElementById('contract-title').innerHTML = `Uw ${c.type || 'contract'} van<br>Infinite Scale`;
+
+      const detRows = [
+        ['Partij', c.party || '—', 'Type', c.type || '—'],
+        ['Verstuurd', c.sent || '—', 'Vergoeding', c.value || '—'],
+        c.vat ? ['BTW-nr.', c.vat, 'Adres', c.address || '—'] : null,
+      ].filter(Boolean);
+      document.getElementById('details-box').innerHTML = detRows.map(([l1,v1,l2,v2]) => `
+        <div class="detail-row">
+          <div class="detail-cell"><div class="detail-label">${l1}</div><div class="detail-value">${v1}</div></div>
+          <div class="detail-cell"><div class="detail-label">${l2}</div><div class="detail-value ${l2==='Vergoeding'?'accent':''}">${v2}</div></div>
+        </div>`).join('');
+
+      contractHtml = getContractHtmlForDisplay(c);
+      document.getElementById('contract-iframe').srcdoc = contractHtml;
+
+      show('state-form');
+      initCanvas();
+
+      // Log contract viewed to activity feed
+      logContractEvent('contract_viewed', 'Contract geopend: ' + (c.party || 'Onbekend') + ' — ' + (c.type || ''), contractId);
+
+      // Notify admin: contract viewed
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: 'quinten@infinite-scale.be',
+          subject: '👁 Contract bekeken — ' + (c.party || 'Onbekend'),
+          html: `<div style="font-family:sans-serif;background:#0f1117;color:#f0f4ff;padding:32px;border-radius:12px;max-width:500px;">
+            <p style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#67dcdf;font-weight:700;margin:0 0 8px;">Contract bekeken</p>
+            <h2 style="margin:0 0 16px;font-size:20px;">${c.party || 'Onbekend'} heeft het contract geopend</h2>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+              <tr><td style="padding:8px 0;color:#5a6a8a;width:110px;">Partij</td><td style="color:#f0f4ff;font-weight:600;">${c.party || '—'}</td></tr>
+              <tr><td style="padding:8px 0;color:#5a6a8a;">Type</td><td style="color:#f0f4ff;font-weight:600;">${c.type || '—'}</td></tr>
+              <tr><td style="padding:8px 0;color:#5a6a8a;">E-mail</td><td style="color:#67dcdf;">${c.email || '—'}</td></tr>
+              <tr><td style="padding:8px 0;color:#5a6a8a;">Tijdstip</td><td style="color:#f0f4ff;">${new Date().toLocaleString('nl-BE')}</td></tr>
+            </table>
+            <p style="font-size:12px;color:#5a6a8a;margin:0;">Ze zijn nog niet getekend.</p>
+          </div>`
+        }),
+      }).catch(() => {});
+    }
+
+    function togglePreview() {
+      previewVisible = !previewVisible;
+      document.getElementById('contract-iframe').style.display = previewVisible ? 'block' : 'none';
+      // update only the hide/show button (second .btn-text)
+      document.querySelectorAll('.btn-text')[1].textContent = previewVisible ? 'Verbergen' : 'Tonen';
+    }
+
+    function openInTab() {
+      const html = contractHtml || (document.getElementById('contract-iframe').srcdoc || '');
+      if (!html) return;
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    }
+
+    const canvas = document.getElementById('sig');
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+
+    function initCanvas() {
+      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      ctx.strokeStyle = '#67dcdf'; ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    }
+
+    function pos(e) {
+      const r = canvas.getBoundingClientRect();
+      const src = e.touches ? e.touches[0] : e;
+      return { x: src.clientX - r.left, y: src.clientY - r.top };
+    }
+
+    canvas.addEventListener('mousedown', e => { drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('mousemove', e => { if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasSig = true; });
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mouseleave', () => drawing = false);
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, { passive: false });
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasSig = true; }, { passive: false });
+    canvas.addEventListener('touchend', () => drawing = false);
+
+    function clearSig() {
+      ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+      hasSig = false;
+    }
+
+    async function submitSign() {
+      const name = document.getElementById('signer-name').value.trim();
+      if (!name) { alert('Vul uw volledige naam in.'); return; }
+      if (!hasSig) { alert('Teken uw handtekening.'); return; }
+      const btn = document.getElementById('btn-sign');
+      btn.disabled = true; btn.textContent = 'Ondertekenen…';
+
+      const sigImage = canvas.toDataURL('image/png');
+      const signedAt = new Date().toISOString();
+
+      // Fire DB patch without blocking the UI transition
+      sbPatch('contracts', `?id=eq.${contractId}`, {
+        status: 'signed', signed_at: signedAt, signer_name: name, signature_image: sigImage,
+      }).catch(err => console.error('Sign patch error:', err));
+
+      // Log contract signed to activity feed
+      logContractEvent('contract_signed', 'Contract getekend door ' + name + ' (' + (contractData.party || 'Onbekend') + ' — ' + (contractData.type || '') + ')', contractId);
+
+      // Notify admin: contract signed
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: 'quinten@infinite-scale.be',
+          subject: '✅ Contract getekend — ' + (contractData.party || 'Onbekend'),
+          html: `<div style="font-family:sans-serif;background:#0f1117;color:#f0f4ff;padding:32px;border-radius:12px;max-width:500px;">
+            <p style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#4ade80;font-weight:700;margin:0 0 8px;">Contract ondertekend</p>
+            <h2 style="margin:0 0 16px;font-size:20px;">${name} heeft getekend</h2>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+              <tr><td style="padding:8px 0;color:#5a6a8a;width:110px;">Naam</td><td style="color:#f0f4ff;font-weight:600;">${name}</td></tr>
+              <tr><td style="padding:8px 0;color:#5a6a8a;">Partij</td><td style="color:#f0f4ff;font-weight:600;">${contractData.party || '—'}</td></tr>
+              <tr><td style="padding:8px 0;color:#5a6a8a;">Type</td><td style="color:#f0f4ff;font-weight:600;">${contractData.type || '—'}</td></tr>
+              <tr><td style="padding:8px 0;color:#5a6a8a;">E-mail</td><td style="color:#67dcdf;">${contractData.email || '—'}</td></tr>
+              <tr><td style="padding:8px 0;color:#5a6a8a;">Tijdstip</td><td style="color:#f0f4ff;">${new Date(signedAt).toLocaleString('nl-BE')}</td></tr>
+            </table>
+            <p style="font-size:12px;color:#5a6a8a;margin:0;">Het contract is nu gemarkeerd als <strong style="color:#4ade80;">ondertekend</strong> in het platform.</p>
+          </div>`
+        }),
+      }).catch(() => {});
+
+      try {
+        contractHtml = getSignedContractHtml(contractData, name, sigImage, signedAt);
+      } catch (_) {}
+
+      const email = contractData.email;
+      const partyType = contractData.party_type || 'client';
+      if (email) {
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: email, subject: 'Welkom bij Infinite Scale — stel uw account in', html: buildWelcomeEmail(name, partyType, email, token) }),
+        }).catch(() => {});
+      }
+
+      const emailEl = document.getElementById('onboard-email');
+      if (emailEl) emailEl.textContent = email || '';
+      show('state-onboarding');
+    }
+
+    async function createAccount() {
+      const pw = document.getElementById('onboard-pw').value;
+      const pw2 = document.getElementById('onboard-pw2').value;
+      const phone = document.getElementById('onboard-phone').value.trim();
+      const errEl = document.getElementById('onboard-error');
+      const btn = document.getElementById('btn-create-account');
+
+      errEl.style.display = 'none';
+      if (pw.length < 8) { errEl.textContent = 'Wachtwoord moet minimaal 8 tekens bevatten.'; errEl.style.display = 'block'; return; }
+      if (pw !== pw2) { errEl.textContent = 'Wachtwoorden komen niet overeen.'; errEl.style.display = 'block'; return; }
+
+      btn.disabled = true; btn.textContent = 'Account aanmaken…';
+
+      const email = contractData.email;
+      const res = await fetch('/api/create-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw, phone: phone || undefined, party: contractData.party, party_type: contractData.party_type }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || json.error) {
+        const msg = json.error || 'Er is een fout opgetreden. Probeer opnieuw.';
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Account aanmaken →';
+        return;
+      }
+
+      // Also save phone to client record if provided
+      if (phone && contractData.party) {
+        sbPatch('clients', `?email=eq.${encodeURIComponent(email)}`, { phone }).catch(() => {});
+      }
+
+      document.getElementById('onboard-step-1').style.display = 'none';
+      document.getElementById('onboard-step-2').style.display = 'block';
+    }
+
+    function buildWelcomeEmail(name, partyType, email, signToken) {
+      const portal = partyType === 'agent' ? 'agentdashboard' : 'klantportaal';
+      const setupUrl = signToken
+        ? `https://platform.infinite-scale.be/sign?token=${signToken}&setup=1`
+        : 'https://platform.infinite-scale.be';
+      return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#0f1117;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0f1117;padding:40px 0;"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+  <tr><td align="center" style="padding-bottom:28px;">
+    <table cellpadding="0" cellspacing="0"><tr>
+      <td><img src="https://platform.infinite-scale.be/logo.svg" width="38" height="38" alt="IS" style="display:block;"/></td>
+      <td style="padding-left:10px;font-size:17px;font-weight:700;color:#fff;">Infinite Scale</td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="background:#181c27;border-radius:18px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="height:4px;background:linear-gradient(90deg,#4ade80,#22c55e);"></td></tr>
+      <tr><td style="padding:40px 44px 36px;">
+        <p style="margin:0 0 6px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#4ade80;font-weight:700;">Welkom bij Infinite Scale</p>
+        <h1 style="margin:0 0 20px;font-size:26px;font-weight:800;color:#fff;line-height:1.15;">Contract ondertekend — maak uw account aan</h1>
+        <p style="margin:0 0 28px;font-size:15px;line-height:1.65;color:#8b9bbf;">Beste ${name || ''},<br><br>Uw contract met Infinite Scale is ondertekend en opgeslagen. Klik hieronder om uw account aan te maken en toegang te krijgen tot uw ${portal}.</p>
+        <table cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr><td style="background:#67dcdf;border-radius:12px;">
+          <a href="${setupUrl}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:800;color:#071a1a;text-decoration:none;">Account aanmaken →</a>
+        </td></tr></table>
+        <p style="margin:0 0 12px;font-size:13px;color:#5a6a8a;">Of kopieer deze link in uw browser:</p>
+        <p style="margin:0 0 20px;font-size:12px;color:#67dcdf;word-break:break-all;font-family:'Courier New',monospace;">${setupUrl}</p>
+        <p style="margin:0;font-size:13px;color:#5a6a8a;">Vragen? <a href="mailto:info@infinite-scale.be" style="color:#67dcdf;text-decoration:none;">info@infinite-scale.be</a></p>
+      </td></tr>
+      <tr><td style="padding:16px 44px 24px;border-top:1px solid rgba(255,255,255,0.06);">
+        <p style="margin:0;font-size:12px;color:#3d4d6a;">© ${new Date().getFullYear()} Curabond BV · Infinite Scale · platform.infinite-scale.be</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+    }
+
+    function downloadPdf() {
+      const el = document.getElementById('print-contract');
+      el.innerHTML = contractHtml
+        .replace(/^[\s\S]*?<body[^>]*>/i, '')
+        .replace(/<\/body>[\s\S]*$/i, '');
+      window.print();
+    }
+
+    load();
+  </script>
+</body>
+</html>
