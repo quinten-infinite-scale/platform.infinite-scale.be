@@ -851,7 +851,7 @@ const Modals = {
       const isAddendum = pt === 'addendum';
       const ctypeOpts = isAgent
         ? [{ v: '', l: 'Kies type…' }, { v: '_h1', l: '── Raamovereenkomst ──', disabled: true }, { v: 'Standaardcontract', l: 'Standaardcontract (raamovereenkomst)' }, { v: '_h2', l: '── Addendum templates (bij raamovereenkomst) ──', disabled: true }, { v: 'Addendum — Per afspraak', l: 'Addendum — Per afspraak' }, { v: 'Addendum — Commissie', l: 'Addendum — Commissie (%)' }, { v: 'Addendum — Uurtarief', l: 'Addendum — Uurtarief' }, { v: '_h3', l: '── Standalone overeenkomsten ──', disabled: true }, { v: 'Service agreement', l: 'Samenwerkingsovereenkomst' }, { v: 'Commission', l: 'Commissieovereenkomst' }, { v: 'Hourly rate', l: 'Uurtariefovereenkomst' }]
-        : [{ v: '', l: 'Kies type…' }, { v: 'Pilot', l: 'Pilot (proefperiode)' }, { v: 'Contract', l: 'Contract (verlenging / volledig)' }, { v: 'Pay per appointment', l: 'Pay per appointment' }, { v: 'Lead follow-up', l: 'Lead follow-up' }, { v: 'Cold calling', l: 'Cold calling' }, { v: 'Commission', l: 'Commissie' }, { v: 'Hybrid (fee + commission)', l: 'Hybride (vaste fee + commissie)' }];
+        : [{ v: '', l: 'Kies type…' }, { v: 'Pilot', l: 'Pilot (proefperiode)' }, { v: 'Contract', l: 'MSA / Contract (verlenging / volledig)' }];
       const payTermOpts = [{ v: '7', l: '7 kalenderdagen' }, { v: '14', l: '14 kalenderdagen' }, { v: '30', l: '30 kalenderdagen' }];
       const titleFor = isAddendum ? 'Addendum' : pt === 'agent' ? 'Agentcontract' : 'Klantcontract';
 
@@ -1103,22 +1103,67 @@ const Modals = {
             f.ctype !== 'Standaardcontract' ? UI.Grid('1fr 1fr', 10, UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts)), UI.Field('Opstartvergoeding (€, optioneel)', UI.Input(f.setupFee, v => this.setForm('setupFee', v), 'bv. 500', 'number'))) : null,
             UI.Field('Bijzondere voorwaarden', UI.Area(f.notes, v => this.setForm('notes', v)))) },
         { t: 'Bekijk & verzend', body: step3Body(true, { ctype: f.ctype || 'Standaardcontract', agentName: f.agentName, agentAddress: f.agentAddress, email: f.email, vat: f.vat, rate: f.rate, setupFee: f.setupFee, duration: f.duration, paymentTerm: f.paymentTerm || '14', notes: f.notes }) },
-      ] : [
-        { t: 'Bedrijfsgegevens', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-            UI.Grid('1fr 1fr', 10, UI.Field('Bedrijfsnaam', UI.Input(f.company, v => this.setForm('company', v), 'ACME BV')), UI.Field('Contactpersoon', UI.Input(f.contact, v => this.setForm('contact', v), 'Jan Janssen'))),
-            UI.Grid('1fr 1fr', 10, UI.Field('BTW-nummer', UI.Input(f.vat, v => this.setForm('vat', v), 'BE 0123.456.789')), UI.Field('E-mail', UI.Input(f.email, v => this.setForm('email', v), 'naam@bedrijf.be', 'email'))),
-            UI.Field('Adres', UI.Input(f.address, v => this.setForm('address', v), 'Kerkstraat 1, 9000 Gent'))) },
-        { t: 'Contractvoorwaarden', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-            UI.Field('Contracttype', UI.Select(f.ctype || '', v => this.setForm('ctype', v), ctypeOpts)),
-            UI.Grid('1fr 1fr', 10, UI.Field('Tarief / afspraak', UI.Input(f.rate, v => this.setForm('rate', v), '€45')), UI.Field('Looptijd', UI.Input(f.duration, v => this.setForm('duration', v), '4 weken / doorlopend'))),
-            UI.Grid('1fr 1fr', 10, UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts)), UI.Field('Opstartvergoeding (€, optioneel)', UI.Input(f.setupFee, v => this.setForm('setupFee', v), 'bv. 500', 'number'))),
-            UI.Field('Bijzondere voorwaarden', UI.Area(f.notes, v => this.setForm('notes', v)))) },
-        { t: 'Bekijk & verzend', body: step3Body(false, { ctype: f.ctype, party: f.company, contact: f.contact, email: f.email, vat: f.vat, address: f.address, rate: f.rate, setupFee: f.setupFee, duration: f.duration, paymentTerm: f.paymentTerm || '14', notes: f.notes }) },
-      ];
+      ] : (() => {
+        const isPilot = f.ctype === 'Pilot';
+        if (isPilot) {
+          const herkomstOpts = [{ v: '', l: 'Kies…' }, { v: 'eigen leads (opdrachtgever)', l: 'Eigen leads (opdrachtgever)' }, { v: 'leads van Infinite Scale', l: 'Leads van Infinite Scale' }, { v: 'gemengd', l: 'Gemengd' }];
+          return [
+            { t: 'Bedrijfsgegevens', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+                UI.Grid('1fr 1fr', 10, UI.Field('Bedrijfsnaam', UI.Input(f.company, v => this.setForm('company', v), 'ACME BV')), UI.Field('Contactpersoon + functie', UI.Input(f.contact, v => this.setForm('contact', v), 'Jan Janssen, Zaakvoerder'))),
+                UI.Grid('1fr 1fr', 10, UI.Field('BTW-nummer', UI.Input(f.vat, v => this.setForm('vat', v), 'BE 0123.456.789')), UI.Field('E-mail', UI.Input(f.email, v => this.setForm('email', v), 'naam@bedrijf.be', 'email'))),
+                UI.Field('Adres', UI.Input(f.address, v => this.setForm('address', v), 'Kerkstraat 1, 9000 Gent'))) },
+            { t: 'Scope & Looptijd', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+                UI.Field('Doelsector / product', UI.Input(f.doelsector || '', v => this.setForm('doelsector', v), 'bv. KMO-energie, HR-software')),
+                UI.Field('Doelgroep', UI.Input(f.doelgroep || '', v => this.setForm('doelgroep', v), 'bv. B2B KMO Vlaanderen')),
+                UI.Field('Herkomst leads', UI.Select(f.herkomstLeads || '', v => this.setForm('herkomstLeads', v), herkomstOpts)),
+                UI.Grid('1fr 1fr', 10,
+                  UI.Field('Pilootduur (maanden)', UI.Input(f.pilotMonths || '2', v => this.setForm('pilotMonths', v), '2', 'number')),
+                  UI.Field('Min. leads per week', UI.Input(f.minLeadsPerWeek || '', v => this.setForm('minLeadsPerWeek', v), 'bv. 25 of leeg', 'number')))) },
+            { t: 'Vergoeding', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+                UI.Field('Vergoeding per gehouden afspraak (€)', UI.Input(f.ratePerAppt || '', v => this.setForm('ratePerAppt', v), 'bv. 75', 'number')),
+                UI.Grid('1fr 1fr', 10,
+                  UI.Field('Opstartkost (€, 0 = geen)', UI.Input(f.setupFee || '0', v => this.setForm('setupFee', v), '0', 'number')),
+                  UI.Field('Capaciteitsfee/maand (€, 0 = geen)', UI.Input(f.capacityFee || '0', v => this.setForm('capacityFee', v), '0', 'number'))),
+                UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts))) },
+            { t: 'Kwalificatiecriteria', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+                e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.07em' } }, 'Kwalificatiecriteria voor een factureerbare afspraak'),
+                UI.Grid('1fr 1fr', 10,
+                  UI.Field('Criterium 1 — Sector (verplicht)', UI.Input(f.qual1Sector || '', v => this.setForm('qual1Sector', v), 'bv. Industrie / productie')),
+                  UI.Field('Verificatiebron', UI.Input(f.qual1Bron || '', v => this.setForm('qual1Bron', v), 'bv. LinkedIn, website'))),
+                UI.Field('Criterium 2 — Bedrijfsgrootte / profiel', UI.Input(f.qual2Range || '', v => this.setForm('qual2Range', v), 'bv. 10–200 medewerkers')),
+                UI.Field('Criterium 3 — Functie / rol contactpersoon', UI.Input(f.qual3Function || '', v => this.setForm('qual3Function', v), 'bv. Zaakvoerder, HR-manager')),
+                UI.Field('Criterium 4 — Aanvullend (optioneel)', UI.Input(f.qual4Extra || '', v => this.setForm('qual4Extra', v), 'Leeg laten indien niet van toepassing')),
+                e('div', { style: { height: 1, background: 'var(--border)', margin: '2px 0' } }),
+                e('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-dim)' } },
+                  e('input', { type: 'checkbox', checked: !!f.hasBellijst, onChange: ev => this.setForm('hasBellijst', ev.target.checked) }),
+                  'Optionele dienst: Infinite Scale stelt ook de bellijst/leadlijst op'),
+                f.hasBellijst ? UI.Grid('1fr 1fr', 10,
+                  UI.Field('Prijs bellijst', UI.Input(f.bellijstPrice || '', v => this.setForm('bellijstPrice', v), 'bv. €150 eenmalig')),
+                  UI.Field('Bron contactgegevens', UI.Input(f.bellijstBron || '', v => this.setForm('bellijstBron', v), 'bv. LinkedIn Sales Navigator'))) : null) },
+            { t: 'Bekijk & verzend', body: (() => {
+                const pilotVars = { ctype: 'client-pilot', party: f.company, contact: f.contact, email: f.email, vat: f.vat, address: f.address, doelsector: f.doelsector, doelgroep: f.doelgroep, herkomstLeads: f.herkomstLeads, pilotMonths: f.pilotMonths || '2', minLeadsPerWeek: f.minLeadsPerWeek, ratePerAppt: f.ratePerAppt, setupFee: f.setupFee, capacityFee: f.capacityFee, qual1Sector: f.qual1Sector, qual1Bron: f.qual1Bron, qual2Range: f.qual2Range, qual3Function: f.qual3Function, qual4Extra: f.qual4Extra, hasBellijst: f.hasBellijst, bellijstPrice: f.bellijstPrice, bellijstBron: f.bellijstBron, paymentTerm: f.paymentTerm || '14' };
+                return step3Body(false, pilotVars);
+              })() },
+          ];
+        }
+        return [
+          { t: 'Bedrijfsgegevens', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+              UI.Grid('1fr 1fr', 10, UI.Field('Bedrijfsnaam', UI.Input(f.company, v => this.setForm('company', v), 'ACME BV')), UI.Field('Contactpersoon', UI.Input(f.contact, v => this.setForm('contact', v), 'Jan Janssen'))),
+              UI.Grid('1fr 1fr', 10, UI.Field('BTW-nummer', UI.Input(f.vat, v => this.setForm('vat', v), 'BE 0123.456.789')), UI.Field('E-mail', UI.Input(f.email, v => this.setForm('email', v), 'naam@bedrijf.be', 'email'))),
+              UI.Field('Adres', UI.Input(f.address, v => this.setForm('address', v), 'Kerkstraat 1, 9000 Gent'))) },
+          { t: 'Contractvoorwaarden', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+              UI.Field('Contracttype', UI.Select(f.ctype || '', v => this.setForm('ctype', v), ctypeOpts)),
+              UI.Grid('1fr 1fr', 10, UI.Field('Tarief / afspraak', UI.Input(f.rate, v => this.setForm('rate', v), '€45')), UI.Field('Looptijd', UI.Input(f.duration, v => this.setForm('duration', v), '4 weken / doorlopend'))),
+              UI.Grid('1fr 1fr', 10, UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts)), UI.Field('Opstartvergoeding (€, optioneel)', UI.Input(f.setupFee, v => this.setForm('setupFee', v), 'bv. 500', 'number'))),
+              UI.Field('Bijzondere voorwaarden', UI.Area(f.notes, v => this.setForm('notes', v)))) },
+          { t: 'Bekijk & verzend', body: step3Body(false, { ctype: f.ctype, party: f.company, contact: f.contact, email: f.email, vat: f.vat, address: f.address, rate: f.rate, setupFee: f.setupFee, duration: f.duration, paymentTerm: f.paymentTerm || '14', notes: f.notes }) },
+        ];
+      })();
       const cur = steps[step];
+      const totalSteps = steps.length;
 
       const onBack = () => {
-        // Reset iframe so step 3 regenerates fresh on next visit
+        // Reset iframe so last step regenerates fresh on next visit
         const container = document.getElementById('contract-iframe-container');
         if (container) container._iframeInited = false;
         this.setForm('step', step - 1);
@@ -1132,9 +1177,9 @@ const Modals = {
         this.sendContract();
       };
 
-      return wrap(titleFor + ' · Stap ' + (step + 1) + '/3 — ' + cur.t, cur.body,
+      return wrap(titleFor + ' · Stap ' + (step + 1) + '/' + totalSteps + ' — ' + cur.t, cur.body,
         [step > 0 ? UI.Btn('← Terug', onBack, 'soft') : UI.Btn('Annuleren', () => this.closeModal(), 'soft'),
-        step < 2 ? UI.Btn('Volgende →', () => this.setForm('step', step + 1), 'primary') : UI.Btn('Genereer & verstuur link', onSendContract, 'primary')], '600px');
+        step < totalSteps - 1 ? UI.Btn('Volgende →', () => this.setForm('step', step + 1), 'primary') : UI.Btn('Genereer & verstuur link', onSendContract, 'primary')], '600px');
     }
 
     if (k === 'contractDetail') {
