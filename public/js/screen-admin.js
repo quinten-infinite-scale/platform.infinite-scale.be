@@ -934,6 +934,10 @@ const ScreenAdmin = {
     const monthRatio = monthOmzet > 0 ? monthWinst / monthOmzet : 0;
     const netProfit = monthWinst - TOTAL_FIXED - totalExtraCosts;
     const netMargin = monthOmzet > 0 ? Math.round(netProfit / monthOmzet * 100) : null;
+    const avgDayOmzet = allDays.length > 0 ? monthOmzet / allDays.length : 0;
+    const dayPcts = allDays.map(day => { const dt = dayTotals(day.appts); return avgDayOmzet > 0 ? (dt.omzet - avgDayOmzet) / avgDayOmzet : 0; });
+    const bestDayPct = dayPcts.length > 0 ? Math.max(...dayPcts) : null;
+    const worstDayPct = dayPcts.length > 0 ? Math.min(...dayPcts) : null;
 
     // Style helpers
     const css = (...args) => Object.assign({}, ...args);
@@ -986,14 +990,47 @@ const ScreenAdmin = {
             return [
               TD('', { textAlign: 'center', fontSize: 11, borderLeft: '2px solid var(--border)', background: darkBg2 }),
               TD('', { textAlign: 'center', background: darkBg2 }),
-              TD(v === null ? e('span', { style: { color: 'var(--text-dim)' } }, '—') : isRatio ? PCT(v) : EUR(v, color), { textAlign: 'right', background: darkBg2 })
+              TD(v === null ? e('span', { style: { color: 'var(--text-dim)' } }, '—') : isRatio ? PCT(v) : EUR(v, 'white'), { textAlign: 'right', background: darkBg2 })
             ];
           }).flat(),
           // Week total
-          (() => { const wv = getVal(wk.days.flatMap(d => d.appts)); return TD(wv === null ? '—' : isRatio ? PCT(wv) : EUR(wv, color), { textAlign: 'right', fontWeight: 800, borderLeft: '3px solid var(--accent)', background: wkBg }); })()
+          (() => { const wv = getVal(wk.days.flatMap(d => d.appts)); return TD(wv === null ? '—' : isRatio ? PCT(wv) : EUR(wv, 'white'), { textAlign: 'right', fontWeight: 800, borderLeft: '3px solid var(--accent)', background: wkBg }); })()
         ]).flat(),
-        TD(isRatio ? PCT(total) : EUR(total, color), { textAlign: 'right', fontWeight: 700, borderLeft: '2px solid var(--border)', background: darkBg }));
+        TD(isRatio ? PCT(total) : EUR(total, 'white'), { textAlign: 'right', fontWeight: 700, borderLeft: '2px solid var(--border)', background: darkBg }));
     };
+
+    // % vs avg day row for IS Totaal section
+    const isPctRow = () => e('tr', null,
+      TD(e('span', { style: { fontWeight: 700, fontSize: 11, color: 'var(--text-mute)' } }, '% vs gem. dag'),
+        css(tdBase, stickyL, { left: 0, background: darkBg2, paddingLeft: 12 })),
+      TD('', css(tdBase, stickyL2, { left: 64, background: darkBg2 })),
+      ...weeks.map(wk => [
+        ...wk.days.map(day => {
+          const dt = dayTotals(day.appts);
+          const pct = avgDayOmzet > 0 ? (dt.omzet - avgDayOmzet) / avgDayOmzet : null;
+          const isPos = pct !== null && pct >= 0;
+          const pctEl = pct === null ? '' : e('span', { style: { fontWeight: 800, fontSize: 12,
+            color: isPos ? 'var(--up)' : 'var(--down)',
+            background: isPos ? 'oklch(0.22 0.08 152/.3)' : 'oklch(0.25 0.1 20/.3)',
+            padding: '2px 5px', borderRadius: 4 } },
+            (isPos ? '+' : '') + Math.round(pct * 100) + '%');
+          return [
+            TD('', { textAlign: 'center', borderLeft: '2px solid var(--border)', background: darkBg2 }),
+            TD('', { background: darkBg2 }),
+            TD(pctEl, { textAlign: 'right', background: darkBg2 })
+          ];
+        }).flat(),
+        (() => {
+          const wkOmzet = wk.days.reduce((acc, d2) => acc + dayTotals(d2.appts).omzet, 0);
+          const wkAvg = wk.days.length > 0 ? wkOmzet / wk.days.length : 0;
+          const wkPct = avgDayOmzet > 0 ? (wkAvg - avgDayOmzet) / avgDayOmzet : null;
+          const isPos = wkPct !== null && wkPct >= 0;
+          const wkEl = wkPct === null ? '' : e('span', { style: { fontWeight: 800, fontSize: 12, color: isPos ? 'var(--up)' : 'var(--down)' } },
+            (isPos ? '+' : '') + Math.round(wkPct * 100) + '%');
+          return TD(wkEl, { textAlign: 'right', fontWeight: 800, borderLeft: '3px solid var(--accent)', background: wkBg });
+        })()
+      ]).flat(),
+      TD('', { textAlign: 'right', borderLeft: '2px solid var(--border)', background: darkBg }));
 
     // Client header row
     const clHdrBg = 'oklch(0.18 0.02 256 / .5)';
@@ -1081,6 +1118,9 @@ const ScreenAdmin = {
             { l: 'Marge', v: monthOmzet > 0 ? Math.round(monthRatio * 100) + '%' : '—', c: monthRatio >= 0.6 ? 'var(--up)' : monthRatio >= 0.4 ? 'var(--warn)' : 'var(--down)' },
             { l: 'Vaste kosten', v: this.euro(TOTAL_FIXED), c: 'var(--text-mute)' },
             { l: 'Netto winst', v: this.euro(netProfit), c: netProfit >= 0 ? 'var(--up)' : 'var(--down)' },
+            { l: 'Gem. dag', v: this.euro(Math.round(avgDayOmzet)), c: 'var(--text-dim)' },
+            { l: 'Beste dag', v: bestDayPct !== null ? (bestDayPct >= 0 ? '+' : '') + Math.round(bestDayPct * 100) + '%' : '—', c: 'var(--up)' },
+            { l: 'Slechtste dag', v: worstDayPct !== null ? (worstDayPct >= 0 ? '+' : '') + Math.round(worstDayPct * 100) + '%' : '—', c: 'var(--down)' },
           ].map((c, i) => e('div', { key: i, style: { padding: '8px 12px', background: 'var(--surface)', borderRadius: 9, border: '1px solid var(--border-soft)', borderTop: '3px solid ' + c.c } },
             e('div', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 } }, c.l),
             e('div', { style: { fontSize: 16, fontWeight: 700, color: c.c, fontFamily: "'Space Grotesk'" } }, c.v))))),
@@ -1125,6 +1165,7 @@ const ScreenAdmin = {
                   sectionHeader('Infinite Scale — Totaal', darkBg, 'var(--info)'),
                   isMetricRow('Kosten', null, 'var(--warn)', false),
                   isMetricRow('Omzet', null, 'var(--info)', false),
+                  isPctRow(),
                   isMetricRow('Winst', null, 'var(--up)', false),
                   isMetricRow('Ratio', null, 'var(--up)', true),
 
