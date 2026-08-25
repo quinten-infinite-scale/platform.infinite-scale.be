@@ -17,6 +17,9 @@ export default async function handler(req, res) {
   const KNOWN = ['id','party','party_type','type','status','sent','value','email','vat','address','contact','duration','notes','setup_fee','signing_link','sign_token','signed_at','signer_name','signature_image','contract_html'];
   const contract = Object.fromEntries(Object.entries(raw).filter(([k]) => KNOWN.includes(k)));
 
+  // Addendum contracts must be stored as party_type 'agent' (DB check constraint only allows 'client' and 'agent')
+  if (contract.party_type === 'addendum') contract.party_type = 'agent';
+
   const r = await fetch('https://database.infinite-scale.be/rest/v1/contracts', {
     method: 'POST',
     headers: {
