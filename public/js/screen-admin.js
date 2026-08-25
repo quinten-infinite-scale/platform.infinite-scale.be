@@ -2080,7 +2080,8 @@ const ScreenAdmin = {
       { id: 'hired', label: 'Hired', color: 'var(--up)' },
       { id: 'not_qualified', label: 'Not qualified', color: 'var(--text-mute)' },
     ];
-    const LS_KEY = 'is_recruit_stages';
+    const LS_KEY = 'is_recruit_stages_v2';
+    try { localStorage.removeItem('is_recruit_stages'); } catch(e) {}
     const loadStages = () => { try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
     const saveStages = (next) => { try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch(e) {} this.setState({ _recruitStageTick: (s._recruitStageTick || 0) + 1 }); };
 
