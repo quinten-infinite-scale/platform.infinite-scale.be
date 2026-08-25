@@ -549,9 +549,11 @@ class Component extends DCLogic {
 
   async logAppointment() {
     const f = this.state.form;
+    const isRenocheck = f.client === 'c15';
     let apptError = null;
     if (!f.client || !f.lead || !f.dateAppt) apptError = 'Vul client, lead en datum in.';
     else if (!String(f.phone || '').trim()) apptError = 'Telefoonnummer is verplicht — vul het in voor je submit.';
+    else if (isRenocheck && !f.rnCategory) apptError = 'Selecteer een Renocheck categorie.';
     if (apptError) { this.setState(s => ({ form: { ...s.form, apptError } })); this.toast('Fout', apptError, 'var(--down)'); return; }
     this.setState(s => ({ form: { ...s.form, apptError: null } }));
     const c = this.state.data.clients.find(x => x.id === f.client);
@@ -561,17 +563,37 @@ class Component extends DCLogic {
       if (sc) amount = sc.rate || amount;
     }
     const dateLogged = this.iso(this.today());
-    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, f.lead, f.phone, f.dateAppt, dateLogged, amount);
+
+    let clientFeedback = null;
+    if (isRenocheck) {
+      const rnPayload = { category: f.rnCategory, full_name: f.lead, email: f.rnEmail || '', phone: f.phone, address: f.rnAddress || '', postal_code: f.rnPostal || '', city: f.rnCity || '', description: f.rnDesc || '' };
+      try {
+        const rnRes = await fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
+        if (!rnRes.ok) {
+          const errText = await rnRes.text();
+          console.error('Renocheck API error:', errText);
+          this.toast('Renocheck fout', 'Lead kon niet naar Renocheck gestuurd worden: ' + errText.slice(0, 80), 'var(--down)');
+          return;
+        }
+      } catch (err) {
+        console.error('Renocheck fetch failed:', err);
+        this.toast('Renocheck fout', 'Kon Renocheck niet bereiken. Probeer opnieuw.', 'var(--down)');
+        return;
+      }
+      clientFeedback = JSON.stringify({ _rn: true, category: f.rnCategory, email: f.rnEmail || '', address: f.rnAddress || '', postal_code: f.rnPostal || '', city: f.rnCity || '', description: f.rnDesc || '' });
+    }
+
+    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, f.lead, f.phone, f.dateAppt, dateLogged, amount, clientFeedback);
     if (!result) {
       this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.' } }));
       this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
       return;
     }
     const saved = Array.isArray(result) ? result[0] : result;
-    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: f.lead, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false }));
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: f.lead, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
     this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + f.lead + ' (€' + amount + ')');
     this.closeModal();
-    this.toast('Logged', 'Appointment added', 'var(--up)');
+    this.toast('Logged', isRenocheck ? 'Lead verzonden naar Renocheck & afspraak gelogd' : 'Appointment added', 'var(--up)');
   }
 
   async submitEOD() {

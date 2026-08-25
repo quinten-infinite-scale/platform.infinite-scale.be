@@ -75,16 +75,33 @@ const Modals = {
             style: { padding: '8px 16px', borderRadius: 9, border: '2px solid ' + (ap.status === val ? color : 'var(--border)'), background: ap.status === val ? (val === 'open' ? 'oklch(0.22 0.05 220 / .4)' : val === 'show' ? 'oklch(0.22 0.08 152 / .4)' : val === 'no_show' ? 'oklch(0.22 0.08 0 / .4)' : 'var(--bg-2)') : 'transparent', color: ap.status === val ? color : 'var(--text-mute)', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all .15s' }
           }, label)))) : null;
 
+      const isRenocheckAppt = ap.client === 'c15';
+      let rnData = null;
+      if (isRenocheckAppt && ap.clientFeedback) {
+        try { rnData = JSON.parse(ap.clientFeedback); if (!rnData._rn) rnData = null; } catch { rnData = null; }
+      }
       const feedbackVal = f.feedbackDraft !== undefined ? f.feedbackDraft : (ap.clientFeedback || '');
-      const feedbackSection = e('div', null,
-        UI.Sub('Client feedback', { marginBottom: 8 }),
-        canFeedback
-          ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-              e('textarea', { value: feedbackVal, placeholder: 'Add feedback on this appointment…', onChange: ev => this.setForm('feedbackDraft', ev.target.value), style: { width: '100%', minHeight: 80, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
-              UI.Btn('Save feedback', () => this.saveApptFeedback(ap.id, feedbackVal), 'primary', { fontSize: 12, padding: '7px 14px', alignSelf: 'flex-end' }))
-          : ap.clientFeedback
-            ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, ap.clientFeedback)
-            : e('div', { style: { fontSize: 13, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'No client feedback yet.'));
+      const feedbackSection = isRenocheckAppt
+        ? (rnData ? e('div', null,
+            UI.Sub('Renocheck lead data', { marginBottom: 8 }),
+            e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '12px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+              ...[['Categorie', rnData.category], ['Email', rnData.email], ['Adres', rnData.address], ['Postcode', rnData.postal_code], ['Gemeente', rnData.city]].filter(([,v]) => v).map(([k, v]) =>
+                e('div', { key: k },
+                  e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, k),
+                  e('div', { style: { fontSize: 13, color: 'var(--text)' } }, v))),
+              rnData.description ? e('div', { key: 'desc', style: { gridColumn: '1 / -1' } },
+                e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, 'Omschrijving'),
+                e('div', { style: { fontSize: 13, color: 'var(--text)', lineHeight: 1.5 } }, rnData.description)) : null))
+          : e('div', null, UI.Sub('Renocheck lead data', { marginBottom: 8 }), e('div', { style: { fontSize: 13, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Geen lead data beschikbaar.')))
+        : e('div', null,
+            UI.Sub('Client feedback', { marginBottom: 8 }),
+            canFeedback
+              ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                  e('textarea', { value: feedbackVal, placeholder: 'Add feedback on this appointment…', onChange: ev => this.setForm('feedbackDraft', ev.target.value), style: { width: '100%', minHeight: 80, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
+                  UI.Btn('Save feedback', () => this.saveApptFeedback(ap.id, feedbackVal), 'primary', { fontSize: 12, padding: '7px 14px', alignSelf: 'flex-end' }))
+              : ap.clientFeedback
+                ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, ap.clientFeedback)
+                : e('div', { style: { fontSize: 13, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'No client feedback yet.'));
 
       const loggedTime = ap.loggedAt ? new Date(ap.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : null;
 
@@ -174,12 +191,29 @@ const Modals = {
       const me = d.agents.find(a => a.id === this.myAgentId) || {};
       const myClients = d.clients.filter(c => (me.clients || []).includes(c.id));
       const sel = d.clients.find(c => c.id === f.client);
+      const isRenocheck = f.client === 'c15';
+      const RN_CATS = ['Airco','Thuisbatt','Zonnepanelen','Ramen en deuren','Keukens','Badkamers','Crepi','Dak'];
+      const rnForm = isRenocheck ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 12, border: '1px solid var(--accent)', background: 'oklch(0.84 0.16 194 / 0.07)' } },
+        e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 } }, 'Renocheck Lead Form'),
+        UI.Field('Categorie', UI.Select(f.rnCategory || '', v => this.setForm('rnCategory', v), [{ v: '', l: 'Selecteer categorie…' }, ...RN_CATS.map(c => ({ v: c, l: c }))])),
+        UI.Grid('1fr 1fr', 10,
+          UI.Field('Volledige naam', UI.Input(f.lead, v => this.setForm('lead', v), 'Jan Janssens')),
+          UI.Field('Telefoon', UI.Input(f.phone, v => this.setForm('phone', v), '+32…'))),
+        UI.Field('E-mailadres', UI.Input(f.rnEmail || '', v => this.setForm('rnEmail', v), 'jan@example.be', 'email')),
+        UI.Field('Adres', UI.Input(f.rnAddress || '', v => this.setForm('rnAddress', v), 'Schoolstraat 43')),
+        UI.Grid('1fr 1fr', 10,
+          UI.Field('Postcode', UI.Input(f.rnPostal || '', v => this.setForm('rnPostal', v), '9000')),
+          UI.Field('Gemeente', UI.Input(f.rnCity || '', v => this.setForm('rnCity', v), 'Gent'))),
+        UI.Field('Omschrijving', UI.Area(f.rnDesc || '', v => this.setForm('rnDesc', v), 'Beschrijf de aanvraag…'))) : null;
+      const stdFields = !isRenocheck ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+        UI.Field('Lead name', UI.Input(f.lead, v => this.setForm('lead', v), 'Full name')),
+        UI.Field('Phone number', UI.Input(f.phone, v => this.setForm('phone', v), '+32…', 'text', { autoComplete: 'off' }))) : null;
       return wrap('Log appointment', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
         UI.Field('Date of appointment', UI.Input(f.dateAppt, v => this.setForm('dateAppt', v), '', 'date')),
-        UI.Field('Lead name', UI.Input(f.lead, v => this.setForm('lead', v), 'Full name')),
         UI.Field('Client', UI.Select(f.client, v => this.setForm('client', v), [{ v: '', l: 'Select client…' }, ...myClients.map(c => ({ v: c.id, l: c.name }))])),
         sel && sel.type === 'agency' ? UI.Field('Client of lead agency', UI.Select(f.sub, v => this.setForm('sub', v), [{ v: '', l: 'Select…' }, ...(sel.subclients || []).map(x => ({ v: x.id, l: x.name }))])) : null,
-        UI.Field('Phone number', UI.Input(f.phone, v => this.setForm('phone', v), '+32…', 'text', { autoComplete: 'off' }))),
+        stdFields,
+        rnForm),
         [UI.Btn('Cancel', () => this.closeModal(), 'soft'), UI.Btn('Submit & lock', () => this.logAppointment(), 'primary')]);
     }
 

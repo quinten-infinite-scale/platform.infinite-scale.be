@@ -236,7 +236,7 @@ const API = {
     });
   },
 
-  async logAppointment(agentId, clientId, subClientId, leadName, phone, dateAppt, dateLogged, amount) {
+  async logAppointment(agentId, clientId, subClientId, leadName, phone, dateAppt, dateLogged, amount, clientFeedback = null) {
     return SB.post('appointments', {
       id: 'ap' + Date.now(),
       agent_id: agentId,
@@ -250,6 +250,7 @@ const API = {
       amount: amount,
       invoiced: false,
       paid: false,
+      ...(clientFeedback ? { client_feedback: clientFeedback } : {}),
     });
   },
 
