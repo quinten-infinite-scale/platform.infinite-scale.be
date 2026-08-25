@@ -685,6 +685,8 @@ ${notes ? `<div class="article"><div class="article-title">Bijzondere voorwaarde
     'client-pay-per-appointment': null,
     'client-commissie': null,
     'client-pilot': null,
+    'client-pilot-leadopvolging': null,
+    'client-pilot-cold-calling': null,
     'client-maandelijks': null,
     'client': `<div class="doc-header">
   <div class="doc-header-logo">
@@ -1691,6 +1693,10 @@ ${rows.map(r => `  <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8
     ['client-cold-calling','client-pay-per-appointment','client-commissie','client-maandelijks'].forEach(slug => {
       if (!this._defaults[slug]) this._defaults[slug] = base;
     });
+    const demoVarsLeadopvolging = { party: 'Voorbeeld BV', contact: 'Jan Janssen, Zaakvoerder', vat: 'BE0123456789', address: 'Voorbeeldstraat 1, 9000 Gent', email: 'jan@voorbeeld.be', pilotMonths: '2', paymentTerm: '14', pilotPaySel: { perAfspraak: true }, pilotPayVals: { perAfspraak: '75' }, hasBellijst: false, validApptDef: 'Een afspraak is factureerbaar wanneer de lead aanwezig was op het afgesproken tijdstip (show-up) en aantoonbaar voldeed aan de vooraf afgesproken kwalificatiecriteria.' };
+    if (!this._defaults['client-pilot-leadopvolging']) this._defaults['client-pilot-leadopvolging'] = this._pilotLeadopvolgingTemplate(demoVarsLeadopvolging);
+    const demoVarsCC = { party: 'Voorbeeld BV', contact: 'Jan Janssen, Zaakvoerder', vat: 'BE0123456789', address: 'Voorbeeldstraat 1, 9000 Gent', email: 'jan@voorbeeld.be', pilotMonths: '2', paymentTerm: '14', pilotPaySel: { perAfspraak: true }, pilotPayVals: { perAfspraak: '75' }, hasBellijst: false, doelsector: 'Thuisbatterijen / zonnepanelen', doelgroep: 'B2B — KMO, Vlaanderen, beslisser', herkomstLeads: 'eigen leads (opdrachtgever)', qualCriteria: [{ text: 'Bedrijf actief in doelsector' }, { text: 'Beslisser aan de lijn' }] };
+    if (!this._defaults['client-pilot-cold-calling']) this._defaults['client-pilot-cold-calling'] = this._coldCallingPilotTemplate(demoVarsCC);
   },
 
   _addendum({ agentName, project, mainContractDate, startDate, services, payComponents, minDials, availabilityDays, availabilityHours, validApptDef, validLeadDef, hasNda, endClientName }) {

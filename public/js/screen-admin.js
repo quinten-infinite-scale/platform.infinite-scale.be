@@ -2459,6 +2459,11 @@ const ScreenAdmin = {
           endClient: 'Klant XYZ', project: 'Klant XYZ', mainContractDate: '01/01/2026',
           startDate: '01/02/2026', services: 'Telefonische prospectie en appointment setting.',
           minDials: '50', availabilityDays: 'Ma–Vr', availabilityHours: '4u',
+          pilotMonths: '2', pilotPaySel: { perAfspraak: true }, pilotPayVals: { perAfspraak: '75' },
+          hasBellijst: false, bellijstPrice: '', bellijstBron: '',
+          validApptDef: 'Een afspraak is factureerbaar wanneer de lead aanwezig was op het afgesproken tijdstip (show-up) en voldeed aan de kwalificatiecriteria.',
+          doelsector: 'Thuisbatterijen / zonnepanelen', doelgroep: 'B2B — KMO, Vlaanderen, beslisser',
+          herkomstLeads: 'eigen leads (opdrachtgever)', qualCriteria: [{ text: 'Bedrijf actief in doelsector' }, { text: 'Beslisser aan de lijn' }],
         };
         const rendered = ContractTemplates._renderTpl(body, dummyVars);
         const html = ContractTemplates._wrap(rendered, {});
