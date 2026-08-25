@@ -1470,9 +1470,11 @@ const Modals = {
       const closeDate = (d.settings && d.settings.billing_close_date) || '4 augustus';
       const allClients = (d.clients || []).filter(c => c.email);
       const selected = f.selected || {};
-      const password = f.password !== undefined ? f.password : 'InfiniteScale2026!';
       const sending = !!f.sending;
       const sent = f.sent || {};
+
+      const now = new Date();
+      const month = now.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' });
 
       const toggleAll = checked => {
         const next = {};
@@ -1485,53 +1487,25 @@ const Modals = {
       const sendEmails = async () => {
         const targets = allClients.filter(c => selected[c.id]);
         if (!targets.length) { this.toast('Geen selectie', 'Selecteer minstens één client.', 'var(--warn)'); return; }
-        if (!password) { this.toast('Geen wachtwoord', 'Vul een wachtwoord in.', 'var(--warn)'); return; }
         this.setForm('sending', true);
-        // Fetch auth user IDs by listing users from Supabase Admin API via n8n won't work directly.
-        // Instead, fetch the user list from the platform data endpoint.
-        let authUsers = [];
-        try {
-          const r = await fetch('https://database.infinite-scale.be/auth/v1/admin/users?per_page=200', {
-            headers: {
-              'apikey': 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogInNlcnZpY2Vfcm9sZSIsICJpc3MiOiAic3VwYWJhc2UiLCAiaWF0IjogMTc4MjQ1NDUxOCwgImV4cCI6IDE5NDAxMzQ1MTh9.d7t6XFTyksADGN-ZaER4bNhc85TSn0g12FRsLGEbaU0',
-              'Authorization': 'Bearer eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogInNlcnZpY2Vfcm9sZSIsICJpc3MiOiAic3VwYWJhc2UiLCAiaWF0IjogMTc4MjQ1NDUxOCwgImV4cCI6IDE5NDAxMzQ1MTh9.d7t6XFTyksADGN-ZaER4bNhc85TSn0g12FRsLGEbaU0',
-            }
-          });
-          const data = await r.json();
-          authUsers = data.users || [];
-        } catch(err) { this.toast('Fout', 'Kon gebruikers niet ophalen.', 'var(--down)'); this.setForm('sending', false); return; }
 
         const closeLabel = closeDate ? new Date(closeDate + 'T12:00:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'long' }) : '4 augustus';
         let sentMap = {};
         for (const cl of targets) {
-          const authUser = authUsers.find(u => u.email && u.email.toLowerCase() === (cl.email || '').toLowerCase());
-          if (!authUser) { sentMap[cl.id] = 'no_user'; continue; }
-          const emailHtml = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
-  <div style="margin-bottom:28px"><img src="https://platform.infinite-scale.be/assets/is-logo.png" alt="Infinite Scale" style="height:36px" onerror="this.style.display='none'"/></div>
-  <h2 style="font-size:22px;font-weight:700;margin:0 0 12px">Bekijk je afspraken van deze maand</h2>
-  <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#444">Beste ${cl.contactPerson || cl.name},<br><br>Je kan nu inloggen op het Infinite Scale platform om je afspraken van deze maand te bekijken en de statussen te controleren. Zorg dat alles correct staat vóór <strong>${closeLabel}</strong> — daarna maken we de factuur op.</p>
-  <div style="background:#f5f5f5;border-radius:10px;padding:20px 24px;margin:0 0 24px;font-size:14px;line-height:1.8">
-    <strong>Inloggegevens:</strong><br>
-    🔗 <a href="https://platform.infinite-scale.be" style="color:#0ea5e9">platform.infinite-scale.be</a><br>
-    📧 E-mail: <strong>${cl.email}</strong><br>
-    🔑 Wachtwoord: <strong>${password}</strong>
-  </div>
-  <a href="https://platform.infinite-scale.be" style="display:inline-block;background:#0ea5e9;color:#fff;padding:12px 28px;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px">Log in en bekijk je afspraken →</a>
-  <p style="margin:28px 0 0;font-size:13px;color:#888">Na het inloggen ga je naar het tabblad <strong>Billing</strong> om alle afspraken te zien en de statussen aan te passen.<br><br>Met vriendelijke groeten,<br>Het Infinite Scale team</p>
-</div>`;
           try {
-            await fetch('https://cloud.infinite-scale.be/webhook/send-review-email', {
+            const resp = await fetch('https://cloud.infinite-scale.be/webhook/send-review-email', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                userId: authUser.id,
-                password,
+                email: cl.email,
                 to: cl.email,
-                subject: `Log in op het platform — controleer je afspraken vóór ${closeLabel}`,
-                html: emailHtml,
+                clientName: cl.contactPerson || cl.name,
+                month,
+                closeDate: closeLabel,
+                subject: `Overzicht ${month} staat klaar voor review`,
               }),
             });
-            sentMap[cl.id] = 'ok';
+            sentMap[cl.id] = resp.ok ? 'ok' : 'err';
           } catch(err) { sentMap[cl.id] = 'err'; }
         }
         this.setForm('sending', false);
@@ -1543,10 +1517,8 @@ const Modals = {
       const sentCount = Object.values(sent).filter(v => v === 'ok').length;
 
       return wrap('Stuur review emails', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-        e('div', { style: { padding: '10px 14px', borderRadius: 9, background: 'oklch(0.22 0.05 85 / .3)', fontSize: 13, color: 'var(--warn)', lineHeight: 1.5 } },
-          '⚡ Clients krijgen hun inloggegevens + verzoek om afspraken te controleren vóór ', e('strong', null, closeDate ? new Date(closeDate + 'T12:00:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'long' }) : '4 augustus'), '.'),
-        UI.Field('Wachtwoord (geldt voor alle geselecteerde clients)',
-          UI.Input(password, v => this.setForm('password', v), 'bijv. InfiniteScale2026!')),
+        e('div', { style: { padding: '10px 14px', borderRadius: 9, background: 'oklch(0.22 0.05 220 / .25)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } },
+          '🔗 Elke client ontvangt een persoonlijke eenmalige inloglink. Geen wachtwoord nodig. Afspraakcontrole vóór ', e('strong', null, closeDate ? new Date(closeDate + 'T12:00:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'long' }) : '4 augustus'), '.'),
         e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 } },
           UI.Sub('Selecteer clients (' + allClients.filter(c => selected[c.id]).length + ' geselecteerd)', { margin: 0 }),
           e('div', { style: { display: 'flex', gap: 8 } },
