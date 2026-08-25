@@ -1107,6 +1107,13 @@ const Modals = {
         const isPilotLeadopvolging = f.ctype === 'Pilot — Leadopvolging';
         const isPilotColdCalling = f.ctype === 'Pilot — Cold Calling';
         const isPilot = isPilotLeadopvolging || isPilotColdCalling;
+        const isContract = f.ctype === 'Contract';
+
+        const typeStep = { t: 'Contracttype', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+          UI.Field('Wat voor contract wil je aanmaken?', UI.Select(f.ctype || '', v => { this.setForm('ctype', v); this.setForm('step', 0); }, ctypeOpts)),
+          f.ctype ? null : e('div', { style: { padding: '14px 16px', borderRadius: 10, background: 'var(--bg-2)', fontSize: 13, color: 'var(--text-mute)', lineHeight: 1.6 } },
+            'Selecteer een contracttype om verder te gaan. Pilot — Leadopvolging en Pilot — Cold Calling hebben een specifieke wizard met kwalificatiecriteria en vergoedingsstructuur.')) };
+
         if (isPilot) {
           const herkomstOpts = [{ v: '', l: 'Kies…' }, { v: 'eigen leads (opdrachtgever)', l: 'Eigen leads (opdrachtgever)' }, { v: 'leads van Infinite Scale', l: 'Leads van Infinite Scale' }, { v: 'gemengd', l: 'Gemengd' }];
           const secLbl = (t) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 4 } }, t);
@@ -1155,6 +1162,7 @@ const Modals = {
 
           if (isPilotLeadopvolging) {
             return [
+              typeStep,
               bedrijfsStep,
               { t: 'Kwalificatiecriteria', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
                 e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.07em' } }, 'Wanneer is een afspraak factureerbaar?'),
@@ -1165,6 +1173,7 @@ const Modals = {
           }
 
           return [
+            typeStep,
             bedrijfsStep,
             { t: 'Scope & Doelgroep', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
               UI.Field('Doelsector / product', UI.Input(f.doelsector || '', v => this.setForm('doelsector', v), 'bv. thuisbatterijen, zonnepanelen')),
@@ -1185,12 +1194,12 @@ const Modals = {
           ];
         }
         return [
+          typeStep,
           { t: 'Bedrijfsgegevens', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
               UI.Grid('1fr 1fr', 10, UI.Field('Bedrijfsnaam', UI.Input(f.company, v => this.setForm('company', v), 'ACME BV')), UI.Field('Contactpersoon', UI.Input(f.contact, v => this.setForm('contact', v), 'Jan Janssen'))),
               UI.Grid('1fr 1fr', 10, UI.Field('BTW-nummer', UI.Input(f.vat, v => this.setForm('vat', v), 'BE 0123.456.789')), UI.Field('E-mail', UI.Input(f.email, v => this.setForm('email', v), 'naam@bedrijf.be', 'email'))),
               UI.Field('Adres', UI.Input(f.address, v => this.setForm('address', v), 'Kerkstraat 1, 9000 Gent'))) },
           { t: 'Contractvoorwaarden', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-              UI.Field('Contracttype', UI.Select(f.ctype || '', v => this.setForm('ctype', v), ctypeOpts)),
               UI.Grid('1fr 1fr', 10, UI.Field('Tarief / afspraak', UI.Input(f.rate, v => this.setForm('rate', v), '€45')), UI.Field('Looptijd', UI.Input(f.duration, v => this.setForm('duration', v), '4 weken / doorlopend'))),
               UI.Grid('1fr 1fr', 10, UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts)), UI.Field('Opstartvergoeding (€, optioneel)', UI.Input(f.setupFee, v => this.setForm('setupFee', v), 'bv. 500', 'number'))),
               UI.Field('Bijzondere voorwaarden', UI.Area(f.notes, v => this.setForm('notes', v)))) },
