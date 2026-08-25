@@ -2073,7 +2073,6 @@ const ScreenAdmin = {
   _admRecruit(d, s) {
     const e = React.createElement;
 
-    // Custom stages stored in state; default on first load
     const defaultStages = [
       { id: 'new', label: 'New', color: 'var(--info)' },
       { id: 'qualified', label: 'Qualified', color: 'var(--accent)' },
@@ -2082,120 +2081,124 @@ const ScreenAdmin = {
       { id: 'not_qualified', label: 'Not qualified', color: 'var(--text-mute)' },
     ];
     const stages = s._recruitStages || defaultStages;
-
     const dragOver = s._recruitDragOver || null;
+
     const onDragStart = id => { this._recruitDragId = id; };
-    const onDragOver = (ev, colId) => { ev.preventDefault(); if (dragOver !== colId) this.setState({ _recruitDragOver: colId }); };
-    const onDrop = (ev, colId) => {
+    const onDragOver = (ev, stageId) => { ev.preventDefault(); if (dragOver !== stageId) this.setState({ _recruitDragOver: stageId }); };
+    const onDrop = (ev, stageId) => {
       ev.preventDefault();
       const id = this._recruitDragId;
       this._recruitDragId = null;
       this.setState({ _recruitDragOver: null });
       if (!id) return;
       const recruit = d.recruits.find(r => r.id === id);
-      if (!recruit || recruit.stage === colId) return;
-      this.advanceRecruit(id, colId);
+      if (!recruit || recruit.stage === stageId) return;
+      this.advanceRecruit(id, stageId);
     };
     const onDragEnd = () => { this._recruitDragId = null; this.setState({ _recruitDragOver: null }); };
 
-    // Stage management helpers
-    const renameStage = (id, newLabel) => {
-      this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).map(sg => sg.id === id ? { ...sg, label: newLabel } : sg) }));
-    };
-    const removeStage = id => {
-      this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).filter(sg => sg.id !== id) }));
-    };
-    const addStage = () => {
-      const id = 'stage_' + Date.now();
-      this.setState(st => ({ _recruitStages: [...(st._recruitStages || defaultStages), { id, label: 'New stage', color: 'var(--text-dim)' }] }));
-    };
+    const renameStage = (id, newLabel) => this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).map(sg => sg.id === id ? { ...sg, label: newLabel } : sg) }));
+    const removeStage = id => this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).filter(sg => sg.id !== id) }));
+    const addStage = () => { const id = 'stage_' + Date.now(); this.setState(st => ({ _recruitStages: [...(st._recruitStages || defaultStages), { id, label: 'New stage', color: 'var(--text-dim)' }] })); };
 
-    const stageManaging = s._recruitManageStages || false;
+    const collapsed = s._recruitCollapsed || {};
+    const toggleCollapse = id => this.setState(st => { const c = { ...(st._recruitCollapsed || {}) }; c[id] = !c[id]; return { _recruitCollapsed: c }; });
 
-    // Compact row per candidate
-    const candidateRow = (it) => e('div', {
+    // Table column definitions
+    const cols = [
+      { label: 'Name', key: 'name', w: '160px', bold: true },
+      { label: 'Role', key: 'position', w: '140px' },
+      { label: 'Country', key: 'country', w: '90px' },
+      { label: 'Source', key: 'source', w: '100px', pill: true },
+      { label: 'Language', key: 'lang', w: '90px' },
+      { label: 'Phone', key: 'phone', w: '120px', mono: true },
+    ];
+
+    const cellStyle = (col) => ({
+      width: col.w, minWidth: col.w, maxWidth: col.w,
+      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      fontSize: 11.5, padding: '0 8px', boxSizing: 'border-box', flexShrink: 0,
+    });
+
+    const headerRow = e('div', {
+      style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', background: 'var(--bg)', position: 'sticky', top: 0, zIndex: 1, paddingLeft: 28 },
+    },
+      cols.map(col => e('div', { key: col.key, style: { ...cellStyle(col), fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.04em', textTransform: 'uppercase', padding: '5px 8px' } }, col.label)));
+
+    const candidateRow = (it, stageColor) => e('div', {
       key: it.id,
       draggable: true,
       onDragStart: () => onDragStart(it.id),
       onDragEnd,
       onClick: () => this.openModal('recruitProfile', { id: it.id }),
-      style: {
-        display: 'flex', alignItems: 'center', gap: 7,
-        padding: '4px 7px', borderRadius: 5, cursor: 'grab',
-        borderBottom: '1px solid var(--border-soft)',
-        background: 'transparent', transition: 'background .1s',
-        fontSize: 12, lineHeight: '1.25', minHeight: 28, boxSizing: 'border-box',
-      },
+      style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'grab', minHeight: 27, paddingLeft: 4, transition: 'background .1s' },
       onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; },
       onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; },
     },
-      e('span', { style: { fontWeight: 600, color: 'var(--text)', flex: '0 0 auto', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
-      e('span', { style: { color: 'var(--text-mute)', flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 } },
-        [it.position, it.country].filter(Boolean).join(' · ')),
-      it.source ? e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px', flexShrink: 0 } }, it.source) : null,
-      it.lang ? e('span', { style: { fontSize: 10, color: 'var(--text-mute)', flexShrink: 0 } }, it.lang) : null,
-    );
+      // drag handle / color stripe
+      e('div', { style: { width: 24, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        e('span', { style: { width: 3, height: 14, borderRadius: 2, background: stageColor, display: 'inline-block', opacity: 0.7 } })),
+      cols.map(col => {
+        const val = it[col.key] || '';
+        const style = { ...cellStyle(col), color: col.bold ? 'var(--text)' : 'var(--text-dim)', fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono'" : undefined };
+        if (col.pill && val) {
+          return e('div', { key: col.key, style: { ...cellStyle(col), display: 'flex', alignItems: 'center' } },
+            e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px' } }, val));
+        }
+        return e('div', { key: col.key, style }, val || e('span', { style: { color: 'var(--border)' } }, '—'));
+      }));
 
-    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+      // Top bar
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 } },
         e('div', null, UI.Hd('Recruitment'), UI.Sub('Applications flow in from the platform intake form.', { marginTop: 3 })),
         e('div', { style: { display: 'flex', gap: 8 } },
-          e('button', {
-            onClick: () => this.setState(st => ({ _recruitManageStages: !st._recruitManageStages })),
-            style: { fontSize: 11.5, fontWeight: 600, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', background: stageManaging ? 'var(--surface-2)' : 'transparent', color: 'var(--text-dim)', cursor: 'pointer' },
-          }, stageManaging ? 'Done' : 'Manage stages'),
           UI.Btn('Preview intake form', () => this.openModal('intakeForm'), 'ghost'))),
 
-      e('div', { style: { display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, alignItems: 'flex-start' } },
-        stages.map(col => {
-          const items = d.recruits.filter(r => r.stage === col.id);
-          const isOver = dragOver === col.id;
+      // Sticky header row
+      e('div', { style: { border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' } },
+        headerRow,
+
+        // Stages stacked vertically
+        stages.map((sg, si) => {
+          const items = d.recruits.filter(r => r.stage === sg.id);
+          const isOver = dragOver === sg.id;
+          const isCollapsed = collapsed[sg.id];
           return e('div', {
-            key: col.id,
-            onDragOver: ev => onDragOver(ev, col.id),
-            onDrop: ev => onDrop(ev, col.id),
-            style: {
-              flex: '1 0 180px', minWidth: 180, maxWidth: 260,
-              background: isOver ? 'var(--surface-2)' : 'var(--bg-2)',
-              borderRadius: 8,
-              border: '1px solid ' + (isOver ? col.color : 'var(--border-soft)'),
-              overflow: 'hidden',
-              transition: 'background .15s, border-color .15s',
-            },
+            key: sg.id,
+            onDragOver: ev => onDragOver(ev, sg.id),
+            onDrop: ev => onDrop(ev, sg.id),
+            style: { borderTop: si > 0 ? '2px solid var(--border)' : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s' },
           },
-            // Column header
-            e('div', { style: { padding: '6px 8px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)' } },
-              e('span', { style: { width: 7, height: 7, borderRadius: '50%', background: col.color, flexShrink: 0, display: 'inline-block' } }),
-              stageManaging
-                ? e('input', {
-                    defaultValue: col.label,
-                    onBlur: ev => renameStage(col.id, ev.target.value),
-                    onClick: ev => ev.stopPropagation(),
-                    style: { flex: 1, fontSize: 11.5, fontWeight: 700, background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', outline: 'none', padding: '1px 2px', minWidth: 0 },
-                  })
-                : e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, col.label),
-              e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", flexShrink: 0 } }, items.length),
-              stageManaging ? e('button', {
-                onClick: ev => { ev.stopPropagation(); removeStage(col.id); },
-                style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px', flexShrink: 0 },
-              }, '×') : null),
+            // Stage header
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none' }, onClick: () => toggleCollapse(sg.id) },
+              e('span', { style: { fontSize: 10, color: 'var(--text-mute)', width: 16, textAlign: 'center', transition: 'transform .15s', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'none' } }, '▾'),
+              e('span', { style: { width: 8, height: 8, borderRadius: '50%', background: sg.color, display: 'inline-block', flexShrink: 0 } }),
+              e('input', {
+                value: sg.label,
+                onChange: ev => { ev.stopPropagation(); renameStage(sg.id, ev.target.value); },
+                onClick: ev => ev.stopPropagation(),
+                style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text)', background: 'transparent', border: 'none', outline: 'none', cursor: 'text', padding: 0, width: Math.max(60, sg.label.length * 7) + 'px' },
+              }),
+              e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, items.length),
+              e('button', {
+                onClick: ev => { ev.stopPropagation(); removeStage(sg.id); },
+                style: { marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: '0 4px', opacity: 0.4 },
+                title: 'Remove stage',
+              }, '×')),
 
             // Candidate rows
-            e('div', { style: { minHeight: 32 } },
-              items.map(candidateRow)));
+            isCollapsed ? null : e('div', null, items.map(it => candidateRow(it, sg.color)),
+              // Drop zone hint when empty
+              items.length === 0 ? e('div', { style: { padding: '6px 32px', fontSize: 11, color: 'var(--border)', fontStyle: 'italic' } }, 'Drop here') : null));
         }),
 
-        // Add stage button
-        e('button', {
-          onClick: addStage,
-          style: {
-            flexShrink: 0, alignSelf: 'flex-start',
-            fontSize: 11.5, fontWeight: 600, padding: '5px 12px',
-            borderRadius: 8, border: '1px dashed var(--border)',
-            background: 'transparent', color: 'var(--text-mute)',
-            cursor: 'pointer', whiteSpace: 'nowrap', marginTop: 0,
-          },
-        }, '+ Stage')));
+        // Add stage row at bottom
+        e('div', { style: { borderTop: '2px solid var(--border)', padding: '5px 8px' } },
+          e('button', {
+            onClick: addStage,
+            style: { fontSize: 11.5, color: 'var(--text-mute)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4 },
+          }, '+ Add stage'))));
   },
 
   _admContracts(d, s) {
