@@ -3,6 +3,8 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     try { localStorage.setItem('is_dbg', 'constructor ran'); } catch(e) {}
+    // Handle magic link tokens in URL hash
+    (() => { try { const h = new URLSearchParams(location.hash.slice(1)); const at = h.get('access_token'), rt = h.get('refresh_token'), ei = parseInt(h.get('expires_in')||'3600'); if (at) { const ea = Math.floor(Date.now()/1000)+ei; localStorage.setItem('is_session', JSON.stringify({access_token:at,refresh_token:rt,expires_in:ei,expires_at:ea})); history.replaceState(null,'',location.pathname+location.search); } } catch(e) {} })();
     // Try to restore session from localStorage
     const session = SB.loadSession();
     try { localStorage.setItem('is_dbg', localStorage.getItem('is_dbg') + ' session=' + (session ? 'ok' : 'null')); } catch(e) {}
