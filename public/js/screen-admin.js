@@ -2072,8 +2072,17 @@ const ScreenAdmin = {
 
   _admRecruit(d, s) {
     const e = React.createElement;
-    const cols = [['new', 'New'], ['qualified', 'Qualified'], ['interview', 'Interview'], ['hired', 'Hired'], ['not_qualified', 'Not qualified']];
-    const colColor = { new: 'var(--info)', qualified: 'var(--accent)', interview: 'var(--warn)', hired: 'var(--up)', not_qualified: 'var(--text-mute)' };
+
+    // Custom stages stored in state; default on first load
+    const defaultStages = [
+      { id: 'new', label: 'New', color: 'var(--info)' },
+      { id: 'qualified', label: 'Qualified', color: 'var(--accent)' },
+      { id: 'interview', label: 'Interview', color: 'var(--warn)' },
+      { id: 'hired', label: 'Hired', color: 'var(--up)' },
+      { id: 'not_qualified', label: 'Not qualified', color: 'var(--text-mute)' },
+    ];
+    const stages = s._recruitStages || defaultStages;
+
     const dragOver = s._recruitDragOver || null;
     const onDragStart = id => { this._recruitDragId = id; };
     const onDragOver = (ev, colId) => { ev.preventDefault(); if (dragOver !== colId) this.setState({ _recruitDragOver: colId }); };
@@ -2088,31 +2097,105 @@ const ScreenAdmin = {
       this.advanceRecruit(id, colId);
     };
     const onDragEnd = () => { this._recruitDragId = null; this.setState({ _recruitDragOver: null }); };
-    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-      UI.Row({ justifyContent: 'space-between' },
+
+    // Stage management helpers
+    const renameStage = (id, newLabel) => {
+      this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).map(sg => sg.id === id ? { ...sg, label: newLabel } : sg) }));
+    };
+    const removeStage = id => {
+      this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).filter(sg => sg.id !== id) }));
+    };
+    const addStage = () => {
+      const id = 'stage_' + Date.now();
+      this.setState(st => ({ _recruitStages: [...(st._recruitStages || defaultStages), { id, label: 'New stage', color: 'var(--text-dim)' }] }));
+    };
+
+    const stageManaging = s._recruitManageStages || false;
+
+    // Compact row per candidate
+    const candidateRow = (it) => e('div', {
+      key: it.id,
+      draggable: true,
+      onDragStart: () => onDragStart(it.id),
+      onDragEnd,
+      onClick: () => this.openModal('recruitProfile', { id: it.id }),
+      style: {
+        display: 'flex', alignItems: 'center', gap: 7,
+        padding: '4px 7px', borderRadius: 5, cursor: 'grab',
+        borderBottom: '1px solid var(--border-soft)',
+        background: 'transparent', transition: 'background .1s',
+        fontSize: 12, lineHeight: '1.25', minHeight: 28, boxSizing: 'border-box',
+      },
+      onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; },
+      onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; },
+    },
+      e('span', { style: { fontWeight: 600, color: 'var(--text)', flex: '0 0 auto', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, it.name),
+      e('span', { style: { color: 'var(--text-mute)', flex: '1 1 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 } },
+        [it.position, it.country].filter(Boolean).join(' · ')),
+      it.source ? e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px', flexShrink: 0 } }, it.source) : null,
+      it.lang ? e('span', { style: { fontSize: 10, color: 'var(--text-mute)', flexShrink: 0 } }, it.lang) : null,
+    );
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
         e('div', null, UI.Hd('Recruitment'), UI.Sub('Applications flow in from the platform intake form.', { marginTop: 3 })),
-        UI.Btn('Preview intake form', () => this.openModal('intakeForm'), 'ghost')),
-      e('div', { style: { display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 6 } },
-        cols.map(col => {
-          const items = d.recruits.filter(r => r.stage === col[0]);
-          const isOver = dragOver === col[0];
-          return e('div', { key: col[0],
-            onDragOver: ev => onDragOver(ev, col[0]),
-            onDrop: ev => onDrop(ev, col[0]),
-            style: { flex: '1 0 220px', minWidth: 220, background: isOver ? 'var(--surface-2)' : 'var(--bg-2)', borderRadius: 14, border: '1px solid ' + (isOver ? colColor[col[0]] : 'var(--border-soft)'), padding: 12, transition: 'background .15s, border-color .15s' } },
-            UI.Row({ justifyContent: 'space-between', marginBottom: 10 },
-              e('span', { style: { fontWeight: 700, fontSize: 13, color: colColor[col[0]] } }, col[1]),
-              UI.Mono(items.length, { fontSize: 12, color: 'var(--text-mute)' })),
-            e('div', { style: { display: 'flex', flexDirection: 'column', gap: 9, minHeight: 40 } },
-              items.map(it => e('div', { key: it.id, draggable: true,
-                onDragStart: () => onDragStart(it.id),
-                onDragEnd: onDragEnd,
-                onClick: () => this.openModal('recruitProfile', { id: it.id }),
-                style: { textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, padding: 12, cursor: 'grab', width: '100%', boxSizing: 'border-box' } },
-                e('div', { style: { fontWeight: 700, fontSize: 13.5, marginBottom: 3 } }, it.name),
-                UI.Sub(it.position + ' · ' + it.country),
-                e('div', { style: { marginTop: 7, display: 'flex', gap: 5, flexWrap: 'wrap' } }, UI.Pill(it.source, 'var(--text-dim)', 'var(--bg-2)'), UI.Pill(it.lang, 'var(--text-dim)', 'var(--bg-2)'))))))
-        })));
+        e('div', { style: { display: 'flex', gap: 8 } },
+          e('button', {
+            onClick: () => this.setState(st => ({ _recruitManageStages: !st._recruitManageStages })),
+            style: { fontSize: 11.5, fontWeight: 600, padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', background: stageManaging ? 'var(--surface-2)' : 'transparent', color: 'var(--text-dim)', cursor: 'pointer' },
+          }, stageManaging ? 'Done' : 'Manage stages'),
+          UI.Btn('Preview intake form', () => this.openModal('intakeForm'), 'ghost'))),
+
+      e('div', { style: { display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 6, alignItems: 'flex-start' } },
+        stages.map(col => {
+          const items = d.recruits.filter(r => r.stage === col.id);
+          const isOver = dragOver === col.id;
+          return e('div', {
+            key: col.id,
+            onDragOver: ev => onDragOver(ev, col.id),
+            onDrop: ev => onDrop(ev, col.id),
+            style: {
+              flex: '1 0 180px', minWidth: 180, maxWidth: 260,
+              background: isOver ? 'var(--surface-2)' : 'var(--bg-2)',
+              borderRadius: 8,
+              border: '1px solid ' + (isOver ? col.color : 'var(--border-soft)'),
+              overflow: 'hidden',
+              transition: 'background .15s, border-color .15s',
+            },
+          },
+            // Column header
+            e('div', { style: { padding: '6px 8px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--surface)' } },
+              e('span', { style: { width: 7, height: 7, borderRadius: '50%', background: col.color, flexShrink: 0, display: 'inline-block' } }),
+              stageManaging
+                ? e('input', {
+                    defaultValue: col.label,
+                    onBlur: ev => renameStage(col.id, ev.target.value),
+                    onClick: ev => ev.stopPropagation(),
+                    style: { flex: 1, fontSize: 11.5, fontWeight: 700, background: 'transparent', border: 'none', borderBottom: '1px solid var(--border)', color: 'var(--text)', outline: 'none', padding: '1px 2px', minWidth: 0 },
+                  })
+                : e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, col.label),
+              e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", flexShrink: 0 } }, items.length),
+              stageManaging ? e('button', {
+                onClick: ev => { ev.stopPropagation(); removeStage(col.id); },
+                style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px', flexShrink: 0 },
+              }, '×') : null),
+
+            // Candidate rows
+            e('div', { style: { minHeight: 32 } },
+              items.map(candidateRow)));
+        }),
+
+        // Add stage button
+        e('button', {
+          onClick: addStage,
+          style: {
+            flexShrink: 0, alignSelf: 'flex-start',
+            fontSize: 11.5, fontWeight: 600, padding: '5px 12px',
+            borderRadius: 8, border: '1px dashed var(--border)',
+            background: 'transparent', color: 'var(--text-mute)',
+            cursor: 'pointer', whiteSpace: 'nowrap', marginTop: 0,
+          },
+        }, '+ Stage')));
   },
 
   _admContracts(d, s) {
