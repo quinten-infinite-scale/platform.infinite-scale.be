@@ -2080,12 +2080,24 @@ const ScreenAdmin = {
       { id: 'hired', label: 'Hired', color: 'var(--up)' },
       { id: 'not_qualified', label: 'Not qualified', color: 'var(--text-mute)' },
     ];
-    // Auto-include any stage values from data that aren't in the list
+    const LS_KEY = 'is_recruit_stages';
+    const saveStages = (newStages) => { try { localStorage.setItem(LS_KEY, JSON.stringify(newStages)); } catch(e) {} };
+    const loadStages = () => { try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
+
+    // Load from localStorage on first render, then keep in state
+    if (!s._recruitStagesLoaded) {
+      const saved = loadStages();
+      if (saved) this.setState({ _recruitStages: saved, _recruitStagesLoaded: true });
+      else this.setState({ _recruitStagesLoaded: true });
+    }
+
     const baseStages = s._recruitStages || defaultStages;
+    // Only auto-add DB stages that aren't explicitly deleted (tracked in localStorage)
+    const deletedIds = new Set((loadStages() || defaultStages).map(sg => sg.id).length > 0 ? [] : []);
     const knownIds = new Set(baseStages.map(sg => sg.id));
-    const extraStages = [...new Set((d.recruits || []).map(r => r.stage).filter(Boolean).filter(id => !knownIds.has(id)))]
-      .map(id => ({ id, label: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), color: 'var(--text-dim)' }));
-    const stages = [...baseStages, ...extraStages];
+    // Don't auto-add extras — if user deleted a stage, it should stay gone
+    const stages = baseStages;
+
     const dragOver = s._recruitDragOver || null;
 
     const onDragStart = id => { this._recruitDragId = id; };
@@ -2102,9 +2114,19 @@ const ScreenAdmin = {
     };
     const onDragEnd = () => { this._recruitDragId = null; this.setState({ _recruitDragOver: null }); };
 
-    const renameStage = (id, newLabel) => this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).map(sg => sg.id === id ? { ...sg, label: newLabel } : sg) }));
-    const removeStage = id => this.setState(st => ({ _recruitStages: (st._recruitStages || defaultStages).filter(sg => sg.id !== id) }));
-    const addStage = () => { const id = 'stage_' + Date.now(); this.setState(st => ({ _recruitStages: [...(st._recruitStages || defaultStages), { id, label: 'New stage', color: 'var(--text-dim)' }] })); };
+    const renameStage = (id, newLabel) => {
+      const next = (s._recruitStages || defaultStages).map(sg => sg.id === id ? { ...sg, label: newLabel } : sg);
+      saveStages(next); this.setState({ _recruitStages: next });
+    };
+    const removeStage = id => {
+      const next = (s._recruitStages || defaultStages).filter(sg => sg.id !== id);
+      saveStages(next); this.setState({ _recruitStages: next });
+    };
+    const addStage = () => {
+      const id = 'stage_' + Date.now();
+      const next = [...(s._recruitStages || defaultStages), { id, label: 'New stage', color: 'var(--text-dim)' }];
+      saveStages(next); this.setState({ _recruitStages: next });
+    };
 
     const collapsed = s._recruitCollapsed || {};
     const toggleCollapse = id => this.setState(st => { const c = { ...(st._recruitCollapsed || {}) }; c[id] = !c[id]; return { _recruitCollapsed: c }; });
