@@ -2081,22 +2081,11 @@ const ScreenAdmin = {
       { id: 'not_qualified', label: 'Not qualified', color: 'var(--text-mute)' },
     ];
     const LS_KEY = 'is_recruit_stages';
-    const saveStages = (newStages) => { try { localStorage.setItem(LS_KEY, JSON.stringify(newStages)); } catch(e) {} };
     const loadStages = () => { try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
+    const saveStages = (next) => { try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch(e) {} this.setState({ _recruitStageTick: (s._recruitStageTick || 0) + 1 }); };
 
-    // Load from localStorage on first render, then keep in state
-    if (!s._recruitStagesLoaded) {
-      const saved = loadStages();
-      if (saved) this.setState({ _recruitStages: saved, _recruitStagesLoaded: true });
-      else this.setState({ _recruitStagesLoaded: true });
-    }
-
-    const baseStages = s._recruitStages || defaultStages;
-    // Only auto-add DB stages that aren't explicitly deleted (tracked in localStorage)
-    const deletedIds = new Set((loadStages() || defaultStages).map(sg => sg.id).length > 0 ? [] : []);
-    const knownIds = new Set(baseStages.map(sg => sg.id));
-    // Don't auto-add extras — if user deleted a stage, it should stay gone
-    const stages = baseStages;
+    // Stages always come from localStorage (source of truth), fallback to defaults
+    const stages = loadStages() || defaultStages;
 
     const dragOver = s._recruitDragOver || null;
 
@@ -2114,19 +2103,9 @@ const ScreenAdmin = {
     };
     const onDragEnd = () => { this._recruitDragId = null; this.setState({ _recruitDragOver: null }); };
 
-    const renameStage = (id, newLabel) => {
-      const next = (s._recruitStages || defaultStages).map(sg => sg.id === id ? { ...sg, label: newLabel } : sg);
-      saveStages(next); this.setState({ _recruitStages: next });
-    };
-    const removeStage = id => {
-      const next = (s._recruitStages || defaultStages).filter(sg => sg.id !== id);
-      saveStages(next); this.setState({ _recruitStages: next });
-    };
-    const addStage = () => {
-      const id = 'stage_' + Date.now();
-      const next = [...(s._recruitStages || defaultStages), { id, label: 'New stage', color: 'var(--text-dim)' }];
-      saveStages(next); this.setState({ _recruitStages: next });
-    };
+    const renameStage = (id, newLabel) => saveStages(stages.map(sg => sg.id === id ? { ...sg, label: newLabel } : sg));
+    const removeStage = id => saveStages(stages.filter(sg => sg.id !== id));
+    const addStage = () => { const id = 'stage_' + Date.now(); saveStages([...stages, { id, label: 'New stage', color: 'var(--text-dim)' }]); };
 
     const collapsed = s._recruitCollapsed || {};
     const toggleCollapse = id => this.setState(st => { const c = { ...(st._recruitCollapsed || {}) }; c[id] = !c[id]; return { _recruitCollapsed: c }; });
