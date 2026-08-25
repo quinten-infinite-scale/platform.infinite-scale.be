@@ -11,6 +11,8 @@ window.ContractTemplates = {
       } catch(e) { console.error('Template render error', e); }
     }
     if (ctype === 'Addendum') return this._wrap(this._addendum(vars), vars);
+    if (!isAgent && ctype === 'Pilot — Leadopvolging') return this._wrap(this._pilotLeadopvolgingTemplate(vars || {}), vars);
+    if (!isAgent && ctype === 'Pilot — Cold Calling') return this._wrap(this._coldCallingPilotTemplate(vars || {}), vars);
     if (!isAgent && (ctype === 'Pilot' || ctype === 'client-pilot')) return this._wrap(this._pilotTemplate(vars || {}), vars);
     if (isAgent && ctype === 'Standaardcontract') return this._wrap(this._agentStandard(vars), vars);
     if (isAgent && ctype === 'Addendum — Per afspraak') return this._wrap(this._agentAddendumPerAfspraak(vars), vars);
@@ -25,7 +27,9 @@ window.ContractTemplates = {
       if (ctype === 'Cold calling' || ctype === 'Cold Calling') return 'client-cold-calling';
       if (ctype === 'Pay per appointment' || ctype === 'Pay per Appointment') return 'client-pay-per-appointment';
       if (ctype === 'Commissie' || ctype === 'Commission') return 'client-commissie';
-      if (ctype === 'Pilot') return 'client-pilot';
+      if (ctype === 'Pilot — Leadopvolging') return 'client-pilot-leadopvolging';
+    if (ctype === 'Pilot — Cold Calling') return 'client-pilot-cold-calling';
+    if (ctype === 'Pilot') return 'client-pilot';
       if (ctype === 'Maandelijks abonnement' || ctype === 'Maandelijks') return 'client-maandelijks';
       return 'client'; // fallback for older/unknown client ctypes
     }
@@ -1392,6 +1396,280 @@ ${notes ? `<div class="article"><div class="article-title">Bijzondere voorwaarde
 <div class="sig-section">
   <p class="sig-title">Aanvaarding</p>
   <p style="font-size:10pt;margin-bottom:20px;">De Dienstverlener, Curabond BV (Infinite Scale), vertegenwoordigd door Quinten Eeckhoudt, zaakvoerder, heeft de inhoud van deze overeenkomst reeds nagelezen en goedgekeurd. Deze overeenkomst komt bindend tot stand op het moment waarop de Opdrachtgever hieronder ondertekent.</p>
+  <div style="display:flex;gap:60px;flex-wrap:wrap;">
+    <div class="sig-block">
+      <p class="sig-label">Curabond BV (Infinite Scale) — Quinten Eeckhoudt</p>
+      <p class="sig-sublabel">Dienstverlener — reeds aanvaard bij verzending</p>
+      <div class="sig-line">Datum verzending: ${d}</div>
+    </div>
+    <div class="sig-block">
+      <p class="sig-label">${contact || party || '—'}</p>
+      <p class="sig-sublabel">Opdrachtgever — te ondertekenen</p>
+      <div class="sig-line">Handtekening &amp; datum</div>
+    </div>
+  </div>
+</div>`;
+  },
+
+  _pilotPayTable(pilotPaySel, pilotPayVals, hasBellijst, bellijstPrice, bellijstBron) {
+    const pSel = pilotPaySel || {};
+    const pVals = pilotPayVals || {};
+    const rows = [];
+    if (pSel.perAfspraak) rows.push({ l: 'Vergoeding per gehouden afspraak', v: `€ ${pVals.perAfspraak || '—'},00 excl. btw` });
+    if (pSel.opstartkost) rows.push({ l: 'Opstartkost (eenmalig)', v: `€ ${pVals.opstartkost || '—'},00 excl. btw` });
+    if (pSel.capacityFee) rows.push({ l: 'Vaste maandelijkse capaciteitsfee', v: `€ ${pVals.capacityFee || '—'},00 excl. btw per maand` });
+    if (hasBellijst) rows.push({ l: 'Optionele dienst: opmaak bellijst/leadlijst', v: bellijstPrice || '(nader te bepalen)' });
+    if (!rows.length) return '<div class="highlight">Vergoeding nader te bepalen tussen Partijen.</div>';
+    return `<table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;margin:6px 0 12px;">
+${rows.map(r => `  <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;font-weight:700;width:55%;font-size:10pt;">${r.l}</td><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;font-weight:700;">${r.v}</td></tr>`).join('\n')}
+</table>`;
+  },
+
+  _pilotLeadopvolgingTemplate({ party, contact, vat, address, pilotMonths, pilotPaySel, pilotPayVals, hasBellijst, bellijstPrice, bellijstBron, validApptDef, paymentTerm, date }) {
+    const d = date || new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+    const months = pilotMonths || '2';
+    const term = paymentTerm || '14';
+    const payTable = this._pilotPayTable(pilotPaySel, pilotPayVals, hasBellijst, bellijstPrice, bellijstBron);
+    const qualText = validApptDef || 'Een afspraak is factureerbaar wanneer de lead aanwezig was op het afgesproken tijdstip (show-up) en aantoonbaar voldeed aan de vooraf afgesproken kwalificatiecriteria.';
+    return `
+<div class="doc-header">
+  <div class="doc-header-logo">
+    <img src="https://platform.infinite-scale.be/logo.svg" alt="Infinite Scale" />
+    <span>Infinite Scale</span>
+  </div>
+  <div class="doc-header-meta">
+    Curabond BV &bull; BTW BE1016721633<br>
+    Schoolstraat 43, 9200 Appels
+  </div>
+</div>
+
+<p class="doc-title">Dienstverleningsovereenkomst</p>
+<p class="doc-subtitle">Leadopvolging &amp; Appointment Setting — Piloot</p>
+
+<div class="parties-box">
+  <div class="parties-box-title">De ondergetekenden</div>
+  <div class="party-row">
+    <div class="party-num">1.</div>
+    <div class="party-info">
+      <strong>Curabond BV</strong>, handelend onder de commerciële naam <strong>Infinite Scale</strong>, gevestigd te Schoolstraat 43, 9200 Appels, BTW nr. BE1016721633, vertegenwoordigd door Quinten Eeckhoudt, zaakvoerder, hierna te noemen:<br>
+      <span class="party-label">Dienstverlener</span>
+    </div>
+  </div>
+  <div class="party-row">
+    <div class="party-num">2.</div>
+    <div class="party-info">
+      <strong>${party || '—'}</strong>${vat ? `, BTW nr. ${vat}` : ''}${address ? `, gevestigd te ${address}` : ''}${contact ? `, vertegenwoordigd door ${contact}` : ''}, hierna te noemen:<br>
+      <span class="party-label">Opdrachtgever</span>
+    </div>
+  </div>
+</div>
+
+<p style="margin-bottom:24px;font-size:10.5pt;">Hierna gezamenlijk aangeduid als "de Partijen". Deze overeenkomst vervangt alle voorgaande afspraken over hetzelfde voorwerp.</p>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">1.</span>Voorwerp</div>
+  <p>De Dienstverlener verzorgt telefonische leadopvolging, kwalificatie van inkomende en/of outbound leads, en het inplannen van afspraken in de agenda van de Opdrachtgever ("de Diensten"). De Dienstverlener treedt op als zelfstandige onderneming; er bestaat geen arbeidsrechtelijke verhouding tussen Partijen. De Dienstverlener levert een inspanningsverbintenis, geen resultaatsverbintenis.</p>
+  <p>Deze overeenkomst betreft een pilootperiode om de samenwerking en de kwaliteit van de Diensten te evalueren alvorens Partijen een langduriger engagement aangaan.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">2.</span>Duur en Opstart</div>
+  <p>Pilootperiode van <strong>${months} maanden</strong> te rekenen vanaf de Aanvangsdatum. Daarna stilzwijgend verlengd per 3 maanden, opzegbaar met 30 dagen schriftelijke opzegging. Vroegtijdige beëindiging tijdens de pilot is mogelijk mits 14 dagen schriftelijke kennisgeving.</p>
+  <p>Operationele start 10–14 werkdagen na kick-off. De Opdrachtgever engageert zich om de nodige input (productinformatie, scripts/argumentatie, toegang tot agenda/CRM) zo snel mogelijk na ondertekening aan te leveren.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">3.</span>Vergoeding</div>
+  ${payTable}
+  <p>Een Afspraak is factureerbaar wanneer (a) de lead aanwezig was op het afgesproken tijdstip ("show-up"), én (b) de contactpersoon aantoonbaar voldeed aan onderstaande kwalificatiecriteria.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">4.</span>Kwalificatiecriteria</div>
+  <div class="highlight">${qualText}</div>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">5.</span>No-shows en Annulaties</div>
+  <ul>
+    <li><strong>Lead annuleert / no-show:</strong> Opdrachtgever meldt dit binnen 24 uur schriftelijk. Dienstverlener herneemt contact en tracht opnieuw in te plannen. Lukt dit niet — niet gefactureerd. Geen melding binnen 24 uur = automatisch gefactureerd.</li>
+    <li><strong>Opdrachtgever annuleert afspraak:</strong> Altijd gefactureerd, ongeacht tijdstip van melding.</li>
+  </ul>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">6.</span>Facturatie</div>
+  <p>Maandelijks, einde kalendermaand. Vijf (5) dagen vóór factuurdatum ontvangt de Opdrachtgever een overzicht ter review. Geen reactie binnen 5 dagen = goedgekeurd.</p>
+  <p><strong>Betaaltermijn: ${term} kalenderdagen.</strong> Bij laattijdige betaling is van rechtswege verwijlintrest verschuldigd conform de Wet van 2 augustus 2002, verhoogd met een forfaitaire vergoeding van € 40,00 per factuur.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">7.</span>Verplichtingen</div>
+  <p><strong>Dienstverlener:</strong> voert de Diensten uit als goed vakman, organiseert een kick-off, traint de ingezette medewerkers, rapporteert maandelijks, en verwerkt persoonsgegevens conform de AVG/GDPR.</p>
+  <p><strong>Opdrachtgever:</strong> verstrekt tijdig alle nodige informatie, toegangen en scripts; zorgt voor rechtmatig verkregen leads conform de AVG/GDPR; meldt no-shows tijdig; betaalt facturen tijdig.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">8.</span>Gegevensbescherming &amp; Vertrouwelijkheid</div>
+  <p>Dienstverlener treedt op als verwerker (AVG/GDPR) en geeft persoonsgegevens terug of vernietigt ze na beëindiging. Beide Partijen behandelen alle vertrouwelijke informatie strikt vertrouwelijk gedurende de looptijd en twee (2) jaar erna.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">9.</span>Niet-benadering</div>
+  <p>Gedurende de looptijd en 12 maanden erna mag de Opdrachtgever door de Dienstverlener ingezette medewerkers niet rechtstreeks benaderen, rekruteren of in dienst nemen. Bij overtreding is een forfaitaire schadevergoeding verschuldigd van <strong>€ 10.000,00 per inbreuk</strong>.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">10.</span>Aansprakelijkheid &amp; Beëindiging</div>
+  <p>De aansprakelijkheid van de Dienstverlener is beperkt tot het bedrag dat de Opdrachtgever in de 3 maanden vóór het schadegeval heeft betaald. Geen aansprakelijkheid voor indirecte schade of gederfde winst. Bij 2 onbetaalde facturen kan de Dienstverlener de diensten opschorten of de overeenkomst beëindigen.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">11.</span>Toepasselijk Recht &amp; Overige</div>
+  <p>Belgisch recht. Minnelijke schikking binnen 30 dagen; bij mislukking: Ondernemingsrechtbank van het arrondissement van de Dienstverlener. Wijzigingen enkel geldig indien schriftelijk overeengekomen en ondertekend door beide Partijen.</p>
+</div>
+
+<div class="sig-section">
+  <p class="sig-title">Aanvaarding</p>
+  <p style="font-size:10pt;margin-bottom:20px;">De Dienstverlener heeft de inhoud van deze overeenkomst reeds nagelezen en goedgekeurd. Deze overeenkomst komt bindend tot stand op het moment waarop de Opdrachtgever hieronder ondertekent.</p>
+  <div style="display:flex;gap:60px;flex-wrap:wrap;">
+    <div class="sig-block">
+      <p class="sig-label">Curabond BV (Infinite Scale) — Quinten Eeckhoudt</p>
+      <p class="sig-sublabel">Dienstverlener — reeds aanvaard bij verzending</p>
+      <div class="sig-line">Datum verzending: ${d}</div>
+    </div>
+    <div class="sig-block">
+      <p class="sig-label">${contact || party || '—'}</p>
+      <p class="sig-sublabel">Opdrachtgever — te ondertekenen</p>
+      <div class="sig-line">Handtekening &amp; datum</div>
+    </div>
+  </div>
+</div>`;
+  },
+
+  _coldCallingPilotTemplate({ party, contact, vat, address, pilotMonths, doelsector, doelgroep, herkomstLeads, qualCriteria, pilotPaySel, pilotPayVals, hasBellijst, bellijstPrice, bellijstBron, paymentTerm, date }) {
+    const d = date || new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+    const months = pilotMonths || '2';
+    const term = paymentTerm || '14';
+    const payTable = this._pilotPayTable(pilotPaySel, pilotPayVals, hasBellijst, bellijstPrice, bellijstBron);
+    const criteria = Array.isArray(qualCriteria) ? qualCriteria.filter(c => c && c.text && c.text.trim()) : [];
+    const criteriaHtml = criteria.length > 0
+      ? criteria.map((c, i) => `<p>&#9744; <strong>Criterium ${i + 1}:</strong> ${c.text}</p>`).join('\n  ')
+      : '<p>&#9744; [Criteria nader te bepalen tussen Partijen]</p>';
+    return `
+<div class="doc-header">
+  <div class="doc-header-logo">
+    <img src="https://platform.infinite-scale.be/logo.svg" alt="Infinite Scale" />
+    <span>Infinite Scale</span>
+  </div>
+  <div class="doc-header-meta">
+    Curabond BV &bull; BTW BE1016721633<br>
+    Schoolstraat 43, 9200 Appels
+  </div>
+</div>
+
+<p class="doc-title">Dienstverleningsovereenkomst</p>
+<p class="doc-subtitle">Koude Prospectie (Cold Calling) — Piloot</p>
+
+<div class="parties-box">
+  <div class="parties-box-title">De ondergetekenden</div>
+  <div class="party-row">
+    <div class="party-num">1.</div>
+    <div class="party-info">
+      <strong>Curabond BV</strong>, handelend onder de commerciële naam <strong>Infinite Scale</strong>, gevestigd te Schoolstraat 43, 9200 Appels, BTW nr. BE1016721633, vertegenwoordigd door Quinten Eeckhoudt, zaakvoerder, hierna te noemen:<br>
+      <span class="party-label">Dienstverlener</span>
+    </div>
+  </div>
+  <div class="party-row">
+    <div class="party-num">2.</div>
+    <div class="party-info">
+      <strong>${party || '—'}</strong>${vat ? `, BTW nr. ${vat}` : ''}${address ? `, gevestigd te ${address}` : ''}${contact ? `, vertegenwoordigd door ${contact}` : ''}, hierna te noemen:<br>
+      <span class="party-label">Opdrachtgever</span>
+    </div>
+  </div>
+</div>
+
+<p style="margin-bottom:24px;font-size:10.5pt;">Hierna gezamenlijk aangeduid als "de Partijen". Deze overeenkomst vervangt alle voorgaande afspraken over hetzelfde voorwerp.</p>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">1.</span>Voorwerp</div>
+  <p>De Dienstverlener verzorgt telefonische leadopvolging, kwalificatie van inkomende en/of outbound leads, en het inplannen van afspraken in de agenda van de Opdrachtgever ("de Diensten"), binnen de doelsector en doelgroep hieronder omschreven.</p>
+  <table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;margin:10px 0 12px;">
+    <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;font-weight:700;width:40%;font-size:10pt;">Doelsector / product</td><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;">${doelsector || '—'}</td></tr>
+    <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;font-weight:700;font-size:10pt;">Doelgroep</td><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;">${doelgroep || '—'}</td></tr>
+    <tr><td style="padding:7px 12px;font-weight:700;font-size:10pt;">Herkomst leads</td><td style="padding:7px 12px;">${herkomstLeads || '—'}</td></tr>
+  </table>
+  <p>De Dienstverlener treedt op als zelfstandige onderneming; er bestaat geen arbeidsrechtelijke verhouding tussen Partijen. De Dienstverlener levert een inspanningsverbintenis, geen resultaatsverbintenis.</p>
+  <p>Deze overeenkomst betreft een pilootperiode om de samenwerking en de kwaliteit van de Diensten te evalueren alvorens Partijen een langduriger engagement aangaan.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">2.</span>Duur en Opstart</div>
+  <p>Pilootperiode van <strong>${months} maanden</strong> te rekenen vanaf de Aanvangsdatum. Heeft geen van de Partijen de overeenkomst vóór het einde van deze termijn schriftelijk beëindigd, dan wordt de samenwerking nadien voortgezet voor opeenvolgende periodes van 3 maanden, opzegbaar met 30 dagen schriftelijke opzegging vóór het einde van de lopende periode.</p>
+  <p>Vroegtijdige beëindiging tijdens de initiële pilootperiode is mogelijk mits 14 dagen schriftelijke kennisgeving.</p>
+  <p>Operationele start 10–14 werkdagen na kick-off. Om een vlotte opstart mogelijk te maken engageert de Opdrachtgever zich om de nodige input (productinformatie, scripts/argumentatie, toegang tot agenda/CRM) zo snel mogelijk na ondertekening aan te leveren.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">3.</span>Vergoeding en Kwalificatiecriteria</div>
+  ${payTable}
+  <p>Een Afspraak is factureerbaar wanneer (a) de lead aanwezig was op het afgesproken tijdstip ("show-up"), én (b) de contactpersoon op het moment van contactname aantoonbaar voldeed aan onderstaande kwalificatiecriteria. Dit laatste wordt beoordeeld op basis van de leadgegevens, niet op de uitkomst van het gesprek.</p>
+  <p><strong>Kwalificatiecriteria:</strong></p>
+  ${criteriaHtml}
+  ${hasBellijst ? `<div class="highlight"><strong>Optionele dienst — opmaak bellijst:</strong> De Dienstverlener staat ook in voor de opmaak en het beheer van de bellijst/leadlijst${bellijstBron ? ` (bron: ${bellijstBron})` : ''}.<br>Vergoeding: <strong>${bellijstPrice || '—'}</strong> excl. btw</div>` : ''}
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">4.</span>No-shows en Annulaties</div>
+  <ul>
+    <li><strong>Lead annuleert / no-show:</strong> Opdrachtgever meldt dit binnen 24 uur schriftelijk. Dienstverlener herneemt contact en tracht opnieuw in te plannen. Lukt dit niet — niet gefactureerd. Geen melding binnen 24 uur = automatisch gefactureerd.</li>
+    <li><strong>Opdrachtgever annuleert afspraak:</strong> Altijd gefactureerd, ongeacht tijdstip van melding.</li>
+  </ul>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">5.</span>Facturatie</div>
+  <p>Maandelijks, einde kalendermaand. Vijf (5) dagen vóór factuurdatum ontvangt de Opdrachtgever een overzicht ter review. Geen reactie binnen 5 dagen = goedgekeurd.</p>
+  <p><strong>Betaaltermijn: ${term} kalenderdagen.</strong> Bij laattijdige betaling is van rechtswege verwijlintrest verschuldigd conform de Wet van 2 augustus 2002 betreffende de bestrijding van betalingsachterstand bij handelstransacties, verhoogd met een forfaitaire vergoeding van € 40,00 per factuur voor invorderingskosten.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">6.</span>Verplichtingen</div>
+  <p><strong>Dienstverlener:</strong> voert de Diensten uit als goed vakman, organiseert een kick-off, traint de ingezette medewerkers, rapporteert maandelijks, en verwerkt persoonsgegevens conform de AVG/GDPR.</p>
+  <p><strong>Opdrachtgever:</strong> verstrekt tijdig alle nodige informatie, toegangen en scripts; zorgt voor rechtmatig verkregen leads conform de AVG/GDPR; meldt no-shows tijdig conform artikel 4; betaalt facturen tijdig.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">7.</span>Gegevensbescherming &amp; Vertrouwelijkheid</div>
+  <p>Dienstverlener treedt op als verwerker (AVG/GDPR) en geeft persoonsgegevens terug of vernietigt ze na beëindiging. Opdrachtgever is verwerkingsverantwoordelijke en vrijwaart Dienstverlener voor aanspraken wegens onrechtmatige verwerking die aan de Opdrachtgever te wijten is.</p>
+  <p>Beide Partijen behandelen alle vertrouwelijke informatie strikt vertrouwelijk gedurende de looptijd en twee (2) jaar erna (klantenlijsten, leadgegevens, tarieven, scripts, interne processen en rapportagegegevens).</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">8.</span>Niet-benadering</div>
+  <p>Gedurende de looptijd en 12 maanden erna mag de Opdrachtgever door de Dienstverlener ingezette medewerkers niet rechtstreeks benaderen, rekruteren of in dienst nemen, noch gelijkaardige diensten afnemen buiten deze overeenkomst om. Bij overtreding is een forfaitaire schadevergoeding verschuldigd van <strong>€ 10.000,00 per inbreuk</strong>, onverminderd het recht op hogere schadeloosstelling.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">9.</span>Intellectuele Eigendom</div>
+  <p>Belscripts, callflows, kwalificatiecriteria, methodologieën, sjablonen, rapportagemodellen en tools die de Dienstverlener ontwikkelt of gebruikt, blijven diens exclusieve eigendom. De Opdrachtgever verkrijgt uitsluitend een niet-exclusief, niet-overdraagbaar gebruiksrecht voor de duur van deze overeenkomst.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">10.</span>Aansprakelijkheid &amp; Beëindiging</div>
+  <p>De aansprakelijkheid van de Dienstverlener is, behoudens opzet of zware fout, beperkt tot het bedrag dat de Opdrachtgever in de 3 maanden vóór het schadegeval heeft betaald. Geen aansprakelijkheid voor indirecte schade of gederfde winst.</p>
+  <p>Beëindiging met onmiddellijke ingang is mogelijk bij een ernstige tekortkoming die niet hersteld is binnen 15 dagen na schriftelijke ingebrekestelling. Bij 2 onbetaalde facturen kan de Dienstverlener de diensten opschorten of de overeenkomst beëindigen. Bij beëindiging zijn alle openstaande facturen onmiddellijk opeisbaar.</p>
+</div>
+
+<div class="article">
+  <div class="article-title"><span class="art-num">11.</span>Toepasselijk Recht &amp; Overige</div>
+  <p>Belgisch recht is van toepassing. Partijen streven een minnelijke schikking na binnen 30 dagen. Bij mislukking is uitsluitend de Ondernemingsrechtbank van het arrondissement van de Dienstverlener bevoegd.</p>
+  <p>Wijzigingen zijn enkel geldig indien schriftelijk overeengekomen en ondertekend door beide Partijen. Nietigheid van een bepaling tast de overige bepalingen niet aan.</p>
+</div>
+
+<div class="sig-section">
+  <p class="sig-title">Aanvaarding</p>
+  <p style="font-size:10pt;margin-bottom:20px;">De Dienstverlener, Curabond BV (Infinite Scale), vertegenwoordigd door Quinten Eeckhoudt, zaakvoerder, verklaart bij deze uitdrukkelijk dat hij de inhoud van deze overeenkomst reeds heeft nagelezen en goedgekeurd. Deze overeenkomst komt bindend tot stand op het moment waarop de Opdrachtgever hieronder ondertekent.</p>
   <div style="display:flex;gap:60px;flex-wrap:wrap;">
     <div class="sig-block">
       <p class="sig-label">Curabond BV (Infinite Scale) — Quinten Eeckhoudt</p>

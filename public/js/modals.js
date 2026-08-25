@@ -851,7 +851,7 @@ const Modals = {
       const isAddendum = pt === 'addendum';
       const ctypeOpts = isAgent
         ? [{ v: '', l: 'Kies type…' }, { v: '_h1', l: '── Raamovereenkomst ──', disabled: true }, { v: 'Standaardcontract', l: 'Standaardcontract (raamovereenkomst)' }, { v: '_h2', l: '── Addendum templates (bij raamovereenkomst) ──', disabled: true }, { v: 'Addendum — Per afspraak', l: 'Addendum — Per afspraak' }, { v: 'Addendum — Commissie', l: 'Addendum — Commissie (%)' }, { v: 'Addendum — Uurtarief', l: 'Addendum — Uurtarief' }, { v: '_h3', l: '── Standalone overeenkomsten ──', disabled: true }, { v: 'Service agreement', l: 'Samenwerkingsovereenkomst' }, { v: 'Commission', l: 'Commissieovereenkomst' }, { v: 'Hourly rate', l: 'Uurtariefovereenkomst' }]
-        : [{ v: '', l: 'Kies type…' }, { v: 'Pilot', l: 'Pilot (proefperiode)' }, { v: 'Contract', l: 'MSA / Contract (verlenging / volledig)' }];
+        : [{ v: '', l: 'Kies type…' }, { v: '_hp', l: '── Pilot (proefperiode) ──', disabled: true }, { v: 'Pilot — Leadopvolging', l: 'Pilot — Leadopvolging' }, { v: 'Pilot — Cold Calling', l: 'Pilot — Cold Calling' }, { v: 'Contract', l: 'MSA / Contract (verlenging / volledig)' }];
       const payTermOpts = [{ v: '7', l: '7 kalenderdagen' }, { v: '14', l: '14 kalenderdagen' }, { v: '30', l: '30 kalenderdagen' }];
       const titleFor = isAddendum ? 'Addendum' : pt === 'agent' ? 'Agentcontract' : 'Klantcontract';
 
@@ -1104,46 +1104,84 @@ const Modals = {
             UI.Field('Bijzondere voorwaarden', UI.Area(f.notes, v => this.setForm('notes', v)))) },
         { t: 'Bekijk & verzend', body: step3Body(true, { ctype: f.ctype || 'Standaardcontract', agentName: f.agentName, agentAddress: f.agentAddress, email: f.email, vat: f.vat, rate: f.rate, setupFee: f.setupFee, duration: f.duration, paymentTerm: f.paymentTerm || '14', notes: f.notes }) },
       ] : (() => {
-        const isPilot = f.ctype === 'Pilot';
+        const isPilotLeadopvolging = f.ctype === 'Pilot — Leadopvolging';
+        const isPilotColdCalling = f.ctype === 'Pilot — Cold Calling';
+        const isPilot = isPilotLeadopvolging || isPilotColdCalling;
         if (isPilot) {
           const herkomstOpts = [{ v: '', l: 'Kies…' }, { v: 'eigen leads (opdrachtgever)', l: 'Eigen leads (opdrachtgever)' }, { v: 'leads van Infinite Scale', l: 'Leads van Infinite Scale' }, { v: 'gemengd', l: 'Gemengd' }];
+          const secLbl = (t) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 4 } }, t);
+          const PILOT_PAY = [
+            { k: 'perAfspraak', l: 'Per gehouden afspraak', unit: '€/afspraak', placeholder: 'bv. 75' },
+            { k: 'opstartkost', l: 'Opstartkost (eenmalig)', unit: '€', placeholder: 'bv. 500' },
+            { k: 'capacityFee', l: 'Vaste capaciteitsfee', unit: '€/maand', placeholder: 'bv. 300' },
+          ];
+          const pilotPaySel = f.pilotPaySel || {};
+          const pilotPayVals = f.pilotPayVals || {};
+          const setPPSel = (k, v) => this.setForm('pilotPaySel', { ...pilotPaySel, [k]: v });
+          const setPPVal = (k, v) => this.setForm('pilotPayVals', { ...pilotPayVals, [k]: v });
+          const qualCriteria = Array.isArray(f.qualCriteria) && f.qualCriteria.length > 0 ? f.qualCriteria : [{ text: '' }];
+          const addCrit = () => this.setForm('qualCriteria', [...qualCriteria, { text: '' }]);
+          const remCrit = (i) => this.setForm('qualCriteria', qualCriteria.filter((_, idx) => idx !== i));
+          const updCrit = (i, val) => { const next = qualCriteria.map((c, idx) => idx === i ? { text: val } : c); this.setForm('qualCriteria', next); };
+
+          const bedrijfsStep = { t: 'Bedrijfsgegevens', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+            UI.Grid('1fr 1fr', 10, UI.Field('Bedrijfsnaam', UI.Input(f.company, v => this.setForm('company', v), 'ACME BV')), UI.Field('Contactpersoon + functie', UI.Input(f.contact, v => this.setForm('contact', v), 'Jan Janssen, Zaakvoerder'))),
+            UI.Grid('1fr 1fr', 10, UI.Field('BTW-nummer', UI.Input(f.vat, v => this.setForm('vat', v), 'BE 0123.456.789')), UI.Field('E-mail', UI.Input(f.email, v => this.setForm('email', v), 'naam@bedrijf.be', 'email'))),
+            UI.Field('Adres', UI.Input(f.address, v => this.setForm('address', v), 'Kerkstraat 1, 9000 Gent'))) };
+
+          const vergoedingStep = { t: 'Vergoeding', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+            secLbl('Vergoedingsstructuur — selecteer wat van toepassing is'),
+            e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+              ...PILOT_PAY.map(pt =>
+                e('div', { key: pt.k, style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+                  e('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)', minWidth: 240 } },
+                    e('input', { type: 'checkbox', checked: !!pilotPaySel[pt.k], onChange: ev => setPPSel(pt.k, ev.target.checked) }), pt.l),
+                  pilotPaySel[pt.k] ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                    e('input', { type: 'number', min: 0, step: 0.01, value: pilotPayVals[pt.k] || '', onChange: ev => setPPVal(pt.k, ev.target.value), placeholder: pt.placeholder, style: { width: 90, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' } }),
+                    e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, pt.unit)) : null))),
+            e('div', { style: { height: 1, background: 'var(--border)', margin: '2px 0' } }),
+            e('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' } },
+              e('input', { type: 'checkbox', checked: !!f.hasBellijst, onChange: ev => this.setForm('hasBellijst', ev.target.checked) }),
+              'Optionele dienst: Infinite Scale stelt ook de bellijst/leadlijst op'),
+            f.hasBellijst ? UI.Grid('1fr 1fr', 10,
+              UI.Field('Prijs bellijst', UI.Input(f.bellijstPrice || '', v => this.setForm('bellijstPrice', v), 'bv. €150 eenmalig')),
+              UI.Field('Bron contactgegevens', UI.Input(f.bellijstBron || '', v => this.setForm('bellijstBron', v), 'bv. LinkedIn Sales Navigator'))) : null,
+            e('div', { style: { height: 1, background: 'var(--border)', margin: '2px 0' } }),
+            UI.Grid('1fr 1fr', 10,
+              UI.Field('Pilootduur (maanden)', UI.Input(f.pilotMonths || '2', v => this.setForm('pilotMonths', v), '2', 'number')),
+              UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts))) };
+
+          const pilotVarsBase = { party: f.company, contact: f.contact, email: f.email, vat: f.vat, address: f.address, pilotMonths: f.pilotMonths || '2', paymentTerm: f.paymentTerm || '14', pilotPaySel: f.pilotPaySel || {}, pilotPayVals: f.pilotPayVals || {}, hasBellijst: f.hasBellijst, bellijstPrice: f.bellijstPrice, bellijstBron: f.bellijstBron };
+
+          if (isPilotLeadopvolging) {
+            return [
+              bedrijfsStep,
+              { t: 'Kwalificatiecriteria', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+                e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.07em' } }, 'Wanneer is een afspraak factureerbaar?'),
+                UI.Field('Definitie geldige afspraak', UI.Area(f.validApptDef || '', v => this.setForm('validApptDef', v), 'Een afspraak is factureerbaar wanneer de lead aanwezig was op het afgesproken tijdstip (show-up) en voldeed aan de vooraf afgesproken criteria…'))) },
+              vergoedingStep,
+              { t: 'Bekijk & verzend', body: step3Body(false, { ctype: 'Pilot — Leadopvolging', ...pilotVarsBase, validApptDef: f.validApptDef }) },
+            ];
+          }
+
           return [
-            { t: 'Bedrijfsgegevens', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-                UI.Grid('1fr 1fr', 10, UI.Field('Bedrijfsnaam', UI.Input(f.company, v => this.setForm('company', v), 'ACME BV')), UI.Field('Contactpersoon + functie', UI.Input(f.contact, v => this.setForm('contact', v), 'Jan Janssen, Zaakvoerder'))),
-                UI.Grid('1fr 1fr', 10, UI.Field('BTW-nummer', UI.Input(f.vat, v => this.setForm('vat', v), 'BE 0123.456.789')), UI.Field('E-mail', UI.Input(f.email, v => this.setForm('email', v), 'naam@bedrijf.be', 'email'))),
-                UI.Field('Adres', UI.Input(f.address, v => this.setForm('address', v), 'Kerkstraat 1, 9000 Gent'))) },
-            { t: 'Scope & Looptijd', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-                UI.Field('Doelsector / product', UI.Input(f.doelsector || '', v => this.setForm('doelsector', v), 'bv. KMO-energie, HR-software')),
-                UI.Field('Doelgroep', UI.Input(f.doelgroep || '', v => this.setForm('doelgroep', v), 'bv. B2B KMO Vlaanderen')),
-                UI.Field('Herkomst leads', UI.Select(f.herkomstLeads || '', v => this.setForm('herkomstLeads', v), herkomstOpts)),
-                UI.Grid('1fr 1fr', 10,
-                  UI.Field('Pilootduur (maanden)', UI.Input(f.pilotMonths || '2', v => this.setForm('pilotMonths', v), '2', 'number')),
-                  UI.Field('Min. leads per week', UI.Input(f.minLeadsPerWeek || '', v => this.setForm('minLeadsPerWeek', v), 'bv. 25 of leeg', 'number')))) },
-            { t: 'Vergoeding', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-                UI.Field('Vergoeding per gehouden afspraak (€)', UI.Input(f.ratePerAppt || '', v => this.setForm('ratePerAppt', v), 'bv. 75', 'number')),
-                UI.Grid('1fr 1fr', 10,
-                  UI.Field('Opstartkost (€, 0 = geen)', UI.Input(f.setupFee || '0', v => this.setForm('setupFee', v), '0', 'number')),
-                  UI.Field('Capaciteitsfee/maand (€, 0 = geen)', UI.Input(f.capacityFee || '0', v => this.setForm('capacityFee', v), '0', 'number'))),
-                UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts))) },
+            bedrijfsStep,
+            { t: 'Scope & Doelgroep', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+              UI.Field('Doelsector / product', UI.Input(f.doelsector || '', v => this.setForm('doelsector', v), 'bv. thuisbatterijen, zonnepanelen')),
+              UI.Field('Doelgroep', UI.Input(f.doelgroep || '', v => this.setForm('doelgroep', v), 'bv. B2B — KMO, Vlaanderen, beslisser')),
+              UI.Field('Herkomst leads', UI.Select(f.herkomstLeads || '', v => this.setForm('herkomstLeads', v), herkomstOpts))) },
             { t: 'Kwalificatiecriteria', body: e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
-                e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.07em' } }, 'Kwalificatiecriteria voor een factureerbare afspraak'),
-                UI.Grid('1fr 1fr', 10,
-                  UI.Field('Criterium 1 — Sector (verplicht)', UI.Input(f.qual1Sector || '', v => this.setForm('qual1Sector', v), 'bv. Industrie / productie')),
-                  UI.Field('Verificatiebron', UI.Input(f.qual1Bron || '', v => this.setForm('qual1Bron', v), 'bv. LinkedIn, website'))),
-                UI.Field('Criterium 2 — Bedrijfsgrootte / profiel', UI.Input(f.qual2Range || '', v => this.setForm('qual2Range', v), 'bv. 10–200 medewerkers')),
-                UI.Field('Criterium 3 — Functie / rol contactpersoon', UI.Input(f.qual3Function || '', v => this.setForm('qual3Function', v), 'bv. Zaakvoerder, HR-manager')),
-                UI.Field('Criterium 4 — Aanvullend (optioneel)', UI.Input(f.qual4Extra || '', v => this.setForm('qual4Extra', v), 'Leeg laten indien niet van toepassing')),
-                e('div', { style: { height: 1, background: 'var(--border)', margin: '2px 0' } }),
-                e('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-dim)' } },
-                  e('input', { type: 'checkbox', checked: !!f.hasBellijst, onChange: ev => this.setForm('hasBellijst', ev.target.checked) }),
-                  'Optionele dienst: Infinite Scale stelt ook de bellijst/leadlijst op'),
-                f.hasBellijst ? UI.Grid('1fr 1fr', 10,
-                  UI.Field('Prijs bellijst', UI.Input(f.bellijstPrice || '', v => this.setForm('bellijstPrice', v), 'bv. €150 eenmalig')),
-                  UI.Field('Bron contactgegevens', UI.Input(f.bellijstBron || '', v => this.setForm('bellijstBron', v), 'bv. LinkedIn Sales Navigator'))) : null) },
-            { t: 'Bekijk & verzend', body: (() => {
-                const pilotVars = { ctype: 'client-pilot', party: f.company, contact: f.contact, email: f.email, vat: f.vat, address: f.address, doelsector: f.doelsector, doelgroep: f.doelgroep, herkomstLeads: f.herkomstLeads, pilotMonths: f.pilotMonths || '2', minLeadsPerWeek: f.minLeadsPerWeek, ratePerAppt: f.ratePerAppt, setupFee: f.setupFee, capacityFee: f.capacityFee, qual1Sector: f.qual1Sector, qual1Bron: f.qual1Bron, qual2Range: f.qual2Range, qual3Function: f.qual3Function, qual4Extra: f.qual4Extra, hasBellijst: f.hasBellijst, bellijstPrice: f.bellijstPrice, bellijstBron: f.bellijstBron, paymentTerm: f.paymentTerm || '14' };
-                return step3Body(false, pilotVars);
-              })() },
+              e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.07em' } }, 'Kwalificatiecriteria voor een factureerbare afspraak'),
+              e('div', { style: { fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.5 } }, 'Elk criterium wordt opgenomen in het contract. Voeg toe of verwijder naar wens.'),
+              e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                ...qualCriteria.map((c, i) =>
+                  e('div', { key: i, style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                    e('span', { style: { fontSize: 12, color: 'var(--text-mute)', minWidth: 82, fontWeight: 600, flexShrink: 0 } }, `Criterium ${i + 1}:`),
+                    e('input', { value: c.text, onChange: ev => updCrit(i, ev.target.value), placeholder: i === 0 ? 'bv. Bedrijf actief in doelsector' : i === 1 ? 'bv. Beslisser aan de lijn' : 'bv. Min. 10 medewerkers', style: { flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' } }),
+                    qualCriteria.length > 1 ? e('button', { onClick: () => remCrit(i), style: { padding: '6px 10px', background: 'var(--surface-2)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, flexShrink: 0 } }, '✕') : null))),
+              e('button', { onClick: addCrit, style: { alignSelf: 'flex-start', padding: '6px 14px', background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-dim)', fontSize: 13, marginTop: 4 } }, '+ Criterium toevoegen')) },
+            vergoedingStep,
+            { t: 'Bekijk & verzend', body: step3Body(false, { ctype: 'Pilot — Cold Calling', ...pilotVarsBase, doelsector: f.doelsector, doelgroep: f.doelgroep, herkomstLeads: f.herkomstLeads, qualCriteria: f.qualCriteria && f.qualCriteria.length > 0 ? f.qualCriteria : [{ text: '' }] }) },
           ];
         }
         return [
