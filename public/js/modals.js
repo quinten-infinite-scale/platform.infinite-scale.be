@@ -1156,7 +1156,7 @@ const Modals = {
             e('div', { style: { height: 1, background: 'var(--border)', margin: '2px 0' } }),
             UI.Grid('1fr 1fr', 10,
               UI.Field('Pilootduur (maanden)', UI.Input(f.pilotMonths || '2', v => this.setForm('pilotMonths', v), '2', 'number')),
-              UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts))) };
+              UI.Field('Betaaltermijn', UI.Select(String(f.paymentTerm || '14'), v => this.setForm('paymentTerm', v), payTermOpts)))) };
 
           const pilotVarsBase = { party: f.company, contact: f.contact, email: f.email, vat: f.vat, address: f.address, pilotMonths: f.pilotMonths || '2', paymentTerm: f.paymentTerm || '14', pilotPaySel: f.pilotPaySel || {}, pilotPayVals: f.pilotPayVals || {}, hasBellijst: f.hasBellijst, bellijstPrice: f.bellijstPrice, bellijstBron: f.bellijstBron };
 
