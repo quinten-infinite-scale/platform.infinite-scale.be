@@ -1924,7 +1924,7 @@ const ScreenAdmin = {
         { label: 'Agent', render: x => e('span', { style: { color: x.active ? 'var(--text)' : 'var(--text-mute)', fontWeight: 700 } }, x.name) },
         { label: 'Status', render: x => !x.active ? UI.Pill('Deactivated', 'var(--text-mute)', 'var(--bg-2)') : UI.Row({}, e('span', { style: { width: 8, height: 8, borderRadius: '50%', background: x.working ? 'var(--up)' : 'var(--text-mute)' } }), e('span', { style: { fontSize: 12.5, color: x.working ? 'var(--up)' : 'var(--text-mute)', fontWeight: 600 } }, x.working ? 'Working' : 'Offline')) },
         { label: 'Stage', align: 'center', render: x => UI.Pill({ launched: 'Launched', started: 'Started', signed: 'Signed' }[x.status] || x.status, 'var(--violet)', 'oklch(0.30 0.05 295)') },
-        { label: 'Clients', render: x => (x.clients || []).map(c => this.clientName(c, d).split(' ')[0]).join(', ') },
+        { label: 'Clients', render: x => [...new Set((x.clients || []).filter(c => d.clients.find(cl => cl.id === c)).map(c => this.clientName(c, d).split(' ')[0]))].join(', ') },
         { label: 'Dials today', align: 'right', render: x => UI.Mono((d.dials[x.id] || {})[today] || 0, { fontWeight: 700 }) },
         { label: '', align: 'right', render: x => UI.Btn('Open', () => this.openModal('agentProfile', { id: x.id }), 'soft', { padding: '5px 12px', fontSize: 12 }) },
       ], d.agents, { min: 720 })));
