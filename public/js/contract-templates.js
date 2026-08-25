@@ -1416,9 +1416,10 @@ ${notes ? `<div class="article"><div class="article-title">Bijzondere voorwaarde
     const pVals = pilotPayVals || {};
     const rows = [];
     if (pSel.perAfspraak) rows.push({ l: 'Vergoeding per gehouden afspraak', v: `€ ${pVals.perAfspraak || '—'},00 excl. btw` });
+    if (pSel.perUur) rows.push({ l: 'Vergoeding per uur', v: `€ ${pVals.perUur || '—'},00 excl. btw per uur` });
+    if (pSel.commissie) rows.push({ l: 'Commissie op gefactureerde omzet', v: `${pVals.commissie || '—'}%` });
     if (pSel.opstartkost) rows.push({ l: 'Opstartkost (eenmalig)', v: `€ ${pVals.opstartkost || '—'},00 excl. btw` });
     if (pSel.capacityFee) rows.push({ l: 'Vaste maandelijkse capaciteitsfee', v: `€ ${pVals.capacityFee || '—'},00 excl. btw per maand` });
-    if (hasBellijst) rows.push({ l: 'Optionele dienst: opmaak bellijst/leadlijst', v: bellijstPrice || '(nader te bepalen)' });
     if (!rows.length) return '<div class="highlight">Vergoeding nader te bepalen tussen Partijen.</div>';
     return `<table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;margin:6px 0 12px;">
 ${rows.map(r => `  <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;font-weight:700;width:55%;font-size:10pt;">${r.l}</td><td style="padding:7px 12px;border-bottom:1px solid #e8e8e8;font-weight:700;">${r.v}</td></tr>`).join('\n')}
@@ -1607,7 +1608,7 @@ ${rows.map(r => `  <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8
   <div class="article-title"><span class="art-num">2.</span>Duur en Opstart</div>
   <p>Pilootperiode van <strong>${months} maanden</strong> te rekenen vanaf de Aanvangsdatum. Heeft geen van de Partijen de overeenkomst vóór het einde van deze termijn schriftelijk beëindigd, dan wordt de samenwerking nadien voortgezet voor opeenvolgende periodes van 3 maanden, opzegbaar met 30 dagen schriftelijke opzegging vóór het einde van de lopende periode.</p>
   <p>Vroegtijdige beëindiging tijdens de initiële pilootperiode is mogelijk mits 14 dagen schriftelijke kennisgeving.</p>
-  <p>Operationele start 10–14 werkdagen na kick-off. Om een vlotte opstart mogelijk te maken engageert de Opdrachtgever zich om de nodige input (productinformatie, scripts/argumentatie, toegang tot agenda/CRM) zo snel mogelijk na ondertekening aan te leveren.</p>
+  <p>Operationele start 10–14 werkdagen na kick-off.</p>
 </div>
 
 <div class="article">

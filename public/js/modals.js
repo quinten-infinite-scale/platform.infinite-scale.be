@@ -1119,6 +1119,8 @@ const Modals = {
           const secLbl = (t) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 4 } }, t);
           const PILOT_PAY = [
             { k: 'perAfspraak', l: 'Per gehouden afspraak', unit: '€/afspraak', placeholder: 'bv. 75' },
+            { k: 'perUur', l: 'Per uur', unit: '€/uur', placeholder: 'bv. 45' },
+            { k: 'commissie', l: 'Commissie', unit: '%', placeholder: 'bv. 10', step: '0.1' },
             { k: 'opstartkost', l: 'Opstartkost (eenmalig)', unit: '€', placeholder: 'bv. 500' },
             { k: 'capacityFee', l: 'Vaste capaciteitsfee', unit: '€/maand', placeholder: 'bv. 300' },
           ];
@@ -1144,7 +1146,7 @@ const Modals = {
                   e('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)', minWidth: 240 } },
                     e('input', { type: 'checkbox', checked: !!pilotPaySel[pt.k], onChange: ev => setPPSel(pt.k, ev.target.checked) }), pt.l),
                   pilotPaySel[pt.k] ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-                    e('input', { type: 'number', min: 0, step: 0.01, value: pilotPayVals[pt.k] || '', onChange: ev => setPPVal(pt.k, ev.target.value), placeholder: pt.placeholder, style: { width: 90, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' } }),
+                    e('input', { type: 'number', min: 0, step: pt.step || 0.01, value: pilotPayVals[pt.k] || '', onChange: ev => setPPVal(pt.k, ev.target.value), placeholder: pt.placeholder, style: { width: 90, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' } }),
                     e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, pt.unit)) : null))),
             e('div', { style: { height: 1, background: 'var(--border)', margin: '2px 0' } }),
             e('label', { style: { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text)' } },
