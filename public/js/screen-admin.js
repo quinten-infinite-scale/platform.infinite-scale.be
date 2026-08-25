@@ -2080,7 +2080,12 @@ const ScreenAdmin = {
       { id: 'hired', label: 'Hired', color: 'var(--up)' },
       { id: 'not_qualified', label: 'Not qualified', color: 'var(--text-mute)' },
     ];
-    const stages = s._recruitStages || defaultStages;
+    // Auto-include any stage values from data that aren't in the list
+    const baseStages = s._recruitStages || defaultStages;
+    const knownIds = new Set(baseStages.map(sg => sg.id));
+    const extraStages = [...new Set((d.recruits || []).map(r => r.stage).filter(Boolean).filter(id => !knownIds.has(id)))]
+      .map(id => ({ id, label: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), color: 'var(--text-dim)' }));
+    const stages = [...baseStages, ...extraStages];
     const dragOver = s._recruitDragOver || null;
 
     const onDragStart = id => { this._recruitDragId = id; };
@@ -2106,24 +2111,33 @@ const ScreenAdmin = {
 
     // Table column definitions
     const cols = [
-      { label: 'Name', key: 'name', w: '160px', bold: true },
-      { label: 'Role', key: 'position', w: '140px' },
-      { label: 'Country', key: 'country', w: '90px' },
-      { label: 'Source', key: 'source', w: '100px', pill: true },
-      { label: 'Language', key: 'lang', w: '90px' },
-      { label: 'Phone', key: 'phone', w: '120px', mono: true },
+      { label: 'Name', key: 'name', w: 150, bold: true },
+      { label: 'Role', key: 'position', w: 130 },
+      { label: 'Country', key: 'country', w: 90 },
+      { label: 'Age', key: 'age', w: 55 },
+      { label: 'Gender', key: 'gender', w: 75 },
+      { label: 'Source', key: 'source', w: 120, pill: true },
+      { label: 'Language', key: 'lang', w: 130 },
+      { label: 'Phone', key: 'phone', w: 130, mono: true },
+      { label: 'Email', key: 'email', w: 180, mono: true },
+      { label: 'Experience', key: 'experience', w: 110 },
+      { label: 'Start', key: 'start', w: 90 },
+      { label: 'Availability', key: 'avail', w: 130, arr: true },
+      { label: 'Motivation', key: 'motivation', w: 220 },
     ];
 
+    const totalW = 28 + cols.reduce((s, c) => s + c.w, 0);
     const cellStyle = (col) => ({
-      width: col.w, minWidth: col.w, maxWidth: col.w,
+      width: col.w + 'px', minWidth: col.w + 'px', maxWidth: col.w + 'px',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       fontSize: 11.5, padding: '0 8px', boxSizing: 'border-box', flexShrink: 0,
     });
 
     const headerRow = e('div', {
-      style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', background: 'var(--bg)', position: 'sticky', top: 0, zIndex: 1, paddingLeft: 28 },
+      style: { display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--border)', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 2, paddingLeft: 0, minWidth: totalW + 'px' },
     },
-      cols.map(col => e('div', { key: col.key, style: { ...cellStyle(col), fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.04em', textTransform: 'uppercase', padding: '5px 8px' } }, col.label)));
+      e('div', { style: { width: 28, flexShrink: 0 } }),
+      cols.map(col => e('div', { key: col.key, style: { ...cellStyle(col), fontSize: 10, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', padding: '5px 8px' } }, col.label)));
 
     const candidateRow = (it, stageColor) => e('div', {
       key: it.id,
@@ -2131,21 +2145,22 @@ const ScreenAdmin = {
       onDragStart: () => onDragStart(it.id),
       onDragEnd,
       onClick: () => this.openModal('recruitProfile', { id: it.id }),
-      style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'grab', minHeight: 27, paddingLeft: 4, transition: 'background .1s' },
+      style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'grab', minHeight: 27, transition: 'background .1s', minWidth: totalW + 'px' },
       onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; },
       onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; },
     },
-      // drag handle / color stripe
-      e('div', { style: { width: 24, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+      e('div', { style: { width: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
         e('span', { style: { width: 3, height: 14, borderRadius: 2, background: stageColor, display: 'inline-block', opacity: 0.7 } })),
       cols.map(col => {
-        const val = it[col.key] || '';
-        const style = { ...cellStyle(col), color: col.bold ? 'var(--text)' : 'var(--text-dim)', fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono'" : undefined };
+        let val = it[col.key];
+        if (col.arr && Array.isArray(val)) val = val.join(', ');
+        val = val || '';
         if (col.pill && val) {
           return e('div', { key: col.key, style: { ...cellStyle(col), display: 'flex', alignItems: 'center' } },
             e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px' } }, val));
         }
-        return e('div', { key: col.key, style }, val || e('span', { style: { color: 'var(--border)' } }, '—'));
+        const style = { ...cellStyle(col), color: col.bold ? 'var(--text)' : 'var(--text-dim)', fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined };
+        return e('div', { key: col.key, style }, val || e('span', { style: { color: 'var(--border-soft)' } }, '—'));
       }));
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
@@ -2155,8 +2170,8 @@ const ScreenAdmin = {
         e('div', { style: { display: 'flex', gap: 8 } },
           UI.Btn('Preview intake form', () => this.openModal('intakeForm'), 'ghost'))),
 
-      // Sticky header row
-      e('div', { style: { border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' } },
+      // Scrollable table
+      e('div', { style: { border: '1px solid var(--border)', borderRadius: 8, overflowX: 'auto', overflowY: 'visible' } },
         headerRow,
 
         // Stages stacked vertically
@@ -2171,7 +2186,7 @@ const ScreenAdmin = {
             style: { borderTop: si > 0 ? '2px solid var(--border)' : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s' },
           },
             // Stage header
-            e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none' }, onClick: () => toggleCollapse(sg.id) },
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none', minWidth: totalW + 'px' }, onClick: () => toggleCollapse(sg.id) },
               e('span', { style: { fontSize: 10, color: 'var(--text-mute)', width: 16, textAlign: 'center', transition: 'transform .15s', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'none' } }, '▾'),
               e('span', { style: { width: 8, height: 8, borderRadius: '50%', background: sg.color, display: 'inline-block', flexShrink: 0 } }),
               e('input', {
