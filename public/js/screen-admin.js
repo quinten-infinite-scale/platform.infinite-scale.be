@@ -2070,9 +2070,12 @@ const ScreenAdmin = {
               onDragEnd: onDragEnd,
               onClick: () => this.openModal('timelineDetail', { clientId: c.id }),
               style: { background: 'var(--bg)', borderRadius: 8, padding: '10px 10px 8px', cursor: 'grab', boxShadow: '0 1px 4px oklch(0 0 0 / .12)', border: `1px solid ${late ? 'var(--down)' : 'var(--border-soft)'}`, userSelect: 'none' } },
-              e('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 4, color: 'var(--text)' } }, c.name),
-              koDate ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 4 } }, '📅 Kickoff: ' + this.fmtFull(koDate)) : null,
-              linkedName ? e('div', { style: { fontSize: 11.5, color: linkedAgent ? 'var(--up)' : 'var(--accent)', fontWeight: 600, marginBottom: 4 } }, '→ ' + linkedName + (linkedAgent ? '' : ' (recruit)')) : e('div', { style: { fontSize: 11, color: 'var(--warn)', marginBottom: 4 } }, '⚠ Geen agent'),
+              e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 } },
+                e('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--text)' } }, c.name),
+                e('button', { onClick: ev => { ev.stopPropagation(); if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timelineStage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); } }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, padding: '0 0 0 4px', lineHeight: 1 } }, '×')),
+              koDate ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 3 } }, '📅 Kickoff: ' + this.fmtFull(koDate)) : null,
+              c.agentStartDate ? e('div', { style: { fontSize: 11, color: 'var(--up)', marginBottom: 3, fontWeight: 600 } }, '🚀 Start agent: ' + this.fmtFull(c.agentStartDate)) : null,
+              linkedName ? e('div', { style: { fontSize: 11.5, color: linkedAgent ? 'var(--up)' : 'var(--accent)', fontWeight: 600, marginBottom: 3 } }, '→ ' + linkedName + (linkedAgent ? '' : ' (recruit)')) : e('div', { style: { fontSize: 11, color: 'var(--warn)', marginBottom: 3 } }, '⚠ Geen agent'),
               daysSinceKo !== null ? e('div', { style: { fontSize: 10.5, color: late ? 'var(--down)' : 'var(--text-mute)', fontWeight: late ? 700 : 400 } }, late ? `⚡ Dag ${daysSinceKo} (target: dag ${targetDay})` : `Dag ${daysSinceKo}`) : null);
           })
         );

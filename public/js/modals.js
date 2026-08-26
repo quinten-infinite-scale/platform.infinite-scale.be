@@ -85,13 +85,35 @@ const Modals = {
         ? (rnData ? e('div', null,
             UI.Sub('Renocheck lead data', { marginBottom: 8 }),
             e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: '12px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
-              ...[['Categorie', rnData.category], ['Email', rnData.email], ['Adres', rnData.address], ['Postcode', rnData.postal_code], ['Gemeente', rnData.city]].filter(([,v]) => v).map(([k, v]) =>
+              ...[
+                ['Categorie', rnData.category],
+                ['Email', rnData.email],
+                ['Straat', rnData.street ? rnData.street + (rnData.number ? ' ' + rnData.number : '') : null],
+                ['Postcode', rnData.zipcode],
+                ['Gemeente', rnData.city],
+                ...(rnData.data ? [
+                  ['Eigenaar', rnData.data.eigenaar],
+                  ['Type dak', rnData.data.type_dak],
+                  ['Grootte dak', rnData.data.groote_dak],
+                  ['Zonnepanelen', rnData.data.zonnepanelen],
+                  ['Zonnepanelen gewenst', rnData.data.zonnepanelen_gewenst],
+                  ['Asbest', rnData.data.asbest],
+                  ['Lekkages', rnData.data.lekkages],
+                  ['Isolatie nodig', rnData.data.isolatie_nodig],
+                  ['Dikte isolatie', rnData.data.dikte_isolatie],
+                  ['Kleur dakpannen', rnData.data.kleur_dakpannen],
+                  ['Timing', rnData.data.timing],
+                  ['Financiering', rnData.data.financiering],
+                  ['Premie aanvraag', rnData.data.premie_aanvraag],
+                  ['Voorkeur belmoment', Array.isArray(rnData.data.voorkeur_belmoment) ? rnData.data.voorkeur_belmoment.join(', ') : rnData.data.voorkeur_belmoment],
+                ] : []),
+              ].filter(([,v]) => v).map(([k, v]) =>
                 e('div', { key: k },
                   e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, k),
                   e('div', { style: { fontSize: 13, color: 'var(--text)' } }, v))),
-              rnData.description ? e('div', { key: 'desc', style: { gridColumn: '1 / -1' } },
-                e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, 'Omschrijving'),
-                e('div', { style: { fontSize: 13, color: 'var(--text)', lineHeight: 1.5 } }, rnData.description)) : null))
+              rnData.data?.info_project ? e('div', { key: 'info', style: { gridColumn: '1 / -1' } },
+                e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, 'Info project'),
+                e('div', { style: { fontSize: 13, color: 'var(--text)', lineHeight: 1.5 } }, rnData.data.info_project)) : null))
           : e('div', null, UI.Sub('Renocheck lead data', { marginBottom: 8 }), e('div', { style: { fontSize: 13, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Geen lead data beschikbaar.')))
         : e('div', null,
             UI.Sub('Client feedback', { marginBottom: 8 }),
@@ -193,18 +215,69 @@ const Modals = {
       const sel = d.clients.find(c => c.id === f.client);
       const isRenocheck = f.client === 'c15';
       const RN_CATS = ['Airco','Thuisbatt','Zonnepanelen','Ramen en deuren','Keukens','Badkamers','Crepi','Dak'];
+      const isDak = isRenocheck && f.rnCategory === 'Dak';
+      const JaNee = (key) => e('div', { style: { display: 'flex', gap: 6 } },
+        ['ja', 'nee'].map(opt => e('button', { key: opt, type: 'button', onClick: () => this.setForm(key, opt),
+          style: { padding: '5px 16px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            borderColor: f[key] === opt ? 'var(--accent)' : 'var(--border)',
+            background: f[key] === opt ? 'var(--accent)' : 'transparent',
+            color: f[key] === opt ? '#fff' : 'var(--text)' } }, opt)));
+      const BelMoment = () => {
+        const opts = ['Voormiddag (9-12u)', 'Namiddag (14-17u)', 'Avond (17-20u)'];
+        const sel = f.rnBelmoment || [];
+        return e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+          opts.map(opt => {
+            const on = sel.includes(opt);
+            return e('button', { key: opt, type: 'button',
+              onClick: () => this.setForm('rnBelmoment', on ? sel.filter(x => x !== opt) : [...sel, opt]),
+              style: { padding: '5px 12px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                borderColor: on ? 'var(--accent)' : 'var(--border)',
+                background: on ? 'var(--accent)' : 'transparent',
+                color: on ? '#fff' : 'var(--text)' } }, opt);
+          }));
+      };
       const rnForm = isRenocheck ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 12, border: '1px solid var(--accent)', background: 'oklch(0.84 0.16 194 / 0.07)' } },
         e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 } }, 'Renocheck Lead Form'),
         UI.Field('Categorie', UI.Select(f.rnCategory || '', v => this.setForm('rnCategory', v), [{ v: '', l: 'Selecteer categorie…' }, ...RN_CATS.map(c => ({ v: c, l: c }))])),
         UI.Grid('1fr 1fr', 10,
-          UI.Field('Volledige naam', UI.Input(f.lead, v => this.setForm('lead', v), 'Jan Janssens')),
-          UI.Field('Telefoon', UI.Input(f.phone, v => this.setForm('phone', v), '+32…'))),
-        UI.Field('E-mailadres', UI.Input(f.rnEmail || '', v => this.setForm('rnEmail', v), 'jan@example.be', 'email')),
-        UI.Field('Adres', UI.Input(f.rnAddress || '', v => this.setForm('rnAddress', v), 'Schoolstraat 43')),
+          UI.Field('Voornaam', UI.Input(f.rnFirst || '', v => this.setForm('rnFirst', v), 'Jan')),
+          UI.Field('Achternaam', UI.Input(f.rnLast || '', v => this.setForm('rnLast', v), 'Janssens'))),
         UI.Grid('1fr 1fr', 10,
+          UI.Field('Telefoon', UI.Input(f.phone, v => this.setForm('phone', v), '+32 470 12 34 56')),
+          UI.Field('E-mailadres', UI.Input(f.rnEmail || '', v => this.setForm('rnEmail', v), 'jan@example.be', 'email'))),
+        UI.Grid('3fr 1fr', 10,
+          UI.Field('Straat', UI.Input(f.rnStreet || '', v => this.setForm('rnStreet', v), 'Korenmarkt')),
+          UI.Field('Nr.', UI.Input(f.rnNumber || '', v => this.setForm('rnNumber', v), '12'))),
+        UI.Grid('1fr 2fr', 10,
           UI.Field('Postcode', UI.Input(f.rnPostal || '', v => this.setForm('rnPostal', v), '9000')),
           UI.Field('Gemeente', UI.Input(f.rnCity || '', v => this.setForm('rnCity', v), 'Gent'))),
-        UI.Field('Omschrijving', UI.Area(f.rnDesc || '', v => this.setForm('rnDesc', v), 'Beschrijf de aanvraag…'))) : null;
+        isDak ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8, borderTop: '1px solid var(--border-soft)', marginTop: 4 } },
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Dakgegevens'),
+          UI.Grid('1fr 1fr', 10,
+            UI.Field('Eigenaar?', JaNee('rnEigenaar')),
+            UI.Field('Type dak', e('div', { style: { display: 'flex', gap: 6 } },
+              ['Hellend', 'Plat'].map(opt => e('button', { key: opt, type: 'button', onClick: () => this.setForm('rnTypeDak', opt),
+                style: { padding: '5px 16px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  borderColor: f.rnTypeDak === opt ? 'var(--accent)' : 'var(--border)',
+                  background: f.rnTypeDak === opt ? 'var(--accent)' : 'transparent',
+                  color: f.rnTypeDak === opt ? '#fff' : 'var(--text)' } }, opt))))),
+          UI.Field('Grootte dak', UI.Input(f.rnGrooteDak || '', v => this.setForm('rnGrooteDak', v), '120 m²')),
+          UI.Grid('1fr 1fr', 10,
+            UI.Field('Zonnepanelen aanwezig?', JaNee('rnZonnepanelen')),
+            UI.Field('Zonnepanelen gewenst?', JaNee('rnZonnepanelenGewenst'))),
+          UI.Grid('1fr 1fr', 10,
+            UI.Field('Asbest?', JaNee('rnAsbest')),
+            UI.Field('Lekkages?', JaNee('rnLekkages'))),
+          UI.Grid('1fr 1fr', 10,
+            UI.Field('Isolatie nodig?', JaNee('rnIsolatieNodig')),
+            UI.Field('Dikte isolatie', UI.Input(f.rnDikteIsolatie || '', v => this.setForm('rnDikteIsolatie', v), '12 cm'))),
+          UI.Field('Kleur dakpannen', UI.Input(f.rnKleurDakpannen || '', v => this.setForm('rnKleurDakpannen', v), 'antraciet')),
+          UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Dak uit 1975, klant meldt lekkage…')),
+          UI.Field('Timing', UI.Select(f.rnTiming || '', v => this.setForm('rnTiming', v), [{ v: '', l: 'Selecteer timing…' }, { v: 'Zo snel mogelijk', l: 'Zo snel mogelijk' }, { v: '1-3 maanden', l: '1-3 maanden' }, { v: '3-6 maanden', l: '3-6 maanden' }, { v: '6-12 maanden', l: '6-12 maanden' }])),
+          UI.Grid('1fr 1fr', 10,
+            UI.Field('Financiering?', JaNee('rnFinanciering')),
+            UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+          UI.Field('Voorkeur belmoment', BelMoment())) : null) : null;
       const stdFields = !isRenocheck ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
         UI.Field('Lead name', UI.Input(f.lead, v => this.setForm('lead', v), 'Full name')),
         UI.Field('Phone number', UI.Input(f.phone, v => this.setForm('phone', v), '+32…', 'text', { autoComplete: 'off' }))) : null;
@@ -791,12 +864,10 @@ const Modals = {
       const activeAgents = d.agents.filter(a => a.active);
       const agentOptions = [{ v: '', l: 'No agent linked yet…' }, ...activeAgents.map(a => ({ v: a.id, l: a.name }))];
       const recruitOptions = [{ v: '', l: 'No recruit linked…' }, ...(d.recruits || []).filter(r => r.stage !== 'not_qualified').map(r => ({ v: r.id, l: r.name + ' (' + r.stage + ')' }))];
-      const koDisplay = c.kickoff ? this.fmtFull(c.kickoff.slice(0, 10)) + (c.kickoff.slice(11, 16) ? ' at ' + c.kickoff.slice(11, 16) : '') : '—';
+      const kickoffVal = f.kickoff !== undefined ? f.kickoff : (c.kickoff ? c.kickoff.slice(0, 10) : '');
       const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-        e('div', { style: { padding: '12px 16px', borderRadius: 12, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
-          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Kick-off'),
-          e('div', { style: { fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 18, color: 'var(--accent)' } }, koDisplay)),
-        UI.Field('Agent start date', e('input', { type: 'date', value: agentStartDate, onChange: ev => this.setForm('agentStartDate', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
+        UI.Field('Kickoff call datum', e('input', { type: 'date', value: kickoffVal, onChange: ev => this.setForm('kickoff', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
+        UI.Field('Agent startdatum (effectieve opstart)', e('input', { type: 'date', value: agentStartDate, onChange: ev => this.setForm('agentStartDate', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
         UI.Field('Vacancy status',
           e('div', { style: { display: 'flex', gap: 8 } },
             vacancyOptions.map(([val, lbl]) => {
@@ -808,8 +879,9 @@ const Modals = {
         UI.Field('Link to existing agent', UI.Select(linkedAgentId, v => this.setForm('linkedAgentId', v), agentOptions)),
         UI.Field('Link to potential recruit', UI.Select(linkedRecruitId, v => this.setForm('linkedRecruitId', v), recruitOptions)));
       return wrap(c.name + ' — timeline', body,
-        [UI.Btn('Cancel', () => this.closeModal(), 'soft'),
-         UI.Btn('Save', () => { this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy); this.closeModal(); }, 'primary')], '520px');
+        [UI.Btn('Verwijder van timeline', () => { if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timelineStage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); this.closeModal(); } }, 'danger', { marginRight: 'auto' }),
+         UI.Btn('Cancel', () => this.closeModal(), 'soft'),
+         UI.Btn('Save', () => { this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy, kickoffVal); this.closeModal(); }, 'primary')], '520px');
     }
 
     if (k === 'agentDayStats') {
