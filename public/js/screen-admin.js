@@ -2011,40 +2011,85 @@ const ScreenAdmin = {
   _admTimeline(d, s) {
     const e = React.createElement;
     const todayStr = this.iso(this.today());
-    const items = d.clients
-      .filter(c => c.kickoff)
-      .sort((a, b) => b.kickoff.localeCompare(a.kickoff));
-    const vacancyColor = { needed: 'var(--warn)', filled: 'var(--up)', open: 'var(--info)' };
-    const vacancyLabel = { needed: 'Agent needed ⚠️', filled: 'Position filled', open: 'Position open' };
-    const noKickoff = d.clients.filter(c => !c.kickoff);
-    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-      UI.SectionHd('Project timeline — client kickoffs'),
-      items.length === 0 ? e('div', { style: { padding: 24, textAlign: 'center', color: 'var(--text-mute)', fontStyle: 'italic' } }, 'No kickoff dates set. Edit a client profile to add one.') : null,
-      items.length > 0 ? UI.C({ padding: 0, overflow: 'hidden' },
-        e('div', { style: { position: 'relative', paddingLeft: 32 } },
-          e('div', { style: { position: 'absolute', left: 15, top: 0, bottom: 0, width: 2, background: 'var(--border)' } }),
-          items.map((c, i) => {
-            const future = c.kickoff > todayStr;
-            const vac = c.agentVacancy || 'needed';
+
+    const STAGES = [
+      { id: 'kickoff_call',       label: 'Kickoff call',       days: 'Dag 0–1', color: 'var(--info)',   num: 1 },
+      { id: 'kickoff_briefing',   label: 'Kickoff briefing',   days: 'Dag 1–2', color: 'var(--accent)', num: 2 },
+      { id: 'agent_matching',     label: 'Agent matching',     days: 'Dag 2',   color: 'var(--warn)',   num: 3 },
+      { id: 'briefing_training',  label: 'Briefing & training',days: 'Dag 2–3', color: '#a78bfa',      num: 4 },
+      { id: 'test_calls',         label: 'Testbelrondes',      days: 'Dag 3–4', color: 'var(--up)',     num: 5 },
+    ];
+
+    const moveStage = (clientId, stageId) => {
+      this.mutLocal(dd => { const c = dd.clients.find(x => x.id === clientId); if (c) c.timelineStage = stageId; });
+      API.updateClient(clientId, { timelineStage: stageId });
+    };
+
+    const dragOver = s._tlDragOver || null;
+    const onDragStart = (ev, id) => { ev.dataTransfer.effectAllowed = 'move'; this._tlDragId = id; };
+    const onDragOver = (ev, stageId) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; if (dragOver !== stageId) this.setState({ _tlDragOver: stageId }); };
+    const onDrop = (ev, stageId) => { ev.preventDefault(); const id = this._tlDragId; this._tlDragId = null; this.setState({ _tlDragOver: null }); if (id) moveStage(id, stageId); };
+    const onDragEnd = () => { this._tlDragId = null; this.setState({ _tlDragOver: null }); };
+
+    const activeClients = d.clients.filter(c => c.kickoff);
+    const noKickoff = d.clients.filter(c => !c.kickoff && c.status === 'active');
+
+    // Progress bar at top
+    const stageProgress = e('div', { style: { display: 'flex', alignItems: 'stretch', borderRadius: 10, overflow: 'hidden', height: 8, marginBottom: 20, gap: 2 } },
+      STAGES.map(sg => e('div', { key: sg.id, style: { flex: 1, background: sg.color, opacity: 0.7 } })));
+
+    // Stage header strip
+    const stageStrip = e('div', { style: { display: 'grid', gridTemplateColumns: `repeat(${STAGES.length}, 1fr)`, gap: 8, marginBottom: 8 } },
+      STAGES.map(sg => e('div', { key: sg.id, style: { textAlign: 'center' } },
+        e('div', { style: { fontSize: 11, fontWeight: 700, color: sg.color, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, sg.label),
+        e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, sg.days))));
+
+    // Kanban columns
+    const columns = e('div', { style: { display: 'grid', gridTemplateColumns: `repeat(${STAGES.length}, 1fr)`, gap: 8, alignItems: 'start' } },
+      STAGES.map(sg => {
+        const cards = activeClients.filter(c => (c.timelineStage || 'kickoff_call') === sg.id);
+        const isOver = dragOver === sg.id;
+        return e('div', {
+          key: sg.id,
+          onDragOver: ev => onDragOver(ev, sg.id),
+          onDrop: ev => onDrop(ev, sg.id),
+          style: { minHeight: 120, borderRadius: 10, padding: '8px 6px', background: isOver ? 'oklch(0.22 0.05 240 / .18)' : 'var(--surface)', border: `1.5px solid ${isOver ? sg.color : 'var(--border-soft)'}`, transition: 'border-color 0.15s, background 0.15s', display: 'flex', flexDirection: 'column', gap: 8 } },
+          cards.length === 0 ? e('div', { style: { textAlign: 'center', color: 'var(--text-mute)', fontSize: 11.5, padding: '18px 4px', fontStyle: 'italic' } }, 'Drop here') : null,
+          cards.map(c => {
             const linkedAgent = c.linkedAgentId ? d.agents.find(a => a.id === c.linkedAgentId) : null;
             const linkedRecruit = c.linkedRecruitId ? (d.recruits || []).find(r => r.id === c.linkedRecruitId) : null;
-            const linkedName = linkedAgent ? linkedAgent.name : linkedRecruit ? linkedRecruit.name + ' (recruit)' : null;
-            const koTime = c.kickoff.slice(11, 16);
-            const koDisplay = this.fmtFull(c.kickoff.slice(0, 10)) + (koTime ? ' · ' + koTime : '');
-            return e('div', { key: c.id, onClick: () => this.openModal('timelineDetail', { clientId: c.id }),
-              style: { position: 'relative', padding: '14px 14px 14px 0', cursor: 'pointer', borderBottom: i < items.length - 1 ? '1px solid var(--border-soft)' : 'none' } },
-              e('span', { style: { position: 'absolute', left: -25, top: 20, width: 16, height: 16, borderRadius: '50%', background: future ? 'var(--accent)' : 'var(--surface-3)', border: '3px solid var(--bg)' } }),
-              e('div', { style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 } },
-                e('div', null,
-                  e('div', { style: { fontWeight: 700, fontSize: 15, marginBottom: 3 } }, c.name),
-                  e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginBottom: c.agentStartDate ? 5 : 0 } }, (future ? 'Kicks off ' : 'Started ') + koDisplay),
-                  c.agentStartDate ? e('div', { style: { fontSize: 12, color: 'var(--text-dim)' } }, 'Agent starts: ' + this.fmtFull(c.agentStartDate)) : null,
-                  linkedName ? e('div', { style: { marginTop: 4, fontSize: 12.5, fontWeight: 600, color: vac === 'filled' ? 'var(--up)' : 'var(--text-dim)' } }, '→ ' + linkedName) : null),
-                e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 } },
-                  UI.statusPill(c.status || 'inactive'),
-                  e('span', { style: { fontSize: 11.5, fontWeight: 700, color: vacancyColor[vac], background: vac === 'filled' ? 'oklch(0.22 0.08 152 / .25)' : vac === 'needed' ? 'oklch(0.22 0.08 85 / .25)' : 'oklch(0.22 0.05 220 / .25)', borderRadius: 20, padding: '3px 10px', border: '1px solid ' + vacancyColor[vac] } }, vacancyLabel[vac]))));
-          }))) : null,
-      noKickoff.length > 0 ? e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', fontStyle: 'italic' } }, noKickoff.map(c => c.name).join(', ') + ' — no kickoff date set') : null);
+            const linkedName = linkedAgent ? linkedAgent.name : linkedRecruit ? linkedRecruit.name : null;
+            const koDate = c.kickoff ? c.kickoff.slice(0, 10) : null;
+            const daysSinceKo = koDate ? Math.round((new Date(todayStr) - new Date(koDate)) / 86400000) : null;
+            const targetDay = [1, 2, 2, 3, 4][sg.num - 1];
+            const late = daysSinceKo !== null && daysSinceKo > targetDay;
+            return e('div', {
+              key: c.id,
+              draggable: true,
+              onDragStart: ev => onDragStart(ev, c.id),
+              onDragEnd: onDragEnd,
+              onClick: () => this.openModal('timelineDetail', { clientId: c.id }),
+              style: { background: 'var(--bg)', borderRadius: 8, padding: '10px 10px 8px', cursor: 'grab', boxShadow: '0 1px 4px oklch(0 0 0 / .12)', border: `1px solid ${late ? 'var(--down)' : 'var(--border-soft)'}`, userSelect: 'none' } },
+              e('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 4, color: 'var(--text)' } }, c.name),
+              koDate ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 4 } }, '📅 Kickoff: ' + this.fmtFull(koDate)) : null,
+              linkedName ? e('div', { style: { fontSize: 11.5, color: linkedAgent ? 'var(--up)' : 'var(--accent)', fontWeight: 600, marginBottom: 4 } }, '→ ' + linkedName + (linkedAgent ? '' : ' (recruit)')) : e('div', { style: { fontSize: 11, color: 'var(--warn)', marginBottom: 4 } }, '⚠ Geen agent'),
+              daysSinceKo !== null ? e('div', { style: { fontSize: 10.5, color: late ? 'var(--down)' : 'var(--text-mute)', fontWeight: late ? 700 : 400 } }, late ? `⚡ Dag ${daysSinceKo} (target: dag ${targetDay})` : `Dag ${daysSinceKo}`) : null);
+          })
+        );
+      }));
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } },
+        e('div', null,
+          e('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, 'Project Timeline'),
+          e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginTop: 2 } }, activeClients.length + ' actieve projecten · sleep kaarten tussen stages')),
+        UI.Btn('+ Kickoff instellen', () => this.openModal('clientEdit', { clientId: null }), 'primary', { fontSize: 12.5 })),
+      stageProgress,
+      stageStrip,
+      activeClients.length === 0
+        ? e('div', { style: { padding: 40, textAlign: 'center', color: 'var(--text-mute)', fontStyle: 'italic', background: 'var(--surface)', borderRadius: 12 } }, 'Geen actieve projecten. Stel een kickoff datum in op een client.')
+        : columns,
+      noKickoff.length > 0 ? e('div', { style: { marginTop: 16, fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Zonder kickoff: ' + noKickoff.map(c => c.name).join(', ')) : null);
   },
 
   _admProspects(d, s) {
