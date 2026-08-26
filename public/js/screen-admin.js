@@ -2086,7 +2086,7 @@ const ScreenAdmin = {
         e('div', null,
           e('div', { style: { fontSize: 18, fontWeight: 700, color: 'var(--text)' } }, 'Project Timeline'),
           e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginTop: 2 } }, activeClients.length + ' actieve projecten · sleep kaarten tussen stages')),
-        UI.Btn('+ Kickoff instellen', () => this.openModal('clientEdit', { clientId: null }), 'primary', { fontSize: 12.5 })),
+        UI.Btn('+ Client toevoegen aan timeline', () => this.openModal('timelineAdd', {}), 'primary', { fontSize: 12.5 })),
       stageProgress,
       stageStrip,
       activeClients.length === 0

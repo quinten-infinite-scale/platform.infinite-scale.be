@@ -853,6 +853,38 @@ const Modals = {
       return wrap('Invoice review — ' + label, body, null, '580px');
     }
 
+    if (k === 'timelineAdd') {
+      const STAGES = [
+        { id: 'kickoff_call', label: 'Kickoff call' },
+        { id: 'kickoff_briefing', label: 'Kickoff briefing' },
+        { id: 'agent_matching', label: 'Agent matching' },
+        { id: 'briefing_training', label: 'Briefing & training' },
+        { id: 'test_calls', label: 'Testbelrondes' },
+      ];
+      const activeOnTimeline = new Set(d.clients.filter(c => c.kickoff || c.timelineStage).map(c => c.id));
+      const available = d.clients.filter(c => c.status === 'active' && !activeOnTimeline.has(c.id));
+      const selClient = f.tlAddClient || '';
+      const selStage = f.tlAddStage || 'kickoff_call';
+      const kickoffVal = f.tlAddKickoff || '';
+      const clientOpts = [{ v: '', l: 'Selecteer client…' }, ...available.map(c => ({ v: c.id, l: c.name }))];
+      const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+        UI.Field('Client', UI.Select(selClient, v => this.setForm('tlAddClient', v), clientOpts)),
+        UI.Field('Kickoff datum (optioneel)', e('input', { type: 'date', value: kickoffVal, onChange: ev => this.setForm('tlAddKickoff', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
+        UI.Field('Huidige stage',
+          e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+            STAGES.map(sg => e('button', { key: sg.id, onClick: () => this.setForm('tlAddStage', sg.id),
+              style: { padding: '8px 14px', borderRadius: 8, border: '1.5px solid ' + (selStage === sg.id ? 'var(--accent)' : 'var(--border)'), background: selStage === sg.id ? 'oklch(0.22 0.05 240 / .2)' : 'transparent', color: selStage === sg.id ? 'var(--accent)' : 'var(--text-dim)', fontWeight: selStage === sg.id ? 700 : 400, fontSize: 13, cursor: 'pointer', textAlign: 'left' } }, sg.label)))));
+      return wrap('Client toevoegen aan timeline', body,
+        [UI.Btn('Cancel', () => this.closeModal(), 'soft'),
+         UI.Btn('Toevoegen', () => {
+           if (!selClient) { this.toast('Fout', 'Selecteer een client', 'var(--down)'); return; }
+           API.updateClient(selClient, { kickoff: kickoffVal || null, timelineStage: selStage });
+           this.mutLocal(dd => { const c = dd.clients.find(x => x.id === selClient); if (c) { c.kickoff = kickoffVal || null; c.timelineStage = selStage; } });
+           this.closeModal();
+           this.toast('Toegevoegd', 'Client staat nu op de timeline', 'var(--up)');
+         }, 'primary')], '480px');
+    }
+
     if (k === 'timelineDetail') {
       const c = d.clients.find(x => x.id === f.clientId); if (!c) return null;
       const vacancyOptions = [['needed', 'Agent needed ⚠️'], ['filled', 'Position filled ✓'], ['open', 'Position open']];
