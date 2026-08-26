@@ -834,7 +834,7 @@ class Component extends DCLogic {
   }
 
   async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus, kickoff) {
-    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed', ...(kickoff !== undefined ? { kickoff: kickoff || null } : {}) };
+    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed', ...(kickoff !== undefined ? { kickoff: kickoff || null } : {}), ...(kickoff === '' ? { timeline_stage: null } : {}) };
     this.mutLocal(d => {
       const c = d.clients.find(x => x.id === clientId); if (!c) return;
       c.agentStartDate = agentStartDate; c.linkedAgentId = linkedAgentId; c.linkedRecruitId = linkedRecruitId; c.agentVacancy = agentStatus;

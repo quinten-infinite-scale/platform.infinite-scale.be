@@ -82,6 +82,7 @@ const API = {
       linkedAgentId: c.linked_agent_id || '',
       linkedRecruitId: c.linked_recruit_id || '',
       agentVacancy: c.agent_vacancy || 'needed',
+      timelineStage: c.timeline_stage || null,
     }));
 
     const aptsNorm = (appointments || []).map(a => ({

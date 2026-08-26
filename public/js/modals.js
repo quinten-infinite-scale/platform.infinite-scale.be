@@ -878,7 +878,7 @@ const Modals = {
         [UI.Btn('Cancel', () => this.closeModal(), 'soft'),
          UI.Btn('Toevoegen', () => {
            if (!selClient) { this.toast('Fout', 'Selecteer een client', 'var(--down)'); return; }
-           API.updateClient(selClient, { kickoff: kickoffVal || null, timelineStage: selStage });
+           API.updateClient(selClient, { kickoff: kickoffVal || null, timeline_stage: selStage });
            this.mutLocal(dd => { const c = dd.clients.find(x => x.id === selClient); if (c) { c.kickoff = kickoffVal || null; c.timelineStage = selStage; } });
            this.closeModal();
            this.toast('Toegevoegd', 'Client staat nu op de timeline', 'var(--up)');
@@ -911,7 +911,7 @@ const Modals = {
         UI.Field('Link to existing agent', UI.Select(linkedAgentId, v => this.setForm('linkedAgentId', v), agentOptions)),
         UI.Field('Link to potential recruit', UI.Select(linkedRecruitId, v => this.setForm('linkedRecruitId', v), recruitOptions)));
       return wrap(c.name + ' — timeline', body,
-        [UI.Btn('Verwijder van timeline', () => { if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timelineStage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); this.closeModal(); } }, 'danger', { marginRight: 'auto' }),
+        [UI.Btn('Verwijder van timeline', () => { if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timeline_stage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); this.closeModal(); } }, 'danger', { marginRight: 'auto' }),
          UI.Btn('Cancel', () => this.closeModal(), 'soft'),
          UI.Btn('Save', () => { this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy, kickoffVal); this.closeModal(); }, 'primary')], '520px');
     }
