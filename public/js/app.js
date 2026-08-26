@@ -550,10 +550,14 @@ class Component extends DCLogic {
   async logAppointment() {
     const f = this.state.form;
     const isRenocheck = f.client === 'c15';
+    const rnFullName = isRenocheck ? ((f.rnFirst || '') + ' ' + (f.rnLast || '')).trim() : f.lead;
+    const rnPhone = isRenocheck ? f.phone : f.phone;
     let apptError = null;
-    if (!f.client || !f.lead || !f.dateAppt) apptError = 'Vul client, lead en datum in.';
-    else if (!String(f.phone || '').trim()) apptError = 'Telefoonnummer is verplicht — vul het in voor je submit.';
+    if (!f.client || !f.dateAppt) apptError = 'Vul client en datum in.';
+    else if (isRenocheck && !f.rnFirst) apptError = 'Voornaam is verplicht.';
     else if (isRenocheck && !f.rnCategory) apptError = 'Selecteer een Renocheck categorie.';
+    else if (!isRenocheck && !f.lead) apptError = 'Lead naam is verplicht.';
+    else if (!String(f.phone || '').trim()) apptError = 'Telefoonnummer is verplicht.';
     if (apptError) { this.setState(s => ({ form: { ...s.form, apptError } })); this.toast('Fout', apptError, 'var(--down)'); return; }
     this.setState(s => ({ form: { ...s.form, apptError: null } }));
     const c = this.state.data.clients.find(x => x.id === f.client);
@@ -562,11 +566,49 @@ class Component extends DCLogic {
       const sc = c.subclients.find(s => s.id === f.sub);
       if (sc) amount = sc.rate || amount;
     }
+    const RN_RATES = { 'Airco': { revenue: 25, payout: 10 }, 'Thuisbatt': { revenue: 40, payout: 15 }, 'Zonnepanelen': { revenue: 50, payout: 20 }, 'Keukens': { revenue: 55, payout: 20 }, 'Badkamers': { revenue: 55, payout: 20 }, 'Ramen en deuren': { revenue: 70, payout: 20 }, 'Crepi': { revenue: 70, payout: 15 }, 'Dak': { revenue: 80, payout: 20 } };
     const dateLogged = this.iso(this.today());
+    const leadName = isRenocheck ? rnFullName : f.lead;
+    if (isRenocheck && f.rnCategory && RN_RATES[f.rnCategory]) { amount = RN_RATES[f.rnCategory].payout; }
 
     let clientFeedback = null;
     if (isRenocheck) {
-      const rnPayload = { category: f.rnCategory, full_name: f.lead, email: f.rnEmail || '', phone: f.phone, address: f.rnAddress || '', postal_code: f.rnPostal || '', city: f.rnCity || '', description: f.rnDesc || '' };
+      const dakData = f.rnCategory === 'Dak' ? {
+        eigenaar: f.rnEigenaar || '',
+        type_dak: f.rnTypeDak || '',
+        groote_dak: f.rnGrooteDak || '',
+        zonnepanelen: f.rnZonnepanelen || '',
+        zonnepanelen_gewenst: f.rnZonnepanelenGewenst || '',
+        asbest: f.rnAsbest || '',
+        lekkages: f.rnLekkages || '',
+        isolatie_nodig: f.rnIsolatieNodig || '',
+        dikte_isolatie: f.rnDikteIsolatie || '',
+        kleur_dakpannen: f.rnKleurDakpannen || '',
+        info_project: f.rnInfoProject || '',
+        timing: f.rnTiming || '',
+        financiering: f.rnFinanciering || '',
+        premie_aanvraag: f.rnPremie || '',
+        voorkeur_belmoment: f.rnBelmoment || [],
+      } : null;
+      const dakDescription = dakData
+        ? [dakData.type_dak && dakData.groote_dak ? (dakData.type_dak + ' dak van ' + dakData.groote_dak) : '',
+           dakData.asbest === 'ja' ? 'asbest aanwezig' : '',
+           dakData.lekkages === 'ja' ? 'lekkages' : '',
+           dakData.info_project || ''].filter(Boolean).join(', ')
+        : '';
+      const rnPayload = {
+        category: f.rnCategory,
+        firstname: f.rnFirst || '',
+        lastname: f.rnLast || '',
+        email: f.rnEmail || '',
+        phonenumber: f.phone,
+        street: f.rnStreet || '',
+        number: f.rnNumber || '',
+        zipcode: f.rnPostal || '',
+        city: f.rnCity || '',
+        ...(dakDescription ? { description: dakDescription } : {}),
+        ...(dakData ? { data: dakData } : {}),
+      };
       try {
         const rnRes = await fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
         if (!rnRes.ok) {
@@ -580,18 +622,19 @@ class Component extends DCLogic {
         this.toast('Renocheck fout', 'Kon Renocheck niet bereiken. Probeer opnieuw.', 'var(--down)');
         return;
       }
-      clientFeedback = JSON.stringify({ _rn: true, category: f.rnCategory, email: f.rnEmail || '', address: f.rnAddress || '', postal_code: f.rnPostal || '', city: f.rnCity || '', description: f.rnDesc || '' });
+      const rnRev = (RN_RATES[f.rnCategory] || {}).revenue || 0;
+      clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', ...(dakData ? { data: dakData } : {}) });
     }
 
-    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, f.lead, f.phone, f.dateAppt, dateLogged, amount, clientFeedback);
+    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, f.dateAppt, dateLogged, amount, clientFeedback);
     if (!result) {
       this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.' } }));
       this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
       return;
     }
     const saved = Array.isArray(result) ? result[0] : result;
-    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: f.lead, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
-    this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + f.lead + ' (€' + amount + ')');
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
+    this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + leadName + ' (€' + amount + ')');
     this.closeModal();
     this.toast('Logged', isRenocheck ? 'Lead verzonden naar Renocheck & afspraak gelogd' : 'Appointment added', 'var(--up)');
   }

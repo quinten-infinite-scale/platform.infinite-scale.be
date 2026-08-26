@@ -202,6 +202,7 @@ const ScreenAdmin = {
 
     const getRate = a => {
       if (a.amount === 0) return 0;
+      try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {}
       const cl = d.clients.find(c => c.id === a.client);
       if (a.sub && cl) { const sc = (cl.subclients || []).find(sc2 => sc2.id === a.sub || sc2.name === a.sub); if (sc && sc.rate != null) return sc.rate; }
       return (cl && cl.rate) || 0;
@@ -819,6 +820,7 @@ const ScreenAdmin = {
     // Rate helpers
     const getRate = (a) => {
       if (a.amount === 0) return 0;
+      try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {}
       const cl = d.clients.find(c => c.id === a.client);
       if (!cl) return 0;
       if (a.sub && cl.subclients) {
