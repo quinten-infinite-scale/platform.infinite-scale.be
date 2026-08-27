@@ -241,97 +241,99 @@
           </div>
         </div>
 
-        <div class="field">
-          <label>Telefoon <span class="req">*</span></label>
-          <input type="tel" name="phone" placeholder="+32 470 00 00 00" required autocomplete="tel" />
+        <div class="name-row">
+          <div class="field">
+            <label>Telefoon <span class="req">*</span></label>
+            <input type="tel" name="phone" placeholder="+32 470 00 00 00" required autocomplete="tel" />
+          </div>
+          <div class="field">
+            <label>E-mail <span class="req">*</span></label>
+            <input type="email" name="email" placeholder="jan@email.com" required autocomplete="email" />
+          </div>
         </div>
 
-        <div class="field">
-          <label>E-mail <span class="req">*</span></label>
-          <input type="email" name="email" placeholder="jan@email.com" required autocomplete="email" />
+        <div class="name-row">
+          <div class="field">
+            <label>Geslacht <span class="req">*</span></label>
+            <select name="gender" required>
+              <option value="">— Selecteer —</option>
+              <option value="male">Man</option>
+              <option value="female">Vrouw</option>
+              <option value="other">Andere</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Leeftijd <span class="req">*</span></label>
+            <input type="number" name="age" placeholder="25" min="16" max="80" required />
+          </div>
+        </div>
+
+        <div class="name-row">
+          <div class="field">
+            <label>Land <span class="req">*</span></label>
+            <select name="country" required>
+              <option value="">— Selecteer —</option>
+              <option value="Belgium">België</option>
+              <option value="Netherlands">Nederland</option>
+              <option value="Luxembourg">Luxemburg</option>
+              <option value="Other EU">Andere EU</option>
+              <option value="Outside EU">Buiten EU</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Statuut <span class="req">*</span></label>
+            <select name="vat" required>
+              <option value="">— Selecteer —</option>
+              <option value="yes">Zelfstandige / BTW-nummer</option>
+              <option value="student">Student</option>
+              <option value="no">Werkzoekende</option>
+              <option value="employee">In loondienst (bijberoep)</option>
+              <option value="pending">Nog op te richten</option>
+            </select>
+          </div>
         </div>
 
         <div class="field">
           <label>Talen waarmee je belt <span class="req">*</span></label>
           <div class="pills">
-            <div><input class="pill-opt" type="checkbox" name="language" value="Nederlands" id="l1" /><label class="pill-label" for="l1">Nederlands</label></div>
-            <div><input class="pill-opt" type="checkbox" name="language" value="Frans" id="l2" /><label class="pill-label" for="l2">Frans</label></div>
-            <div><input class="pill-opt" type="checkbox" name="language" value="Engels" id="l3" /><label class="pill-label" for="l3">Engels</label></div>
-            <div><input class="pill-opt" type="checkbox" name="language" value="Duits" id="l4" /><label class="pill-label" for="l4">Duits</label></div>
-            <div><input class="pill-opt" type="checkbox" name="language" value="Spaans" id="l5" /><label class="pill-label" for="l5">Spaans</label></div>
-            <div><input class="pill-opt" type="checkbox" name="language" value="Andere" id="l6" /><label class="pill-label" for="l6">Andere</label></div>
+            <div><input class="pill-opt" type="checkbox" name="language" value="Dutch" id="l1" /><label class="pill-label" for="l1">Nederlands</label></div>
+            <div><input class="pill-opt" type="checkbox" name="language" value="French" id="l2" /><label class="pill-label" for="l2">Frans</label></div>
+            <div><input class="pill-opt" type="checkbox" name="language" value="English" id="l3" /><label class="pill-label" for="l3">Engels</label></div>
+            <div><input class="pill-opt" type="checkbox" name="language" value="German" id="l4" /><label class="pill-label" for="l4">Duits</label></div>
+            <div><input class="pill-opt" type="checkbox" name="language" value="Spanish" id="l5" /><label class="pill-label" for="l5">Spaans</label></div>
+            <div><input class="pill-opt" type="checkbox" name="language" value="Other" id="l6" /><label class="pill-label" for="l6">Andere</label></div>
           </div>
         </div>
 
         <div class="field">
           <label>Wanneer ben je beschikbaar? <span class="req">*</span></label>
           <div class="pills">
-            <div><input class="pill-opt" type="checkbox" name="availability" value="Ochtend (9–12)" id="av1" /><label class="pill-label" for="av1">Ochtend</label></div>
-            <div><input class="pill-opt" type="checkbox" name="availability" value="Namiddag (13–17)" id="av2" /><label class="pill-label" for="av2">Namiddag</label></div>
-            <div><input class="pill-opt" type="checkbox" name="availability" value="Avond (17–20)" id="av3" /><label class="pill-label" for="av3">Avond</label></div>
-            <div><input class="pill-opt" type="checkbox" name="availability" value="Weekend" id="av4" /><label class="pill-label" for="av4">Weekend</label></div>
+            <div><input class="pill-opt" type="checkbox" name="availability" value="Block 1 (9–12)" id="av1" /><label class="pill-label" for="av1">Ochtend (9–12)</label></div>
+            <div><input class="pill-opt" type="checkbox" name="availability" value="Block 2 (13–17)" id="av2" /><label class="pill-label" for="av2">Namiddag (13–17)</label></div>
+            <div><input class="pill-opt" type="checkbox" name="availability" value="Block 3 (17–20)" id="av3" /><label class="pill-label" for="av3">Avond (17–20)</label></div>
+            <div><input class="pill-opt" type="checkbox" name="availability" value="Weekends" id="av4" /><label class="pill-label" for="av4">Weekend</label></div>
           </div>
         </div>
 
         <div class="name-row">
           <div class="field">
-            <label>Leeftijd <span class="req">*</span></label>
-            <select name="age" required>
+            <label>Gewenste positie <span class="req">*</span></label>
+            <select name="position" required>
               <option value="">— Selecteer —</option>
-              <option>18–22</option>
-              <option>23–28</option>
-              <option>29–35</option>
-              <option>36–45</option>
-              <option>46+</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Land <span class="req">*</span></label>
-            <select name="country" required>
-              <option value="">— Selecteer —</option>
-              <option>België</option>
-              <option>Nederland</option>
-              <option>Luxemburg</option>
-              <option>Andere EU</option>
-              <option>Buiten EU</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="name-row">
-          <div class="field">
-            <label>Statuut <span class="req">*</span></label>
-            <select name="vat" required>
-              <option value="">— Selecteer —</option>
-              <option>Zelfstandige / BTW-nummer</option>
-              <option>Student</option>
-              <option>Werkzoekende</option>
-              <option>In loondienst (bijberoep)</option>
-              <option>Nog op te richten</option>
+              <option value="Appointment setter">Appointment setter</option>
+              <option value="Team lead (caller)">Team lead (caller)</option>
+              <option value="Closer">Closer</option>
             </select>
           </div>
           <div class="field">
             <label>Wanneer kan je starten? <span class="req">*</span></label>
-            <select name="can_start" required>
-              <option value="">— Selecteer —</option>
-              <option>Direct (deze week)</option>
-              <option>Binnen 2 weken</option>
-              <option>Binnen 1 maand</option>
-              <option>Later</option>
-            </select>
+            <input type="date" name="can_start" required />
           </div>
         </div>
 
         <div class="field">
           <label>Relevante ervaring (optioneel)</label>
-          <select name="experience">
-            <option value="">— Geen specifieke ervaring —</option>
-            <option>Telefonische verkoop / koud bellen</option>
-            <option>Klantendienst / helpdesk</option>
-            <option>Sales in loondienst</option>
-            <option>Eigen bedrijf / freelance</option>
-            <option>Andere commerciële functie</option>
-          </select>
+          <textarea name="experience" rows="2" placeholder="Bv. koud bellen, klantendienst, sales... of laat leeg als geen ervaring." style="padding:11px 13px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg2);color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;resize:vertical;width:100%;transition:border-color .15s,box-shadow .15s;" onfocus="this.style.borderColor='var(--green)';this.style.boxShadow='0 0 0 3px rgba(103,220,223,.15)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"></textarea>
         </div>
 
         <div class="field">
@@ -400,15 +402,18 @@
     const lastName = this.last_name.value.trim();
     const phone = this.phone.value.trim();
     const email = this.email.value.trim();
-
-    const age = this.age.value;
+    const gender = this.gender.value;
+    const age = parseInt(this.age.value, 10);
     const country = this.country.value;
     const vat = this.vat.value;
     const canStart = this.can_start.value;
+    const position = this.position.value;
     const motivation = this.motivation.value.trim();
 
     if (!firstName || !lastName || !phone || !email) { alert('Vul je naam, telefoon en e-mail in.'); return; }
-    if (!age || !country || !vat || !canStart) { alert('Vul leeftijd, land, statuut en startdatum in.'); return; }
+    if (!gender || !age || !country || !vat) { alert('Vul geslacht, leeftijd, land en statuut in.'); return; }
+    if (!canStart) { alert('Vul een startdatum in.'); return; }
+    if (!position) { alert('Selecteer een gewenste positie.'); return; }
     if (!motivation) { alert('Vul kort in waarom je setter wil worden.'); return; }
     if (langs.length === 0) { alert('Selecteer minstens één taal.'); return; }
     if (avail.length === 0) { alert('Selecteer minstens één beschikbaarheidsblok.'); return; }
@@ -422,16 +427,17 @@
       name: (firstName + ' ' + lastName).trim(),
       email,
       phone,
-      language: langs.join(', '),
-      availability: avail,
+      gender,
       age,
       country,
       vat,
+      language: langs.join(', '),
+      availability: avail,
       can_start: canStart,
-      experience: this.experience.value || null,
+      position,
+      experience: this.experience.value.trim() || null,
       motivation,
       source: this.source.value || null,
-      position: 'Appointment setter',
       stage: 'new',
     };
 
