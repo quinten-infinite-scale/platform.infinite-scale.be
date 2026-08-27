@@ -573,29 +573,57 @@ class Component extends DCLogic {
 
     let clientFeedback = null;
     if (isRenocheck) {
-      const dakData = f.rnCategory === 'Dak' ? {
-        eigenaar: f.rnEigenaar || '',
-        type_dak: f.rnTypeDak || '',
-        groote_dak: f.rnGrooteDak || '',
-        zonnepanelen: f.rnZonnepanelen || '',
-        zonnepanelen_gewenst: f.rnZonnepanelenGewenst || '',
-        asbest: f.rnAsbest || '',
-        lekkages: f.rnLekkages || '',
-        isolatie_nodig: f.rnIsolatieNodig || '',
-        dikte_isolatie: f.rnDikteIsolatie || '',
-        kleur_dakpannen: f.rnKleurDakpannen || '',
-        info_project: f.rnInfoProject || '',
-        timing: f.rnTiming || '',
-        financiering: f.rnFinanciering || '',
-        premie_aanvraag: f.rnPremie || '',
-        voorkeur_belmoment: f.rnBelmoment || [],
+      const c = f.rnCategory;
+      const intakeData = c === 'Dak' ? {
+        eigenaar: f.rnEigenaar || '', type_dak: f.rnTypeDak || '', groote_dak: f.rnGrooteDak || '',
+        zonnepanelen: f.rnZonnepanelen || '', zonnepanelen_gewenst: f.rnZonnepanelenGewenst || '',
+        asbest: f.rnAsbest || '', lekkages: f.rnLekkages || '', isolatie_nodig: f.rnIsolatieNodig || '',
+        dikte_isolatie: f.rnDikteIsolatie || '', kleur_dakpannen: f.rnKleurDakpannen || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        financiering: f.rnFinanciering || '', premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Crepi' ? {
+        eigenaar: f.rnEigenaar || '', aantal_gevels: f.rnAantalGevels || '', voorgevel: f.rnVoorgevel || '',
+        oprit: f.rnOprit || '', afmeting: f.rnAfmeting || '', isolatie_nodig: f.rnIsolatieNodig || '',
+        dikte_isolatie: f.rnDikteIsolatie || '', kleur_crepi: f.rnKleurCrepi || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        financiering: f.rnFinanciering || '', premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Airco' ? {
+        eigenaar: f.rnEigenaar || '', type_woning: f.rnTypeWoning || '', aantal_ruimtes: f.rnAantalRuimtes || '',
+        grootte_ruimte: f.rnGrootteRuimte || '', merk: f.rnMerk || '', vergelijken: f.rnVergelijken || '',
+        financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Ramen en deuren' ? {
+        eigenaar: f.rnEigenaar || '', type_werk: f.rnTypeWerk || '', materiaal: f.rnMateriaal || '',
+        type_glas: f.rnTypeGlas || '', kleur: f.rnKleur || '', rolluiken: f.rnRolluiken || '',
+        vervanging: f.rnVervanging || '', financiering: f.rnFinanciering || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Thuisbatt' ? {
+        eigenaar: f.rnEigenaar || '', doel_batterij: f.rnDoelBatterij || '', jaarverbruik: f.rnJaarverbruik || '',
+        piekverbruik: f.rnPiekverbruik || '', capaciteit: f.rnCapaciteit || '', digitale_meter: f.rnDigitaleMeter || '',
+        merk: f.rnMerk || '', locatie: f.rnLocatie || '', laadpaal: f.rnLaadpaal || '',
+        financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Zonnepanelen' ? {
+        eigenaar: f.rnEigenaar || '', type_installatie: f.rnTypeInstallatie || '', jaarverbruik: f.rnJaarverbruik || '',
+        type_dak: f.rnTypeDak || '', dakoppervlakte: f.rnGrooteDak || '', orientatie: f.rnOrientatie || '',
+        schaduw: f.rnSchaduw || '', asbest: f.rnAsbest || '', digitale_meter: f.rnDigitaleMeter || '',
+        thuisbatterij: f.rnThuisbatterij || '', capaciteit: f.rnCapaciteit || '', laadpaal: f.rnLaadpaal || '',
+        airco: f.rnAirco || '', financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '',
+        timing: f.rnTiming || '', premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Badkamers' ? {
+        eigenaar: f.rnEigenaar || '', type_project: f.rnTypeProject || '', afmeting: f.rnAfmeting || '',
+        douche: f.rnDouche || '', bad: f.rnBad || '', lavabo: f.rnLavabo || '', toilet: f.rnToilet || '',
+        tegelwerk: f.rnTegelwerk || '', sanitair: f.rnSanitair || '', loodgieterij: f.rnLoodgieterij || '',
+        elektriciteit: f.rnElektriciteit || '', financiering: f.rnFinanciering || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Keukens' ? {
+        eigenaar: f.rnEigenaar || '', type_project: f.rnTypeProject || '', afmeting: f.rnAfmeting || '',
+        financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
       } : null;
-      const dakDescription = dakData
-        ? [dakData.type_dak && dakData.groote_dak ? (dakData.type_dak + ' dak van ' + dakData.groote_dak) : '',
-           dakData.asbest === 'ja' ? 'asbest aanwezig' : '',
-           dakData.lekkages === 'ja' ? 'lekkages' : '',
-           dakData.info_project || ''].filter(Boolean).join(', ')
-        : '';
+      const description = intakeData ? [intakeData.info_project || '', intakeData.timing || ''].filter(Boolean).join(' — ') : '';
       const rnPayload = {
         category: f.rnCategory,
         firstname: f.rnFirst || '',
@@ -606,8 +634,8 @@ class Component extends DCLogic {
         number: f.rnNumber || '',
         zipcode: f.rnPostal || '',
         city: f.rnCity || '',
-        ...(dakDescription ? { description: dakDescription } : {}),
-        ...(dakData ? { data: dakData } : {}),
+        ...(description ? { description } : {}),
+        ...(intakeData ? { data: intakeData } : {}),
       };
       try {
         const rnRes = await fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
@@ -623,7 +651,7 @@ class Component extends DCLogic {
         return;
       }
       const rnRev = (RN_RATES[f.rnCategory] || {}).revenue || 0;
-      clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', ...(dakData ? { data: dakData } : {}) });
+      clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', ...(intakeData ? { data: intakeData } : {}) });
     }
 
     const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, f.dateAppt, dateLogged, amount, clientFeedback);
