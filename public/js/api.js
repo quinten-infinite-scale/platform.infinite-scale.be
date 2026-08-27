@@ -8,7 +8,7 @@ const API = {
       SB.get('clients', '?order=name'),
       SB.get('agent_clients'),
       role === 'agent'
-        ? SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,agent_rate,deal_commission,deal_amount&order=date_logged.desc')
+        ? SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,invoiced,paid,agent_rate,deal_commission,deal_amount&order=date_logged.desc')
         : role === 'subclient'
         ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,agent_rate,deal_commission,deal_amount&client_id=eq.${clientId}&sub_client_id=eq.${subClientId}&order=date_logged.desc`)
         : role === 'client'
@@ -69,21 +69,29 @@ const API = {
       };
     });
 
-    const clientsNorm = (clients || []).map(c => ({
-      ...c,
-      subclients: c.subclients || [],
-      crmOn: c.crm_on,
-      contactPerson: c.contact_person,
-      billStatus: c.bill_status,
-      kickoff: c.kickoff,
-      phone: c.phone || '',
-      vat: c.vat || '',
-      agentStartDate: c.agent_start_date || '',
-      linkedAgentId: c.linked_agent_id || '',
-      linkedRecruitId: c.linked_recruit_id || '',
-      agentVacancy: c.agent_vacancy || 'needed',
-      timelineStage: c.timeline_stage || null,
-    }));
+    const clientsNorm = (clients || []).map(c => {
+      const norm = {
+        ...c,
+        subclients: c.subclients || [],
+        crmOn: c.crm_on,
+        contactPerson: c.contact_person,
+        billStatus: c.bill_status,
+        kickoff: c.kickoff,
+        phone: c.phone || '',
+        vat: c.vat || '',
+        agentStartDate: c.agent_start_date || '',
+        linkedAgentId: c.linked_agent_id || '',
+        linkedRecruitId: c.linked_recruit_id || '',
+        agentVacancy: c.agent_vacancy || 'needed',
+        timelineStage: c.timeline_stage || null,
+      };
+      if (role === 'agent') {
+        delete norm.rate;
+        delete norm.billing_history;
+        norm.subclients = norm.subclients.map(sc => { const s = { ...sc }; delete s.rate; return s; });
+      }
+      return norm;
+    });
 
     const aptsNorm = (appointments || []).map(a => ({
       id: a.id,

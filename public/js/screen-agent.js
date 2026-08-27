@@ -561,7 +561,7 @@ const ScreenAgent = {
         UI.Row({ justifyContent: 'space-between', marginBottom: 10 }, UI.Hd(c.name, { fontSize: 16 }), UI.statusPill(c.status || 'inactive')),
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 9, marginTop: 4 } },
           this._kv('Type', c.type === 'agency' ? 'Lead agency' : 'Direct client'),
-          this._kv('Your rate', this.euro((me.rates || {})[c.id] || c.rate) + ' / appt' + (c.type === 'agency' && (c.subclients || []).length ? ' (agency)' : '')),
+          this._kv('Your rate', this.euro((me.rates || {})[c.id] || 0) + ' / appt' + (c.type === 'agency' && (c.subclients || []).length ? ' (agency)' : '')),
           this._kv('Active appts', String(d.appointments.filter(a => a.agent === me.id && a.client === c.id && !a.invoiced).length))),
         c.type === 'agency' && (c.subclients || []).length ? e('div', { style: { marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-soft)' } },
           UI.Sub('Payout per subclient'),
