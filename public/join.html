@@ -273,6 +273,72 @@
           </div>
         </div>
 
+        <div class="name-row">
+          <div class="field">
+            <label>Leeftijd <span class="req">*</span></label>
+            <select name="age" required>
+              <option value="">— Selecteer —</option>
+              <option>18–22</option>
+              <option>23–28</option>
+              <option>29–35</option>
+              <option>36–45</option>
+              <option>46+</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Land <span class="req">*</span></label>
+            <select name="country" required>
+              <option value="">— Selecteer —</option>
+              <option>België</option>
+              <option>Nederland</option>
+              <option>Luxemburg</option>
+              <option>Andere EU</option>
+              <option>Buiten EU</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="name-row">
+          <div class="field">
+            <label>Statuut <span class="req">*</span></label>
+            <select name="vat" required>
+              <option value="">— Selecteer —</option>
+              <option>Zelfstandige / BTW-nummer</option>
+              <option>Student</option>
+              <option>Werkzoekende</option>
+              <option>In loondienst (bijberoep)</option>
+              <option>Nog op te richten</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Wanneer kan je starten? <span class="req">*</span></label>
+            <select name="can_start" required>
+              <option value="">— Selecteer —</option>
+              <option>Direct (deze week)</option>
+              <option>Binnen 2 weken</option>
+              <option>Binnen 1 maand</option>
+              <option>Later</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Relevante ervaring (optioneel)</label>
+          <select name="experience">
+            <option value="">— Geen specifieke ervaring —</option>
+            <option>Telefonische verkoop / koud bellen</option>
+            <option>Klantendienst / helpdesk</option>
+            <option>Sales in loondienst</option>
+            <option>Eigen bedrijf / freelance</option>
+            <option>Andere commerciële functie</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Waarom wil je setter worden? <span class="req">*</span></label>
+          <textarea name="motivation" rows="3" required placeholder="Kort en eerlijk — 2 à 3 zinnen volstaan." style="padding:11px 13px;border-radius:9px;border:1.5px solid var(--border);background:var(--bg2);color:var(--text);font-size:14px;font-family:'Inter',sans-serif;outline:none;resize:vertical;width:100%;transition:border-color .15s,box-shadow .15s;" onfocus="this.style.borderColor='var(--green)';this.style.boxShadow='0 0 0 3px rgba(103,220,223,.15)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"></textarea>
+        </div>
+
         <div class="field">
           <label>Hoe heb je ons gevonden?</label>
           <select name="source">
@@ -335,7 +401,15 @@
     const phone = this.phone.value.trim();
     const email = this.email.value.trim();
 
+    const age = this.age.value;
+    const country = this.country.value;
+    const vat = this.vat.value;
+    const canStart = this.can_start.value;
+    const motivation = this.motivation.value.trim();
+
     if (!firstName || !lastName || !phone || !email) { alert('Vul je naam, telefoon en e-mail in.'); return; }
+    if (!age || !country || !vat || !canStart) { alert('Vul leeftijd, land, statuut en startdatum in.'); return; }
+    if (!motivation) { alert('Vul kort in waarom je setter wil worden.'); return; }
     if (langs.length === 0) { alert('Selecteer minstens één taal.'); return; }
     if (avail.length === 0) { alert('Selecteer minstens één beschikbaarheidsblok.'); return; }
 
@@ -350,6 +424,12 @@
       phone,
       language: langs.join(', '),
       availability: avail,
+      age,
+      country,
+      vat,
+      can_start: canStart,
+      experience: this.experience.value || null,
+      motivation,
       source: this.source.value || null,
       position: 'Appointment setter',
       stage: 'new',
