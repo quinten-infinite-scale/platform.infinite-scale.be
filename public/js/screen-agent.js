@@ -102,15 +102,149 @@ const ScreenAgent = {
     const e = React.createElement; const f = s.form;
     const myClients = d.clients.filter(c => me.clients.includes(c.id));
     const selClient = d.clients.find(c => c.id === f.client);
+    const isRenocheck = f.client === 'c15';
+    const RN_CATS = ['Airco','Thuisbatt','Zonnepanelen','Ramen en deuren','Keukens','Badkamers','Crepi','Dak'];
+    const JaNee = (key) => e('div', { style: { display: 'flex', gap: 6 } },
+      ['ja', 'nee'].map(opt => e('button', { key: opt, type: 'button', onClick: () => this.setForm(key, opt),
+        style: { padding: '5px 16px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          borderColor: f[key] === opt ? 'var(--accent)' : 'var(--border)',
+          background: f[key] === opt ? 'var(--accent)' : 'transparent',
+          color: f[key] === opt ? '#fff' : 'var(--text)' } }, opt)));
+    const BelMoment = () => {
+      const opts = ['Voormiddag (9-12u)', 'Middag (12-14u)', 'Namiddag (14-17u)', 'Avond (17-20u)', 'Maakt niet uit'];
+      const sel = f.rnBelmoment || [];
+      return e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+        opts.map(opt => {
+          const on = sel.includes(opt);
+          return e('button', { key: opt, type: 'button',
+            onClick: () => this.setForm('rnBelmoment', on ? sel.filter(x => x !== opt) : [...sel, opt]),
+            style: { padding: '5px 12px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              borderColor: on ? 'var(--accent)' : 'var(--border)',
+              background: on ? 'var(--accent)' : 'transparent',
+              color: on ? '#fff' : 'var(--text)' } }, opt);
+        }));
+    };
+    const TimingSelect = () => UI.Select(f.rnTiming || '', v => this.setForm('rnTiming', v), [{ v: '', l: 'Selecteer timing…' }, { v: 'Zo snel mogelijk', l: 'Zo snel mogelijk' }, { v: '1-3 maanden', l: '1-3 maanden' }, { v: '3-6 maanden', l: '3-6 maanden' }, { v: '6-12 maanden', l: '6-12 maanden' }, { v: '1 jaar of later', l: '1 jaar of later' }]);
+    const SH = (label) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', paddingTop: 8, borderTop: '1px solid var(--border-soft)', marginTop: 4 } }, label);
+    const cat = f.rnCategory;
+    const intakeSection = isRenocheck && cat ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+      cat === 'Dak' ? [
+        SH('Dakgegevens'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Type dak', UI.Select(f.rnTypeDak || '', v => this.setForm('rnTypeDak', v), [{ v: '', l: 'Selecteer…' }, { v: 'Hellend (pannen)', l: 'Hellend (pannen)' }, { v: 'Hellend (leien)', l: 'Hellend (leien)' }, { v: 'Plat', l: 'Plat' }]))),
+        UI.Field('Grootte dak (m²)', UI.Input(f.rnGrooteDak || '', v => this.setForm('rnGrooteDak', v), '120')),
+        UI.Grid('1fr 1fr', 10, UI.Field('Zonnepanelen aanwezig?', JaNee('rnZonnepanelen')), UI.Field('Zonnepanelen gewenst?', JaNee('rnZonnepanelenGewenst'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Asbest?', JaNee('rnAsbest')), UI.Field('Lekkages?', JaNee('rnLekkages'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Isolatie nodig?', JaNee('rnIsolatieNodig')), UI.Field('Dikte isolatie', UI.Input(f.rnDikteIsolatie || '', v => this.setForm('rnDikteIsolatie', v), 'bespreken met expert'))),
+        UI.Field('Kleur dakpannen', UI.Input(f.rnKleurDakpannen || '', v => this.setForm('rnKleurDakpannen', v), 'bespreken met expert')),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Dak uit 1975, klant meldt lekkage…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Financiering?', JaNee('rnFinanciering')), UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Crepi' ? [
+        SH('Crepi & Gevel'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Aantal gevels', UI.Input(f.rnAantalGevels || '', v => this.setForm('rnAantalGevels', v), '2'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Voorgevel inbegrepen?', JaNee('rnVoorgevel')), UI.Field('Oprit of rode lijn?', JaNee('rnOprit'))),
+        UI.Field('Totaal afmeting (m²)', UI.Input(f.rnAfmeting || '', v => this.setForm('rnAfmeting', v), '100')),
+        UI.Grid('1fr 1fr', 10, UI.Field('Isolatie meenemen?', JaNee('rnIsolatieNodig')), UI.Field('Dikte isolatie', UI.Input(f.rnDikteIsolatie || '', v => this.setForm('rnDikteIsolatie', v), 'bespreken met expert'))),
+        UI.Field('Gewenste kleur Crepi', UI.Input(f.rnKleurCrepi || '', v => this.setForm('rnKleurCrepi', v), 'bespreken met expert')),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Voor- en zijgevel renoveren…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Financiering?', JaNee('rnFinanciering')), UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Airco' ? [
+        SH('Airco'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Type woning', UI.Select(f.rnTypeWoning || '', v => this.setForm('rnTypeWoning', v), [{ v: '', l: 'Selecteer…' }, { v: 'Appartement', l: 'Appartement' }, { v: 'Rijwoning', l: 'Rijwoning' }, { v: 'Halfopen bebouwing', l: 'Halfopen bebouwing' }, { v: 'Vrijstaand', l: 'Vrijstaand' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Aantal ruimtes', UI.Input(f.rnAantalRuimtes || '', v => this.setForm('rnAantalRuimtes', v), '3')), UI.Field('Grootte per ruimte', UI.Input(f.rnGrootteRuimte || '', v => this.setForm('rnGrootteRuimte', v), 'bv. 20m², 15m²'))),
+        UI.Field('Voorkeur merk', UI.Input(f.rnMerk || '', v => this.setForm('rnMerk', v), 'Geen voorkeur')),
+        UI.Grid('1fr 1fr', 10, UI.Field('Meerdere merken vergelijken?', JaNee('rnVergelijken')), UI.Field('Financiering?', JaNee('rnFinanciering'))),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil airco plaatsen…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Premie aanvraag?', JaNee('rnPremie')), e('div', null)),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Ramen en deuren' ? [
+        SH('Ramen & Deuren'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Type werk', UI.Select(f.rnTypeWerk || '', v => this.setForm('rnTypeWerk', v), [{ v: '', l: 'Selecteer…' }, { v: 'Ramen', l: 'Ramen' }, { v: 'Deuren', l: 'Deuren' }, { v: 'Ramen & deuren', l: 'Ramen & deuren' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Voorkeur materiaal', UI.Select(f.rnMateriaal || '', v => this.setForm('rnMateriaal', v), [{ v: '', l: 'Selecteer…' }, { v: 'PVC', l: 'PVC' }, { v: 'Aluminium', l: 'Aluminium' }, { v: 'Hout', l: 'Hout' }, { v: 'Geen voorkeur', l: 'Geen voorkeur' }])), UI.Field('Type glas', UI.Select(f.rnTypeGlas || '', v => this.setForm('rnTypeGlas', v), [{ v: '', l: 'Selecteer…' }, { v: 'Dubbel glas', l: 'Dubbel glas' }, { v: 'Triple glas', l: 'Triple glas' }, { v: 'Geen voorkeur', l: 'Geen voorkeur' }]))),
+        UI.Field('Gewenste kleur (binnen/buiten)', UI.Input(f.rnKleur || '', v => this.setForm('rnKleur', v), 'bv. wit / antraciet')),
+        UI.Grid('1fr 1fr', 10, UI.Field('Rolluiken meenemen?', JaNee('rnRolluiken')), UI.Field('Vervanging bestaande?', JaNee('rnVervanging'))),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil ramen vervangen…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Financiering?', JaNee('rnFinanciering')), UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Thuisbatt' ? [
+        SH('Thuisbatterijen'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Doel batterij', UI.Select(f.rnDoelBatterij || '', v => this.setForm('rnDoelBatterij', v), [{ v: '', l: 'Selecteer…' }, { v: 'Zelfconsumptie', l: 'Zelfconsumptie' }, { v: 'Back-up', l: 'Back-up' }, { v: 'Combinatie', l: 'Combinatie' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Jaarverbruik (kWh)', UI.Input(f.rnJaarverbruik || '', v => this.setForm('rnJaarverbruik', v), 'weet het niet')), UI.Field('Piekverbruik (kW)', UI.Input(f.rnPiekverbruik || '', v => this.setForm('rnPiekverbruik', v), 'weet het niet'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Gewenste capaciteit (kWh)', UI.Input(f.rnCapaciteit || '', v => this.setForm('rnCapaciteit', v), 'bespreken met expert')), UI.Field('Digitale meter?', JaNee('rnDigitaleMeter'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Voorkeur merk', UI.Input(f.rnMerk || '', v => this.setForm('rnMerk', v), 'Geen voorkeur')), UI.Field('Locatie plaatsing', UI.Input(f.rnLocatie || '', v => this.setForm('rnLocatie', v), 'Garage, kelder…'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Laadpaal meenemen?', JaNee('rnLaadpaal')), UI.Field('Financiering?', JaNee('rnFinanciering'))),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil thuisbatterij plaatsen…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Premie aanvraag?', JaNee('rnPremie')), e('div', null)),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Zonnepanelen' ? [
+        SH('Zonnepanelen'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Type installatie', UI.Select(f.rnTypeInstallatie || '', v => this.setForm('rnTypeInstallatie', v), [{ v: '', l: 'Selecteer…' }, { v: 'Nieuwe installatie', l: 'Nieuwe installatie' }, { v: 'Uitbreiding', l: 'Uitbreiding' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Jaarverbruik (kWh)', UI.Input(f.rnJaarverbruik || '', v => this.setForm('rnJaarverbruik', v), 'weet het niet')), UI.Field('Type dak', UI.Select(f.rnTypeDak || '', v => this.setForm('rnTypeDak', v), [{ v: '', l: 'Selecteer…' }, { v: 'Hellend (pannen)', l: 'Hellend (pannen)' }, { v: 'Hellend (leien)', l: 'Hellend (leien)' }, { v: 'Plat', l: 'Plat' }, { v: 'Anders', l: 'Anders' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Dakoppervlakte (m²)', UI.Input(f.rnGrooteDak || '', v => this.setForm('rnGrooteDak', v), '100')), UI.Field('Oriëntatie dak', UI.Select(f.rnOrientatie || '', v => this.setForm('rnOrientatie', v), [{ v: '', l: 'Selecteer…' }, { v: 'Zuid', l: 'Zuid' }, { v: 'Oost-West', l: 'Oost-West' }, { v: 'Noord', l: 'Noord' }, { v: 'Onbekend', l: 'Onbekend' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Schaduw aanwezig?', JaNee('rnSchaduw')), UI.Field('Asbest aanwezig?', JaNee('rnAsbest'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Digitale meter?', JaNee('rnDigitaleMeter')), UI.Field('Thuisbatterij gewenst?', JaNee('rnThuisbatterij'))),
+        f.rnThuisbatterij === 'ja' ? UI.Field('Gewenste batterijcapaciteit', UI.Input(f.rnCapaciteit || '', v => this.setForm('rnCapaciteit', v), 'bespreken met expert')) : null,
+        UI.Grid('1fr 1fr', 10, UI.Field('Laadpaal gewenst?', JaNee('rnLaadpaal')), UI.Field('Airco gewenst?', JaNee('rnAirco'))),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil zonnepanelen plaatsen…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Financiering?', JaNee('rnFinanciering')), UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Badkamers' ? [
+        SH('Badkamer'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Type project', UI.Select(f.rnTypeProject || '', v => this.setForm('rnTypeProject', v), [{ v: '', l: 'Selecteer…' }, { v: 'Renovatie', l: 'Renovatie' }, { v: 'Nieuwbouw', l: 'Nieuwbouw' }]))),
+        UI.Field('Afmeting badkamer (m²)', UI.Input(f.rnAfmeting || '', v => this.setForm('rnAfmeting', v), 'bv. 8')),
+        UI.Grid('1fr 1fr', 10, UI.Field('Douche?', JaNee('rnDouche')), UI.Field('Bad?', JaNee('rnBad'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Lavabo?', JaNee('rnLavabo')), UI.Field('Toilet?', JaNee('rnToilet'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Tegelwerk?', JaNee('rnTegelwerk')), UI.Field('Sanitair?', JaNee('rnSanitair'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Loodgieterij/leidingen?', JaNee('rnLoodgieterij')), UI.Field('Elektriciteit?', JaNee('rnElektriciteit'))),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil badkamer renoveren…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Financiering?', JaNee('rnFinanciering')), UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Keukens' ? [
+        SH('Keukens'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Type project', UI.Select(f.rnTypeProject || '', v => this.setForm('rnTypeProject', v), [{ v: '', l: 'Selecteer…' }, { v: 'Renovatie', l: 'Renovatie' }, { v: 'Nieuwbouw', l: 'Nieuwbouw' }]))),
+        UI.Field('Afmeting keuken (m²)', UI.Input(f.rnAfmeting || '', v => this.setForm('rnAfmeting', v), 'bv. 15')),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil keuken renoveren…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Financiering?', JaNee('rnFinanciering')), UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : null
+    ) : null;
+    const rnForm = isRenocheck ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 12, border: '1px solid var(--accent)', background: 'oklch(0.84 0.16 194 / 0.07)' } },
+      e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 } }, 'Renocheck Lead Form'),
+      UI.Field('Categorie', UI.Select(f.rnCategory || '', v => this.setForm('rnCategory', v), [{ v: '', l: 'Selecteer categorie…' }, ...RN_CATS.map(c => ({ v: c, l: c }))])),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('Voornaam', UI.Input(f.rnFirst || '', v => this.setForm('rnFirst', v), 'Jan')),
+        UI.Field('Achternaam', UI.Input(f.rnLast || '', v => this.setForm('rnLast', v), 'Janssens'))),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('Telefoon', UI.Input(f.phone, v => this.setForm('phone', v), '+32 470 12 34 56')),
+        UI.Field('E-mailadres', UI.Input(f.rnEmail || '', v => this.setForm('rnEmail', v), 'jan@example.be', 'email'))),
+      UI.Grid('3fr 1fr', 10,
+        UI.Field('Straat', UI.Input(f.rnStreet || '', v => this.setForm('rnStreet', v), 'Korenmarkt')),
+        UI.Field('Nr.', UI.Input(f.rnNumber || '', v => this.setForm('rnNumber', v), '12'))),
+      UI.Grid('1fr 2fr', 10,
+        UI.Field('Postcode', UI.Input(f.rnPostal || '', v => this.setForm('rnPostal', v), '9000')),
+        UI.Field('Gemeente', UI.Input(f.rnCity || '', v => this.setForm('rnCity', v), 'Gent'))),
+      intakeSection) : null;
+    const stdFields = !isRenocheck ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      UI.Field('Lead name', UI.Input(f.lead, v => this.setForm('lead', v), 'Full name of the lead')),
+      UI.Field('Phone number', UI.Input(f.phone, v => this.setForm('phone', v), '+32 …', 'text', { autoComplete: 'off' }))) : null;
     return UI.Grid('minmax(0,1.3fr) minmax(0,1fr)', 20,
       UI.C({},
         UI.Hd('Log an appointment'), UI.Sub('Submit and lock. This instantly updates your stats and payments.', { marginBottom: 18, marginTop: 4 }),
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
           UI.Field('Date of appointment', UI.DatePicker(f.dateAppt, v => this.setForm('dateAppt', v))),
-          UI.Field('Lead name', UI.Input(f.lead, v => this.setForm('lead', v), 'Full name of the lead')),
           UI.Field('Client', UI.Select(f.client, v => this.setForm('client', v), [{ v: '', l: 'Select client…' }, ...myClients.map(c => ({ v: c.id, l: c.name }))])),
           selClient && selClient.type === 'agency' ? UI.Field('Client of lead agency', UI.Select(f.sub, v => this.setForm('sub', v), [{ v: '', l: 'Select…' }, ...(selClient.subclients || []).map(sc => ({ v: sc.id, l: sc.name }))])) : null,
-          UI.Field('Phone number', UI.Input(f.phone, v => this.setForm('phone', v), '+32 …', 'text', { autoComplete: 'off' })),
+          stdFields,
+          rnForm,
           e('div', { style: { display: 'flex', gap: 10, marginTop: 6 } },
             UI.Btn('Submit & lock', () => this.logAppointment(), 'primary'),
             UI.Btn('Clear', () => this.setState({ form: {} }), 'soft')),
