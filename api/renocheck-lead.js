@@ -1,13 +1,12 @@
-// Category ID mapping — verify these with Renocheck if needed; Dak=7 is confirmed
-const CAT_IDS = {
-  'Airco': '1',
-  'Thuisbatt': '2',
-  'Zonnepanelen': '3',
-  'Ramen en deuren': '4',
-  'Keukens': '5',
-  'Badkamers': '6',
-  'Crepi': '8',
-  'Dak': '7',
+const CAT_SLUGS = {
+  'Airco': 'airco',
+  'Thuisbatt': 'thuisbatterijen',
+  'Zonnepanelen': 'zonnepanelen',
+  'Ramen en deuren': 'ramen-deuren',
+  'Keukens': 'keuken',
+  'Badkamers': 'badkamer',
+  'Crepi': 'crepi',
+  'Dak': 'dak-renovatie',
 };
 
 export default async function handler(req, res) {
@@ -26,20 +25,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: category, firstname, phonenumber' });
   }
 
-  const category_id = CAT_IDS[category];
-  if (!category_id) {
+  const category_slug = CAT_SLUGS[category];
+  if (!category_slug) {
     return res.status(400).json({ error: 'Unknown category: ' + category });
   }
 
   const payload = {
-    category_id,
-    category,
+    category: category_slug,
     full_name: [firstname, lastname || ''].filter(Boolean).join(' '),
-    firstname,
-    lastname: lastname || '',
-    email: email || '',
     phone: phonenumber,
-    phonenumber,
+    email: email || '',
     street: street || '',
     number: number || '',
     zipcode: zipcode || '',
