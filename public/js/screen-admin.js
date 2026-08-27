@@ -2064,6 +2064,7 @@ const ScreenAdmin = {
             const hasAgent = !!(linkedAgent || linkedRecruit);
             const needsAgent = !hasAgent && sg.id === 'agent_matching';
             const cardBorder = hasAgent ? '1.5px solid var(--up)' : needsAgent ? '1.5px solid var(--down)' : '1px solid var(--border-soft)';
+            const timelineSubclient = (c.subclients || []).find(sc => sc.timeline_selected);
             return e('div', {
               key: c.id,
               draggable: true,
@@ -2072,7 +2073,9 @@ const ScreenAdmin = {
               onClick: () => this.openModal('timelineDetail', { clientId: c.id }),
               style: { background: 'var(--bg)', borderRadius: 8, padding: '10px 10px 8px', cursor: 'grab', boxShadow: '0 1px 4px oklch(0 0 0 / .12)', border: cardBorder, userSelect: 'none' } },
               e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 } },
-                e('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--text)' } }, c.name),
+                e('div', null,
+                  e('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--text)' } }, c.name),
+                  timelineSubclient ? e('div', { style: { fontSize: 11, color: 'var(--accent)', fontWeight: 600, marginTop: 1 } }, '↳ ' + timelineSubclient.name) : null),
                 e('button', { onClick: ev => { ev.stopPropagation(); if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timeline_stage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); } }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, padding: '0 0 0 4px', lineHeight: 1 } }, '×')),
               koDate ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 3 } }, '📅 Kickoff: ' + this.fmtFull(koDate)) : null,
               c.agentStartDate ? e('div', { style: { fontSize: 11, color: 'var(--up)', marginBottom: 3, fontWeight: 600 } }, '🚀 Start agent: ' + this.fmtFull(c.agentStartDate)) : null,

@@ -932,9 +932,14 @@ const Modals = {
       const selClient = f.tlAddClient || '';
       const selStage = f.tlAddStage || 'kickoff_call';
       const kickoffVal = f.tlAddKickoff || '';
+      const selSubclient = f.tlAddSubclient || '';
       const clientOpts = [{ v: '', l: 'Selecteer client…' }, ...available.map(c => ({ v: c.id, l: c.name }))];
+      const selClientObj = selClient ? d.clients.find(c => c.id === selClient) : null;
+      const subclients = selClientObj && selClientObj.type === 'agency' ? (selClientObj.subclients || []) : [];
+      const subclientOpts = [{ v: '', l: 'Alle subclients / geen specifiek' }, ...subclients.map(sc => ({ v: sc.id, l: sc.name }))];
       const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-        UI.Field('Client', UI.Select(selClient, v => this.setForm('tlAddClient', v), clientOpts)),
+        UI.Field('Client', UI.Select(selClient, v => { this.setForm('tlAddClient', v); this.setForm('tlAddSubclient', ''); }, clientOpts)),
+        subclients.length > 0 ? UI.Field('Subclient (optioneel)', UI.Select(selSubclient, v => this.setForm('tlAddSubclient', v), subclientOpts)) : null,
         UI.Field('Kickoff datum (optioneel)', e('input', { type: 'date', value: kickoffVal, onChange: ev => this.setForm('tlAddKickoff', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
         UI.Field('Huidige stage',
           e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
@@ -944,8 +949,20 @@ const Modals = {
         [UI.Btn('Cancel', () => this.closeModal(), 'soft'),
          UI.Btn('Toevoegen', () => {
            if (!selClient) { this.toast('Fout', 'Selecteer een client', 'var(--down)'); return; }
-           API.updateClient(selClient, { kickoff: kickoffVal || null, timeline_stage: selStage });
-           this.mutLocal(dd => { const c = dd.clients.find(x => x.id === selClient); if (c) { c.kickoff = kickoffVal || null; c.timelineStage = selStage; } });
+           const updatedSubclients = subclients.length > 0
+             ? subclients.map(sc => ({ ...sc, timeline_selected: selSubclient ? sc.id === selSubclient : false }))
+             : null;
+           const patch = { kickoff: kickoffVal || null, timeline_stage: selStage };
+           if (updatedSubclients) patch.subclients = updatedSubclients;
+           API.updateClient(selClient, patch);
+           this.mutLocal(dd => {
+             const c = dd.clients.find(x => x.id === selClient);
+             if (c) {
+               c.kickoff = kickoffVal || null;
+               c.timelineStage = selStage;
+               if (updatedSubclients) c.subclients = updatedSubclients;
+             }
+           });
            this.closeModal();
            this.toast('Toegevoegd', 'Client staat nu op de timeline', 'var(--up)');
          }, 'primary')], '480px');
@@ -963,7 +980,12 @@ const Modals = {
       const agentOptions = [{ v: '', l: 'No agent linked yet…' }, ...activeAgents.map(a => ({ v: a.id, l: a.name }))];
       const recruitOptions = [{ v: '', l: 'No recruit linked…' }, ...(d.recruits || []).filter(r => r.stage !== 'not_qualified').map(r => ({ v: r.id, l: r.name + ' (' + r.stage + ')' }))];
       const kickoffVal = f.kickoff !== undefined ? f.kickoff : (c.kickoff ? c.kickoff.slice(0, 10) : '');
+      const detailSubclients = c.type === 'agency' ? (c.subclients || []) : [];
+      const currentTimelineSub = detailSubclients.find(sc => sc.timeline_selected);
+      const detailSelSub = f.tlDetailSubclient !== undefined ? f.tlDetailSubclient : (currentTimelineSub ? currentTimelineSub.id : '');
+      const detailSubOpts = [{ v: '', l: 'Alle subclients / geen specifiek' }, ...detailSubclients.map(sc => ({ v: sc.id, l: sc.name }))];
       const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+        detailSubclients.length > 0 ? UI.Field('Subclient', UI.Select(detailSelSub, v => this.setForm('tlDetailSubclient', v), detailSubOpts)) : null,
         UI.Field('Kickoff call datum', e('input', { type: 'date', value: kickoffVal, onChange: ev => this.setForm('kickoff', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
         UI.Field('Agent startdatum (effectieve opstart)', e('input', { type: 'date', value: agentStartDate, onChange: ev => this.setForm('agentStartDate', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
         UI.Field('Vacancy status',
@@ -979,7 +1001,13 @@ const Modals = {
       return wrap(c.name + ' — timeline', body,
         [UI.Btn('Verwijder van timeline', () => { if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timeline_stage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); this.closeModal(); } }, 'danger', { marginRight: 'auto' }),
          UI.Btn('Cancel', () => this.closeModal(), 'soft'),
-         UI.Btn('Save', () => { this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy, kickoffVal); this.closeModal(); }, 'primary')], '520px');
+         UI.Btn('Save', () => {
+           const subPatch = detailSubclients.length > 0
+             ? detailSubclients.map(sc => ({ ...sc, timeline_selected: detailSelSub ? sc.id === detailSelSub : false }))
+             : null;
+           this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy, kickoffVal, subPatch);
+           this.closeModal();
+         }, 'primary')], '520px');
     }
 
     if (k === 'agentDayStats') {
