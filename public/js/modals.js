@@ -952,19 +952,20 @@ const Modals = {
            const updatedSubclients = subclients.length > 0
              ? subclients.map(sc => ({ ...sc, timeline_selected: selSubclient ? sc.id === selSubclient : false }))
              : null;
-           const patch = { kickoff: kickoffVal || null, timeline_stage: selStage };
+           const selClientObj2 = d.clients.find(x => x.id === selClient);
+           const alreadyOnTimeline = selClientObj2 && (selClientObj2.kickoff || selClientObj2.timelineStage);
+           const patch = alreadyOnTimeline ? {} : { kickoff: kickoffVal || null, timeline_stage: selStage };
            if (updatedSubclients) patch.subclients = updatedSubclients;
            API.updateClient(selClient, patch);
            this.mutLocal(dd => {
              const c = dd.clients.find(x => x.id === selClient);
              if (c) {
-               c.kickoff = kickoffVal || null;
-               c.timelineStage = selStage;
+               if (!alreadyOnTimeline) { c.kickoff = kickoffVal || null; c.timelineStage = selStage; }
                if (updatedSubclients) c.subclients = updatedSubclients;
              }
            });
            this.closeModal();
-           this.toast('Toegevoegd', 'Client staat nu op de timeline', 'var(--up)');
+           this.toast('Toegevoegd', alreadyOnTimeline ? 'Subclient bijgewerkt' : 'Client staat nu op de timeline', 'var(--up)');
          }, 'primary')], '480px');
     }
 
