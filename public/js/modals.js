@@ -927,7 +927,7 @@ const Modals = {
         { id: 'briefing_training', label: 'Briefing & training' },
         { id: 'test_calls', label: 'Testbelrondes' },
       ];
-      const activeOnTimeline = new Set(d.clients.filter(c => c.kickoff || c.timelineStage).map(c => c.id));
+      const activeOnTimeline = new Set(d.clients.filter(c => (c.kickoff || c.timelineStage) && c.type !== 'agency').map(c => c.id));
       const available = d.clients.filter(c => c.status === 'active' && !activeOnTimeline.has(c.id));
       const selClient = f.tlAddClient || '';
       const selStage = f.tlAddStage || 'kickoff_call';
