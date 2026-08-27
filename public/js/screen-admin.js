@@ -201,7 +201,6 @@ const ScreenAdmin = {
     const offset = s.finOffset || 0;
 
     const getRate = a => {
-      if (a.amount === 0) return 0;
       try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {}
       const cl = d.clients.find(c => c.id === a.client);
       if (a.sub && cl) { const sc = (cl.subclients || []).find(sc2 => sc2.id === a.sub || sc2.name === a.sub); if (sc && sc.rate != null) return sc.rate; }
@@ -700,7 +699,7 @@ const ScreenAdmin = {
                         const clBillable = clAppts.filter(a => a.status !== 'cancel' && a.status !== 'no_show');
                         const clPending = clBillable.filter(a => !a.invoiced);
                         const clIsInvoiced = clPending.length === 0 && clBillable.length > 0;
-                        const apptRate = r => { if (r.amount === 0) return 0; try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
+                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
                         const clTotal = clBillable.reduce((s2, r) => s2 + apptRate(r), 0);
                         const clPendingTotal = clPending.reduce((s2, r) => s2 + apptRate(r), 0);
                         const openCount = clPending.filter(a => a.status === 'open').length;
@@ -1679,7 +1678,7 @@ const ScreenAdmin = {
         const agentRate = r.agentRate != null ? r.agentRate : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0);
         const cl = d.clients.find(c => c.id === r.client);
         const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
-        const displayAmt = (() => { if (r.amount === 0) return 0; try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
+        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
         return e('div', { style: { textAlign: 'right' } },
           UI.Mono(displayAmt ? this.euro(displayAmt) : '—', { fontWeight: 700, color: displayAmt ? 'var(--text)' : 'var(--text-mute)' }),
           agentRate ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, 'Agent: ' + this.euro(agentRate) + (r.agentRate != null ? ' ✱' : '')) : null,

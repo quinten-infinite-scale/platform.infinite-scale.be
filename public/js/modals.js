@@ -1,3 +1,10 @@
+// Renocheck agent payout lookup (revenue → agent rate)
+const RN_AGENT_RATE = {25:8, 40:12, 50:15, 55:15, 70:15, 80:20};
+function rnAgentPay(r) {
+  try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return RN_AGENT_RATE[fb.revenue] ?? null; } catch {}
+  return null;
+}
+
 // Standalone helper — does NOT need `this`, safe to call from any modal closure
 function _showContractOverlay(html, printAfter) {
   const existing = document.getElementById('__contract-overlay');
@@ -694,7 +701,7 @@ const Modals = {
       const rows = Object.entries(byKey).map(([key, g]) => {
         const fallback = (agent.rates || {})[g.subId || g.clientId] || (agent.rates || {})[g.clientId] || 0;
         const name = getGroupName(g.clientId, g.subId);
-        const apptAgentRate = a => a.agentRate != null ? a.agentRate : fallback;
+        const apptAgentRate = a => a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? fallback) : fallback);
         const total = g.appts.reduce((s2, a) => s2 + apptAgentRate(a), 0);
         const uniqueRates = [...new Set(g.appts.map(apptAgentRate))].sort((a, b) => a - b);
         const rate = uniqueRates.length > 1 ? uniqueRates[0] : (uniqueRates[0] || 0);
@@ -714,7 +721,7 @@ const Modals = {
         : [];
       const mgmtApptRows = otherAgentAppts.map(ap => {
         const ag = d.agents.find(g => g.id === ap.agent);
-        const agRate = ap.agentRate != null ? ap.agentRate : ((ag && ag.rates) ? ((ag.rates[ap.sub] || ag.rates[ap.client]) || 0) : 0);
+        const agRate = ap.agentRate != null ? ap.agentRate : (ap.client === 'c15' ? (rnAgentPay(ap) ?? 0) : ((ag && ag.rates) ? ((ag.rates[ap.sub] || ag.rates[ap.client]) || 0) : 0));
         const clRate = clientRate(ap);
         const profit = clRate - agRate;
         const commission = Math.round(profit * 0.15 * 100) / 100;
@@ -849,7 +856,7 @@ const Modals = {
                   { label: 'Logged', render: r => UI.Mono(this.fmtDate(r.dateLog), { fontSize: 12, color: 'var(--text-mute)' }) },
                   { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12 }) },
                   { label: 'Lead', render: r => e('span', { style: { fontWeight: 600, color: 'var(--text)' } }, r.lead) },
-                  { label: 'Amount', align: 'right', render: r => { const fallback = (agent.rates || {})[g.subId || g.clientId] || (agent.rates || {})[g.clientId] || 0; const amt = r.agentRate != null ? r.agentRate : fallback; return e('span', { style: { fontFamily: "'JetBrains Mono'", fontSize: 12, fontWeight: 700, color: 'var(--up)' } }, this.euro(amt)); } },
+                  { label: 'Amount', align: 'right', render: r => { const fallback = (agent.rates || {})[g.subId || g.clientId] || (agent.rates || {})[g.clientId] || 0; const amt = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? fallback) : fallback); return e('span', { style: { fontFamily: "'JetBrains Mono'", fontSize: 12, fontWeight: 700, color: 'var(--up)' } }, this.euro(amt)); } },
                 ], sorted, { min: 400 }) : null);
             })) : null) : null,
         readOnly ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
@@ -1579,7 +1586,7 @@ const Modals = {
         const cl = d.clients.find(c => c.id === cid);
         const clAppts = appts.filter(a => a.client === cid);
         const rev = clAppts.length * (cl ? cl.rate || 0 : 0);
-        const payout = clAppts.reduce((s, a) => s + (a.agentRate != null ? a.agentRate : ((agent.rates || {})[a.client] || 0)), 0);
+        const payout = clAppts.reduce((s, a) => s + (a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((agent.rates || {})[a.client] || 0))), 0);
         return { client: cl ? cl.name : cid, appts: clAppts.length, rev, payout, profit: rev - payout };
       }).sort((a, b) => b.rev - a.rev);
       const totRev = rows.reduce((s, r) => s + r.rev, 0);

@@ -1,4 +1,9 @@
 // Agent screens: dashboard, log, appointments, eod, payments, clients, stats, settings
+const RN_AGENT_RATE = {25:8, 40:12, 50:15, 55:15, 70:15, 80:20};
+function rnAgentPay(r) {
+  try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return RN_AGENT_RATE[fb.revenue] ?? null; } catch {}
+  return null;
+}
 const ScreenAgent = {
   scrAgent(d, s) {
     const e = React.createElement;
@@ -39,7 +44,7 @@ const ScreenAgent = {
       { label: 'Lead', key: 'lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
-      { label: 'Payout', align: 'right', render: r => { const pay = r.agentRate != null ? r.agentRate : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]); return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : '—', { color: pay ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700 }), r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
+      { label: 'Payout', align: 'right', render: r => { const pay = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])); return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : '—', { color: pay ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700 }), r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
     ], recent.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 680 });
 
     const period = d.leaderPeriod || 'daily';
@@ -271,7 +276,7 @@ const ScreenAgent = {
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
-      { label: 'Payout', align: 'right', render: r => { const pay = r.agentRate != null ? r.agentRate : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]); return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : '—', { fontWeight: 700, color: pay ? 'var(--up)' : 'var(--text-mute)' }), r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
+      { label: 'Payout', align: 'right', render: r => { const pay = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])); return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : '—', { fontWeight: 700, color: pay ? 'var(--up)' : 'var(--text-mute)' }), r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
     ];
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
       this._apptToolbar(d, s),
@@ -431,7 +436,7 @@ const ScreenAgent = {
         for (const ap of apList) {
           const ag = d.agents.find(g => g.id === ap.agent);
           const clRate = clientRate(ap);
-          const agRate = ap.agentRate != null ? ap.agentRate : ((ag && ag.rates) ? (ag.rates[ap.sub] || ag.rates[ap.client] || 0) : 0);
+          const agRate = ap.agentRate != null ? ap.agentRate : (ap.client === 'c15' ? (rnAgentPay(ap) ?? 0) : ((ag && ag.rates) ? (ag.rates[ap.sub] || ag.rates[ap.client] || 0) : 0));
           const profit = clRate - agRate;
           const commission = profit > 0 ? Math.round(profit * 0.15 * 100) / 100 : 0;
           if (!agMap[ap.agent]) agMap[ap.agent] = { id: ap.agent, name: ag ? ag.name : '?', count: 0, revenue: 0, fee: 0 };
