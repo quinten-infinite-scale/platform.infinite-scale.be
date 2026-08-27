@@ -2031,8 +2031,8 @@ const ScreenAdmin = {
     const onDrop = (ev, stageId) => { ev.preventDefault(); const id = this._tlDragId; this._tlDragId = null; this.setState({ _tlDragOver: null }); if (id) moveStage(id, stageId); };
     const onDragEnd = () => { this._tlDragId = null; this.setState({ _tlDragOver: null }); };
 
-    const activeClients = d.clients.filter(c => c.kickoff);
-    const noKickoff = d.clients.filter(c => !c.kickoff && c.status === 'active');
+    const activeClients = d.clients.filter(c => c.kickoff || c.timelineStage);
+    const noKickoff = d.clients.filter(c => !c.kickoff && !c.timelineStage && c.status === 'active');
 
     // Progress bar at top
     const stageProgress = e('div', { style: { display: 'flex', alignItems: 'stretch', borderRadius: 10, overflow: 'hidden', height: 8, marginBottom: 20, gap: 2 } },
