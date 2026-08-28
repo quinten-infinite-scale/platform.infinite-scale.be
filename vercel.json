@@ -2,7 +2,7 @@
   "outputDirectory": "public",
   "crons": [
     { "path": "/api/invoice-reminder", "schedule": "0 9 * * *" },
-    { "path": "/api/whatsapp/send-reminders", "schedule": "*/30 * * * *" },
+    { "path": "/api/whatsapp/send-reminders", "schedule": "0 8 * * *" },
     { "path": "/api/auto-invoice", "schedule": "0 2 1 * *" },
     { "path": "/api/sync-dials", "schedule": "0 6 * * *" },
     { "path": "/api/sync-dials", "schedule": "0 7 * * *" },
