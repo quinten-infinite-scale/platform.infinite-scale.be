@@ -1675,7 +1675,7 @@ const ScreenAdmin = {
       } },
       { label: 'Client rate', align: 'right', render: r => {
         const ag = d.agents.find(a => a.id === r.agent);
-        const agentRate = r.agentRate != null ? r.agentRate : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0);
+        const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
         const cl = d.clients.find(c => c.id === r.client);
         const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
         const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
@@ -1832,7 +1832,7 @@ const ScreenAdmin = {
                   const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
                   const ag = d.agents.find(a => a.id === r.agent);
                   const clientRate = (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0;
-                  const agentRate = r.agentRate != null ? r.agentRate : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0);
+                  const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
                   rows.push([r.dateAppt || '', r.dateLog || '', r.lead || '', r.phone || '', ag ? ag.name : '', cl ? cl.name : '', sub ? sub.name : '', r.status || '', clientRate, agentRate]);
                 });
                 const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
