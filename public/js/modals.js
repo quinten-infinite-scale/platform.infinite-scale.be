@@ -1,10 +1,3 @@
-// Renocheck agent payout lookup (revenue → agent rate)
-const RN_AGENT_RATE = {25:8, 40:12, 50:15, 55:15, 70:15, 80:20};
-function rnAgentPay(r) {
-  try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return RN_AGENT_RATE[fb.revenue] ?? null; } catch {}
-  return null;
-}
-
 // Standalone helper — does NOT need `this`, safe to call from any modal closure
 function _showContractOverlay(html, printAfter) {
   const existing = document.getElementById('__contract-overlay');
