@@ -818,7 +818,6 @@ const ScreenAdmin = {
 
     // Rate helpers
     const getRate = (a) => {
-      if (a.amount === 0) return 0;
       try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {}
       const cl = d.clients.find(c => c.id === a.client);
       if (!cl) return 0;
@@ -831,6 +830,7 @@ const ScreenAdmin = {
     const getPayout = (a) => {
       const ag = d.agents.find(x => x.id === a.agent);
       if (!ag) return 0;
+      if (a.client === 'c15') return (rnAgentPay(a) ?? 0) + (a.dealCommission || 0);
       return ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client] || 0) + (a.dealCommission || 0);
     };
 
