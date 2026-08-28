@@ -3,7 +3,7 @@ const API = {
 
   async loadAll(role, agentId, clientId, subClientId) {
     const [agents, clients, acRows, appointments, dials, dialsHourlyRows, eods, tickets,
-      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows] = await Promise.all([
+      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows, whatsappMessagesRows, whatsappTemplatesRows] = await Promise.all([
       SB.get('agents', '?order=name'),
       SB.get('clients', '?order=name'),
       SB.get('agent_clients'),
@@ -37,6 +37,8 @@ const API = {
       role === 'agent'
         ? SB.get('invoice_states', `?agent_id=eq.${agentId}`).catch(() => [])
         : SB.get('invoice_states', '').catch(() => []),
+      role === 'admin' ? SB.get('whatsapp_messages', '?order=created_at.desc&limit=500').catch(() => []) : Promise.resolve([]),
+      role === 'admin' ? SB.get('client_whatsapp_templates', '?order=created_at.asc').catch(() => []) : Promise.resolve([]),
     ]);
 
     // Build dials map: { agentId: { date: count } }
@@ -186,6 +188,8 @@ const API = {
       settings: Object.fromEntries((platformSettings || []).map(r => [r.key, r.value])),
       presence: presenceRows || [],
       invoiceStates: invoiceStatesMap,
+      whatsappMessages: whatsappMessagesRows || [],
+      whatsappTemplates: whatsappTemplatesRows || [],
     };
   },
 

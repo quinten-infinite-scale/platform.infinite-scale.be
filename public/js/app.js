@@ -177,7 +177,7 @@ class Component extends DCLogic {
     if (!uid) return;
     const name = this._getPresenceName();
     const role = this.state.role;
-    const routeLabels = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do' };
+    const routeLabels = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do', whatsapp: 'WhatsApp' };
     API.updatePresence(uid, name, role, route, routeLabels[route] || route);
   }
 
@@ -351,7 +351,7 @@ class Component extends DCLogic {
   }
 
   go(route) {
-    const labels = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster / Schedule', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do' };
+    const labels = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster / Schedule', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do', whatsapp: 'WhatsApp' };
     this._logActivity('navigate', 'Opened ' + (labels[route] || route));
     this._updatePresence(route);
     this.setState({ route, notifOpen: false, sidebarOpen: false });
@@ -662,6 +662,21 @@ class Component extends DCLogic {
     }
     const saved = Array.isArray(result) ? result[0] : result;
     this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
+
+    // Fire-and-forget: WhatsApp confirmation (never blocks the submit flow)
+    if (saved?.id && f.client && f.phone) {
+      const _waSession = typeof SB !== 'undefined' ? SB.getSession() : null;
+      const _waToken = _waSession?.access_token || '';
+      if (_waToken) {
+        fetch('/api/whatsapp/send-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _waToken },
+          body: JSON.stringify({ appointmentId: saved.id, clientId: f.client, leadName, phone: f.phone, dateAppt: f.dateAppt }),
+        }).then(r => r.json()).then(j => {
+          if (!j.ok) console.warn('[wa-confirm] not sent:', j.reason || j.error);
+        }).catch(err => console.error('[wa-confirm] fetch error:', err));
+      }
+    }
     this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + leadName + ' (€' + amount + ')');
     this.closeModal();
     this.toast('Logged', isRenocheck ? 'Lead verzonden naar Renocheck & afspraak gelogd' : 'Appointment added', 'var(--up)');
@@ -1092,7 +1107,7 @@ class Component extends DCLogic {
       agent: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['log', 'Appointment Log', 'M5 3h14v18H5zM9 9h6M9 13h6M9 17h4'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['eod', 'End of Day', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['payments', 'Payments', 'M3 6h18v12H3zM3 10h18M7 15h3'], ['clients', 'My Clients', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Rooster', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
       client: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
       agency: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
-      admin: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      admin: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['whatsapp', 'WhatsApp', 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
     };
     const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
     out.nav = (navDefs[s.role] || []).map(([key, label, icon]) => {
@@ -1129,7 +1144,7 @@ class Component extends DCLogic {
     }
 
     // Page title
-    const titles = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', apptadmin: 'Appointments', eod: 'End of Day Report', payments: 'Payments', clients: s.role === 'admin' ? 'Clients' : 'My Clients', stats: 'Statistics', settings: 'Settings', billing: 'Billing', legal: 'Legal & Contracts', support: 'Support', finances: 'Finances', agents: 'Call Agents', eodadmin: 'End of Day Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', contracts: 'Contracts', todos: 'To-Do' };
+    const titles = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', apptadmin: 'Appointments', eod: 'End of Day Report', payments: 'Payments', clients: s.role === 'admin' ? 'Clients' : 'My Clients', stats: 'Statistics', settings: 'Settings', billing: 'Billing', legal: 'Legal & Contracts', support: 'Support', finances: 'Finances', agents: 'Call Agents', eodadmin: 'End of Day Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', contracts: 'Contracts', todos: 'To-Do', whatsapp: 'WhatsApp' };
     out.pageTitle = titles[s.route] || 'Dashboard';
     const subMap = { dashboard: { agent: 'Welcome back', client: 'Live appointment overview', agency: 'All clients, one view', admin: 'Everything, in real time' } };
     out.pageSub = (subMap[s.route] && subMap[s.route][s.role]) || roleLabels[s.role];

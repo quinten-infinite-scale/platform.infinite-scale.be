@@ -73,6 +73,7 @@ const ScreenAdmin = {
     if (r === 'rooster') return this._admRooster(d, s);
     if (r === 'activity') return this._admActivity(d, s);
     if (r === 'todos') return this._admTodos(d, s);
+    if (r === 'whatsapp') return this._admWhatsApp(d, s);
     if (r === 'settings') { const session = typeof SB !== 'undefined' ? SB.getSession() : null; return this._settings(d, s, { name: (session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Admin'), email: session?.user?.email || 'quinten@infinite-scale.be' }); }
     return e('div', null, '');
   },
@@ -3452,6 +3453,190 @@ const ScreenAdmin = {
         e('button', { onClick: () => navDay(1), style: { padding: '6px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 18, lineHeight: 1 } }, '\u203A')),
       e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' } },
         ...USERS.map(u => renderColumn(u))));
+  },
+
+  // ---------------------------------------------------------------------------
+  // WhatsApp tab
+  // ---------------------------------------------------------------------------
+  _admWhatsApp(d, s) {
+    const e = React.createElement;
+    const wa = d.whatsappMessages || [];
+    const tpls = d.whatsappTemplates || [];
+
+    // Local sub-tab state: 'messages' or 'templates'
+    const subTab = s._waSubTab || 'messages';
+    const setSubTab = t => this.setState({ _waSubTab: t });
+
+    // Filter state
+    const filterClient = s._waFilterClient || '';
+    const filterStatus = s._waFilterStatus || '';
+    const filterDateFrom = s._waFilterDateFrom || '';
+    const filterDateTo = s._waFilterDateTo || '';
+    const threadPhone = s._waThreadPhone || null;
+
+    // Filtered messages
+    let msgs = wa.filter(m => {
+      if (filterClient && m.client_id !== filterClient) return false;
+      if (filterStatus && m.status !== filterStatus) return false;
+      if (filterDateFrom && m.created_at < filterDateFrom) return false;
+      if (filterDateTo && m.created_at > filterDateTo + 'T23:59:59Z') return false;
+      return true;
+    });
+
+    // Helpers
+    const statusBadge = status => {
+      const colors = { sent: '#5a7fbf', delivered: '#f5a623', read: 'var(--up)', failed: 'var(--down)', received: '#8b5fbf' };
+      return e('span', {
+        style: { fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: (colors[status] || '#555') + '22', color: colors[status] || '#aaa', letterSpacing: '.06em', textTransform: 'uppercase' }
+      }, status);
+    };
+
+    const dirBadge = dir => e('span', {
+      style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: dir === 'inbound' ? 'rgba(103,220,223,0.12)' : 'rgba(90,127,191,0.15)', color: dir === 'inbound' ? 'var(--accent)' : '#7a9be0', letterSpacing: '.05em', textTransform: 'uppercase' }
+    }, dir);
+
+    const fmtTime = iso => iso ? iso.slice(0, 16).replace('T', ' ') : '\u2014';
+
+    const clientName = cid => (d.clients || []).find(c => c.id === cid)?.name || cid || '\u2014';
+
+    // Thread view: all messages for a given phone number
+    const threadView = threadPhone ? e('div', { style: { position: 'fixed', inset: 0, background: 'rgba(7,10,20,0.82)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+        onClick: ev => { if (ev.target === ev.currentTarget) this.setState({ _waThreadPhone: null }); } },
+      e('div', { style: { width: '100%', maxWidth: 620, maxHeight: '80vh', background: '#13161f', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+        e('div', { style: { padding: '14px 20px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 10 } },
+          e('span', { style: { fontWeight: 700, color: 'var(--text)', flex: 1 } }, 'Thread: ' + threadPhone),
+          e('button', { onClick: () => this.setState({ _waThreadPhone: null }), style: { background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 20, cursor: 'pointer' } }, '\u00D7')),
+        e('div', { style: { flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 } },
+          ...wa.filter(m => m.phone === threadPhone || m.phone === '+' + threadPhone.replace(/^\+/, '')).map(m =>
+            e('div', { key: m.id, style: { display: 'flex', flexDirection: 'column', alignItems: m.direction === 'inbound' ? 'flex-start' : 'flex-end', gap: 3 } },
+              e('div', { style: { maxWidth: '80%', padding: '8px 14px', borderRadius: 14, background: m.direction === 'inbound' ? 'var(--surface)' : 'oklch(0.22 0.08 230 / .7)', color: 'var(--text)', fontSize: 13, lineHeight: 1.5 } },
+                m.content || (m.template_name ? '[Template: ' + m.template_name + ']' : '[no content]')),
+              e('div', { style: { fontSize: 10, color: 'var(--text-mute)', display: 'flex', gap: 6 } },
+                fmtTime(m.created_at), statusBadge(m.status)))
+          )
+        )
+      )
+    ) : null;
+
+    // Messages table
+    const messagesTab = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      // Filter bar
+      e('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' } },
+        e('select', { value: filterClient, onChange: ev => this.setState({ _waFilterClient: ev.target.value }),
+          style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } },
+          e('option', { value: '' }, 'All clients'),
+          ...(d.clients || []).map(c => e('option', { key: c.id, value: c.id }, c.name))),
+        e('select', { value: filterStatus, onChange: ev => this.setState({ _waFilterStatus: ev.target.value }),
+          style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } },
+          e('option', { value: '' }, 'All statuses'),
+          ['sent', 'delivered', 'read', 'failed', 'received'].map(st => e('option', { key: st, value: st }, st))),
+        e('input', { type: 'date', value: filterDateFrom, onChange: ev => this.setState({ _waFilterDateFrom: ev.target.value }),
+          placeholder: 'From', style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } }),
+        e('input', { type: 'date', value: filterDateTo, onChange: ev => this.setState({ _waFilterDateTo: ev.target.value }),
+          placeholder: 'To', style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } }),
+        msgs.length > 0 ? e('span', { style: { fontSize: 12, color: 'var(--text-mute)', marginLeft: 'auto' } }, msgs.length + ' message' + (msgs.length !== 1 ? 's' : '')) : null),
+      // Table
+      e('div', { style: { overflowX: 'auto' } },
+        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+          e('thead', null,
+            e('tr', null,
+              ['Lead / phone', 'Client', 'Type', 'Dir', 'Status', 'Template', 'Sent at'].map(h =>
+                e('th', { key: h, style: { textAlign: 'left', padding: '8px 12px', color: 'var(--text-mute)', fontWeight: 600, fontSize: 11, borderBottom: '1px solid var(--border-soft)', whiteSpace: 'nowrap' } }, h)))),
+          e('tbody', null,
+            msgs.length === 0
+              ? e('tr', null, e('td', { colSpan: 7, style: { padding: '24px 12px', color: 'var(--text-mute)', textAlign: 'center', fontSize: 13 } }, 'No messages found'))
+              : msgs.map(m => {
+                const appt = (d.appointments || []).find(a => a.id === m.appointment_id);
+                const leadLabel = appt ? appt.lead + ' (' + m.phone + ')' : m.phone || '\u2014';
+                return e('tr', { key: m.id, onClick: () => this.setState({ _waThreadPhone: m.phone }),
+                  style: { cursor: 'pointer', borderBottom: '1px solid var(--border-soft)' } },
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text)' } }, leadLabel),
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text-mute)' } }, clientName(m.client_id)),
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text)' } }, m.message_type),
+                  e('td', { style: { padding: '9px 12px' } }, dirBadge(m.direction)),
+                  e('td', { style: { padding: '9px 12px' } }, statusBadge(m.status)),
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text-mute)', fontSize: 12 } }, m.template_name || '\u2014'),
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text-mute)', fontSize: 12, whiteSpace: 'nowrap' } }, fmtTime(m.created_at)));
+              })
+          )
+        )
+      )
+    );
+
+    // Templates sub-tab
+    const templatesTab = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      e('p', { style: { fontSize: 12, color: 'var(--text-mute)', margin: 0, padding: '8px 14px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border-soft)' } },
+        'Config changes (reminder timing, active/inactive) apply immediately. ' +
+        'Template wording is controlled by Meta \u2014 any text change must be submitted for Meta approval and goes through a review process before it can be used. ' +
+        'The template name and language here must exactly match an approved template in your Meta Business Manager account.'),
+      e('div', { style: { overflowX: 'auto' } },
+        e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+          e('thead', null,
+            e('tr', null,
+              ['Client', 'Template name', 'Language', 'Reminder (hours)', 'Active'].map(h =>
+                e('th', { key: h, style: { textAlign: 'left', padding: '8px 12px', color: 'var(--text-mute)', fontWeight: 600, fontSize: 11, borderBottom: '1px solid var(--border-soft)' } }, h)))),
+          e('tbody', null,
+            tpls.length === 0
+              ? e('tr', null, e('td', { colSpan: 5, style: { padding: '24px 12px', color: 'var(--text-mute)', textAlign: 'center', fontSize: 13 } }, 'No templates configured'))
+              : tpls.map(t => {
+                const isEditing = s['_waEditTpl_' + t.id];
+                const editHours = s['_waEditHours_' + t.id] ?? t.reminder_hours_before;
+                const editActive = s['_waEditActive_' + t.id] ?? t.active;
+
+                const save = async () => {
+                  const key = process.env.SUPABASE_SERVICE_ROLE_KEY; // not available client-side \u2014 use SB.post pattern
+                  const r = await fetch('/api/db-write', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (window._supabaseSession?.access_token || '') },
+                    body: JSON.stringify({ method: 'patch', table: 'client_whatsapp_templates', query: '?id=eq.' + t.id, body: { reminder_hours_before: Number(editHours), active: editActive } }),
+                  }).then(r => r.json()).catch(() => ({}));
+                  if (r.ok) {
+                    this.mutLocal(d => { const row = (d.whatsappTemplates || []).find(x => x.id === t.id); if (row) { row.reminder_hours_before = Number(editHours); row.active = editActive; } });
+                    this.setState({ ['_waEditTpl_' + t.id]: false });
+                    this.toast('Saved', 'Template config updated', 'var(--up)');
+                  } else {
+                    this.toast('Error', 'Could not save template config', 'var(--down)');
+                  }
+                };
+
+                return e('tr', { key: t.id, style: { borderBottom: '1px solid var(--border-soft)' } },
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text)' } }, clientName(t.client_id)),
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text-mute)', fontFamily: 'monospace', fontSize: 12 } }, t.template_name),
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text-mute)' } }, t.template_language),
+                  e('td', { style: { padding: '9px 12px' } },
+                    isEditing
+                      ? e('input', { type: 'number', min: 1, max: 168, value: editHours,
+                          onChange: ev => this.setState({ ['_waEditHours_' + t.id]: ev.target.value }),
+                          style: { width: 70, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } })
+                      : t.reminder_hours_before + 'h before'),
+                  e('td', { style: { padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 10 } },
+                    isEditing
+                      ? e('label', { style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 } },
+                          e('input', { type: 'checkbox', checked: editActive, onChange: ev => this.setState({ ['_waEditActive_' + t.id]: ev.target.checked }) }),
+                          editActive ? 'Active' : 'Inactive')
+                      : e('span', { style: { fontSize: 12, fontWeight: 700, color: t.active ? 'var(--up)' : 'var(--text-mute)' } }, t.active ? 'Active' : 'Inactive'),
+                    !isEditing
+                      ? e('button', { onClick: () => this.setState({ ['_waEditTpl_' + t.id]: true, ['_waEditHours_' + t.id]: t.reminder_hours_before, ['_waEditActive_' + t.id]: t.active }),
+                          style: { fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', marginLeft: 8 } }, 'Edit')
+                      : e('span', { style: { display: 'flex', gap: 6, marginLeft: 4 } },
+                          e('button', { onClick: save, style: { fontSize: 11, padding: '3px 10px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#071a1a', fontWeight: 700, cursor: 'pointer' } }, 'Save'),
+                          e('button', { onClick: () => this.setState({ ['_waEditTpl_' + t.id]: false }), style: { fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer' } }, 'Cancel'))
+                  ));
+              })
+          )
+        )
+      )
+    );
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+      threadView,
+      // Sub-tab bar
+      e('div', { style: { display: 'flex', gap: 4 } },
+        ['messages', 'templates'].map(t =>
+          e('button', { key: t, onClick: () => setSubTab(t),
+            style: { padding: '7px 18px', borderRadius: 8, border: '1px solid ' + (subTab === t ? 'var(--accent)' : 'var(--border)'), background: subTab === t ? 'oklch(0.22 0.09 180 / .35)' : 'var(--surface)', color: subTab === t ? 'var(--accent)' : 'var(--text-mute)', fontWeight: subTab === t ? 700 : 400, cursor: 'pointer', fontSize: 13, textTransform: 'capitalize', transition: 'all .15s' } },
+            t === 'messages' ? 'Messages' : 'Templates'))),
+      subTab === 'messages' ? messagesTab : templatesTab);
   },
 
 };
