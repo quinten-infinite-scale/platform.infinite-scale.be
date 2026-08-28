@@ -1,8 +1,9 @@
 // Vercel cron: runs daily at 09:00 UTC
-// Fires on exactly 3 days per month:
-//   1. The 25th        → first reminder
-//   2. 2 days before month-end → urgent reminder
-//   3. Last day of month → final "we invoice everything" warning
+// Fires on exactly 4 days per month:
+//   1. The 25th             → first reminder
+//   2. 2 days before end    → urgent reminder
+//   3. 1 day before end     → final warning
+//   4. Last day of month    → "we invoice everything today" warning
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
@@ -20,6 +21,7 @@ export default async function handler(req, res) {
   let trigger = null;
   if (today === 25) trigger = 'first';
   else if (daysLeft === 2) trigger = 'second';
+  else if (daysLeft === 1) trigger = 'penultimate';
   else if (daysLeft === 0) trigger = 'last';
 
   if (!trigger) {
@@ -51,7 +53,7 @@ export default async function handler(req, res) {
   const clientIds = [...new Set(appts.map(a => a.client_id))];
 
   const [clientRes, contractRes] = await Promise.all([
-    fetch(`${SB_URL}/rest/v1/clients?id=in.(${clientIds.join(',')})&select=id,name`, {
+    fetch(`${SB_URL}/rest/v1/clients?id=in.(${clientIds.join(',')})&select=id,name,email,billing_confirmed`, {
       headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey },
     }),
     fetch(`${SB_URL}/rest/v1/contracts?party_type=eq.client&status=eq.signed&select=email,party&order=signed_at.desc`, {
@@ -59,23 +61,37 @@ export default async function handler(req, res) {
     }),
   ]);
 
-  const clients = await clientRes.json();
+  const allClients = await clientRes.json();
   const contracts = await contractRes.json();
 
+  // Skip clients who already confirmed their billing statuses for this month
+  const clients = allClients.filter(cl => {
+    const confirmed = cl.billing_confirmed || {};
+    return !confirmed[currentYM];
+  });
+
+  if (clients.length === 0) {
+    return res.status(200).json({ sent: 0, trigger, reason: 'All clients already confirmed billing for ' + currentYM });
+  }
+
   const buildEmail = (cl, pending, trigger) => {
-    const accentColor = trigger === 'last' ? '#e8314a' : trigger === 'second' ? '#f5a623' : '#f5a623';
-    const topBarColor = trigger === 'last'
+    const accentColor = trigger === 'last' ? '#e8314a' : trigger === 'penultimate' ? '#e8314a' : '#f5a623';
+    const topBarColor = (trigger === 'last' || trigger === 'penultimate')
       ? 'linear-gradient(90deg,#e8314a,#b71c1c)'
       : 'linear-gradient(90deg,#f5a623,#e8830a)';
 
     const badge = trigger === 'last'
       ? 'Laatste dag — facturatie start vandaag'
+      : trigger === 'penultimate'
+      ? 'Urgente herinnering — morgen is de sluitdatum'
       : trigger === 'second'
       ? 'Dringende herinnering — 2 dagen resterend'
       : 'Actie vereist — factuuroverzicht';
 
     const headline = trigger === 'last'
       ? `Laatste kans:<br>statussen bijwerken voor ${cl.name}`
+      : trigger === 'penultimate'
+      ? `Morgen is de sluitdatum:<br>controleer uw afspraken nu`
       : trigger === 'second'
       ? `Nog 2 dagen:<br>controleer uw afspraken`
       : `Overzicht ${monthLabel}<br>staat klaar voor review`;
@@ -83,13 +99,21 @@ export default async function handler(req, res) {
     const body = trigger === 'last'
       ? `Beste ${cl.name},<br><br>
          Vandaag is de <strong style="color:#ffffff;">laatste dag van de maand</strong>. U heeft nog <strong style="color:#ffffff;">${pending} afspra${pending === 1 ? 'ak' : 'ken'}</strong> waarvoor de status niet definitief is ingesteld.<br><br>
+         Ga naar <strong style="color:#67dcdf;">Billing</strong> in het platform voor een overzicht van deze maand.<br><br>
          <strong style="color:#e8314a;">Indien wij voor het einde van vandaag geen feedback ontvangen, factureren wij alle openstaande afspraken automatisch.</strong> Dit geldt als uitdrukkelijke mededeling conform uw contract.`
+      : trigger === 'penultimate'
+      ? `Beste ${cl.name},<br><br>
+         Morgen is de <strong style="color:#ffffff;">laatste dag van de maand</strong>. U heeft nog <strong style="color:#ffffff;">${pending} afspra${pending === 1 ? 'ak' : 'ken'}</strong> zonder definitieve status.<br><br>
+         Ga naar <strong style="color:#67dcdf;">Billing</strong> in het platform voor een duidelijk overzicht van deze maand.<br><br>
+         <strong style="color:#e8314a;">Gelieve uiterlijk morgen, ${deadlineStr}, alle afspraken te controleren. Afspraken zonder feedback worden automatisch gefactureerd.</strong>`
       : trigger === 'second'
       ? `Beste ${cl.name},<br><br>
          Er zijn nog maar <strong style="color:#ffffff;">2 dagen</strong> over. U heeft nog <strong style="color:#ffffff;">${pending} afspra${pending === 1 ? 'ak' : 'ken'}</strong> zonder definitieve status.<br><br>
+         Ga naar <strong style="color:#67dcdf;">Billing</strong> in het platform voor een duidelijk overzicht van deze maand.<br><br>
          Gelieve uiterlijk <strong style="color:#f5a623;">${deadlineStr}</strong> alle afspraken te controleren. <strong style="color:#ffffff;">Indien wij geen feedback ontvangen, worden alle openstaande afspraken automatisch gefactureerd.</strong>`
       : `Beste ${cl.name},<br><br>
          Het einde van de maand nadert. U heeft nog <strong style="color:#ffffff;">${pending} afspra${pending === 1 ? 'ak' : 'ken'}</strong> waarvoor de status nog niet definitief is bijgewerkt.<br><br>
+         Ga naar <strong style="color:#67dcdf;">Billing</strong> in het platform voor een duidelijk overzicht van deze maand.<br><br>
          Gelieve uiterlijk <strong style="color:#f5a623;">${deadlineStr}</strong> alle afspraken te controleren en de juiste status in te stellen. <strong style="color:#ffffff;">Afspraken zonder definitieve status worden automatisch gefactureerd.</strong>`;
 
     const footer = trigger === 'last'
@@ -131,15 +155,15 @@ export default async function handler(req, res) {
   };
 
   const subjects = {
-    first:  `Afsprakenoverzicht ${monthLabel} — controleer uw statussen voor ${deadlineStr}`,
-    second: `Herinnering: nog 2 dagen om afspraken te controleren — ${monthLabel}`,
-    last:   `LAATSTE DAG: statussen bijwerken of alles wordt gefactureerd — ${monthLabel}`,
+    first:       `Afsprakenoverzicht ${monthLabel} — controleer uw statussen voor ${deadlineStr}`,
+    second:      `Herinnering: nog 2 dagen om afspraken te controleren — ${monthLabel}`,
+    penultimate: `Morgen is de sluitdatum — controleer uw afspraken vandaag nog`,
+    last:        `LAATSTE DAG: statussen bijwerken of alles wordt gefactureerd — ${monthLabel}`,
   };
 
   const results = [];
   for (const cl of clients) {
-    const contract = contracts.find(c => c.party && c.party.toLowerCase().includes(cl.name.toLowerCase()));
-    const email = contract?.email;
+    const email = cl.email || contracts.find(c => c.party && c.party.toLowerCase().includes(cl.name.toLowerCase()))?.email;
     if (!email) { results.push({ id: cl.id, skipped: 'no email' }); continue; }
 
     const pending = appts.filter(a => a.client_id === cl.id).length;
