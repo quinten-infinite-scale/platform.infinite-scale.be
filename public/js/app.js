@@ -668,7 +668,7 @@ class Component extends DCLogic {
       const _waSession = typeof SB !== 'undefined' ? SB.getSession() : null;
       const _waToken = _waSession?.access_token || '';
       if (_waToken) {
-        fetch('/api/whatsapp/send-confirmation', {
+        fetch('/api/whatsapp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _waToken },
           body: JSON.stringify({ appointmentId: saved.id, clientId: f.client, leadName, phone: f.phone, dateAppt: f.dateAppt }),

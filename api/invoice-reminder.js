@@ -4,12 +4,31 @@
 //   2. 2 days before end    → urgent reminder
 //   3. 1 day before end     → final warning
 //   4. Last day of month    → "we invoice everything today" warning
+// Also handles ?action=auto-invoice (1st of month, mark previous month invoiced)
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
   const auth = req.headers.authorization || '';
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // auto-invoice action: mark previous month's appointments as invoiced
+  if (req.query.action === 'auto-invoice') {
+    const SB_URL = 'https://database.infinite-scale.be';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceKey) return res.status(500).json({ error: 'Service key not configured' });
+    const now = new Date();
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevYM = prevStart.getFullYear() + '-' + String(prevStart.getMonth() + 1).padStart(2, '0');
+    const thisYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const r = await fetch(
+      `${SB_URL}/rest/v1/appointments?date_appt=gte.${prevYM}-01&date_appt=lt.${thisYM}-01&invoiced=eq.false&status=not.in.(cancel,no_show)`,
+      { method: 'PATCH', headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ invoiced: true }) }
+    );
+    if (!r.ok) { const err = await r.text(); return res.status(500).json({ error: err }); }
+    const data = await r.json();
+    return res.status(200).json({ invoiced: data.length, month: prevYM });
   }
 
   const now = new Date();
