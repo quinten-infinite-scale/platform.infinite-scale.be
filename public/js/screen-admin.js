@@ -81,8 +81,8 @@ const ScreenAdmin = {
     const now = new Date();
     const currentYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     const today = this.iso(this.today());
-    const cRate = (a) => { const cl = d.clients.find(c => c.id === a.client); if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
-    const aRate = (a) => { const ag = d.agents.find(g => g.id === a.agent); return (ag && ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client])) || 0; };
+    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} const cl = d.clients.find(c => c.id === a.client); if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    const aRate = (a) => { if (a.client === 'c15') return rnAgentPay(a) ?? 0; const ag = d.agents.find(g => g.id === a.agent); return (ag && ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client])) || 0; };
     // Expected: all billable appointments logged this month (regardless of invoiced status)
     const curMonthBillable = d.appointments.filter(a => a.dateLog && a.dateLog.startsWith(currentYM) && a.status !== 'cancel' && a.status !== 'no_show');
     const expected = curMonthBillable.reduce((x, a) => x + cRate(a) + (a.dealAmount || 0), 0);

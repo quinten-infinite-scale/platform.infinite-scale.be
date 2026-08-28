@@ -18,7 +18,7 @@ const ScreenAgent = {
     const dialsT = agDials[today] || 0, dialsY = agDials[yest] || 1;
     const apT = d.appointments.filter(a => a.agent === me.id && a.dateLog === today);
     const apY = d.appointments.filter(a => a.agent === me.id && a.dateLog === yest);
-    const agentPay = a => (me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0;
+    const agentPay = a => a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0);
     const moneyT = apT.reduce((x, a) => x + agentPay(a), 0);
     const moneyY = apY.reduce((x, a) => x + agentPay(a), 0) || 1;
     const pct = (a, b) => Math.round(((a - b) / (b || 1)) * 100);
