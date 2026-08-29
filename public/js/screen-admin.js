@@ -3499,19 +3499,55 @@ const ScreenAdmin = {
       statCard('Failed', failedTotal, 'all time', failedTotal > 0 ? 'var(--down)' : 'var(--text-mute)'));
 
     // \u2500\u2500 Thread modal \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    const threadReplyText = s._waReplyText || '';
+    const threadSending = s._waReplySending || false;
+
+    const sendReply = async () => {
+      if (!threadReplyText.trim() || threadSending) return;
+      this.setState({ _waReplySending: true });
+      const token = SB.getSession()?.access_token || '';
+      const r = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ type: 'reply', phone: threadPhone, text: threadReplyText.trim() }),
+      }).then(r => r.json()).catch(err => ({ ok: false, error: err.message }));
+      this.setState({ _waReplySending: false });
+      if (r.ok) {
+        this.setState({ _waReplyText: '' });
+        this.mutLocal(dd => {
+          (dd.whatsappMessages = dd.whatsappMessages || []).push({
+            id: 'tmp-' + Date.now(), phone: threadPhone, direction: 'outbound', message_type: 'reply',
+            content: threadReplyText.trim(), status: 'sent', created_at: new Date().toISOString(),
+            template_name: null, client_id: null, appointment_id: null,
+          });
+        });
+        this.toast('Sent', 'Message sent', 'var(--up)');
+      } else {
+        this.toast('Failed', r.error || r.reason || 'Send failed', 'var(--down)');
+      }
+    };
+
     const threadView = threadPhone ? e('div', { style: { position: 'fixed', inset: 0, background: 'rgba(7,10,20,0.82)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
-        onClick: ev => { if (ev.target === ev.currentTarget) this.setState({ _waThreadPhone: null }); } },
-      e('div', { style: { width: '100%', maxWidth: 620, maxHeight: '80vh', background: '#13161f', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
+        onClick: ev => { if (ev.target === ev.currentTarget) this.setState({ _waThreadPhone: null, _waReplyText: '' }); } },
+      e('div', { style: { width: '100%', maxWidth: 620, maxHeight: '85vh', background: '#13161f', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
         e('div', { style: { padding: '14px 20px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 10 } },
           e('span', { style: { fontWeight: 700, color: 'var(--text)', flex: 1 } }, 'Thread: ' + threadPhone),
-          e('button', { onClick: () => this.setState({ _waThreadPhone: null }), style: { background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 20, cursor: 'pointer' } }, '\u00D7')),
+          e('button', { onClick: () => this.setState({ _waThreadPhone: null, _waReplyText: '' }), style: { background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 20, cursor: 'pointer' } }, '\u00D7')),
         e('div', { style: { flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 } },
           ...wa.filter(m => m.phone === threadPhone || m.phone === '+' + threadPhone.replace(/^\+/, '')).map(m =>
             e('div', { key: m.id, style: { display: 'flex', flexDirection: 'column', alignItems: m.direction === 'inbound' ? 'flex-start' : 'flex-end', gap: 3 } },
               e('div', { style: { maxWidth: '80%', padding: '8px 14px', borderRadius: 14, background: m.direction === 'inbound' ? 'var(--surface)' : 'oklch(0.22 0.08 230 / .7)', color: 'var(--text)', fontSize: 13, lineHeight: 1.5 } },
                 m.content || (m.template_name ? '[Template: ' + m.template_name + ']' : '[no content]')),
               e('div', { style: { fontSize: 10, color: 'var(--text-mute)', display: 'flex', gap: 6 } }, fmtTime(m.created_at), statusBadge(m.status))))
-        )
+        ),
+        e('div', { style: { padding: '12px 16px', borderTop: '1px solid var(--border-soft)', display: 'flex', gap: 8, alignItems: 'flex-end' } },
+          e('textarea', { value: threadReplyText, onChange: ev => this.setState({ _waReplyText: ev.target.value }),
+            onKeyDown: ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); sendReply(); } },
+            placeholder: 'Type a message\u2026 (Enter to send, Shift+Enter for newline)', rows: 2,
+            style: { flex: 1, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5 } }),
+          e('button', { onClick: sendReply, disabled: threadSending || !threadReplyText.trim(),
+            style: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#071a1a', fontWeight: 700, fontSize: 13, cursor: threadSending ? 'default' : 'pointer', opacity: threadSending || !threadReplyText.trim() ? 0.5 : 1, whiteSpace: 'nowrap' } },
+            threadSending ? 'Sending\u2026' : 'Send'))
       )
     ) : null;
 

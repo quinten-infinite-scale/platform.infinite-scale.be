@@ -190,6 +190,37 @@ async function handlePost(req, res, rawBody) {
   let body;
   try { body = JSON.parse(rawBody); } catch { return res.status(400).json({ ok: false, error: 'Invalid JSON' }); }
 
+  // Free-text reply (admin typing back to a lead)
+  if (body?.type === 'reply') {
+    const { phone, text } = body;
+    if (!phone || !text) return res.status(400).json({ ok: false, error: 'phone and text required' });
+    const { normalizePhone } = await import('../lib/whatsapp.js');
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) return res.status(400).json({ ok: false, error: 'Invalid phone number' });
+
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (!accessToken || !phoneNumberId) return res.status(500).json({ ok: false, error: 'WhatsApp not configured' });
+
+    const waRes = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to: normalizedPhone.replace('+', ''), type: 'text', text: { body: text } }),
+    });
+    const waData = await waRes.json().catch(() => ({}));
+    if (!waRes.ok) return res.status(200).json({ ok: false, error: waData?.error?.message || JSON.stringify(waData) });
+
+    const messageId = waData?.messages?.[0]?.id || null;
+    const now = new Date().toISOString();
+    await sbInsert('whatsapp_messages', {
+      phone: normalizedPhone, direction: 'outbound', message_type: 'reply',
+      content: text, whatsapp_message_id: messageId || null,
+      status: 'sent', status_updated_at: now, template_name: null, raw_payload: null,
+      appointment_id: null, client_id: null,
+    }).catch(() => {});
+    return res.status(200).json({ ok: true, messageId });
+  }
+
   const { appointmentId, clientId, leadName, phone, dateAppt } = body || {};
   if (!appointmentId || !clientId) return res.status(400).json({ ok: false, error: 'appointmentId and clientId required' });
 
