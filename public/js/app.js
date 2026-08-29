@@ -1269,6 +1269,7 @@ class Component extends DCLogic {
   _admRecruit(...a) { return ScreenAdmin._admRecruit.call(this, ...a); }
   _admAppointments(...a) { return ScreenAdmin._admAppointments.call(this, ...a); }
   _admContracts(...a) { return ScreenAdmin._admContracts.call(this, ...a); }
+  _admWhatsApp(...a) { return ScreenAdmin._admWhatsApp.call(this, ...a); }
   _agentRooster(...a) { return ScreenAgent._agentRooster.call(this, ...a); }
   _admRooster(...a) { return ScreenAdmin._admRooster.call(this, ...a); }
   _admActivity(...a) { return ScreenAdmin._admActivity.call(this, ...a); }
