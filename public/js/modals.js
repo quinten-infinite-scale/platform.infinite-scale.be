@@ -419,6 +419,8 @@ const Modals = {
     // Admin modals
     const uploadResult = this._admUploadContract(k, s.form, d);
     if (uploadResult) return uploadResult;
+    const uploadClientResult = this._admUploadClientContract(k, s.form, d);
+    if (uploadClientResult) return uploadClientResult;
     const adminResult = this._adminModals(R, d, s, wrap);
     if (adminResult) return adminResult;
 
@@ -2027,5 +2029,149 @@ const Modals = {
     return wrap('Contract uploaden', body,
       [UI.Btn('Annuleren', () => this.closeModal(), 'soft'),
        UI.Btn(uploading ? 'Bezig…' : 'Upload & opslaan', submit, 'primary')], '580px');
+  },
+
+  _admUploadClientContract(k, f, d) {
+    if (k !== 'uploadClientContract') return null;
+    const e = React.createElement;
+    const wrap = (title, body, footer, width) => ({
+      width: width || '620px', body: e('div', null,
+        e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid var(--border-soft)' } },
+          UI.Hd(title, { fontSize: 18 }),
+          e('button', { onClick: () => this.closeModal(), style: { width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', cursor: 'pointer' } },
+            e('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, style: { display: 'block', margin: 'auto' } }, e('path', { d: 'M6 6l12 12M18 6 6 18' })))),
+        e('div', { style: { padding: '22px', overflowY: 'auto', maxHeight: '70vh' } }, body),
+        footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 22px', borderTop: '1px solid var(--border-soft)' } }, ...footer) : null)
+    });
+
+    const uploading = !!f.uploading;
+    const dragOver = !!f.dragOver;
+    const file = f.uploadFile || null;
+
+    const dropZone = e('div', {
+      onDragOver: ev => { ev.preventDefault(); this.setForm('dragOver', true); },
+      onDragLeave: () => this.setForm('dragOver', false),
+      onDrop: ev => {
+        ev.preventDefault(); this.setForm('dragOver', false);
+        const dropped = ev.dataTransfer.files[0];
+        if (dropped && dropped.type === 'application/pdf') this.setForm('uploadFile', dropped);
+        else this.toast('Fout', 'Enkel PDF-bestanden zijn toegestaan', 'var(--down)');
+      },
+      onClick: () => document.getElementById('_uploadCCInput').click(),
+      style: { border: '2px dashed ' + (dragOver ? 'var(--accent)' : (file ? 'var(--up)' : 'var(--border)')), borderRadius: 12, padding: '20px', textAlign: 'center', cursor: 'pointer', background: dragOver ? 'oklch(0.2 0.04 256 / .3)' : (file ? 'oklch(0.18 0.06 152 / .15)' : 'var(--bg-2)'), transition: 'all .15s' },
+    },
+      e('input', { id: '_uploadCCInput', type: 'file', accept: 'application/pdf', style: { display: 'none' }, onChange: ev => { const fi = ev.target.files[0]; if (fi) this.setForm('uploadFile', fi); } }),
+      file
+        ? e('div', null, e('span', { style: { fontSize: 18, marginRight: 8 } }, '📄'), e('span', { style: { fontWeight: 700, color: 'var(--up)', fontSize: 13.5 } }, file.name), e('span', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginLeft: 8 } }, (file.size / 1024).toFixed(0) + ' KB'))
+        : e('div', null, e('span', { style: { fontSize: 20, marginRight: 8 } }, '📂'), e('span', { style: { color: 'var(--text-dim)', fontSize: 13.5 } }, 'Sleep een PDF hierheen of klik om te kiezen (optioneel)')));
+
+    const sec = (title) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 4, marginBottom: 2 } }, title);
+
+    const agencies = (d.clients || []).filter(x => x.type === 'agency');
+    const clientType = f.ccType || 'direct';
+
+    const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      sec('Klantgegevens'),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('Bedrijf *', UI.Input(f.ccName || '', v => this.setForm('ccName', v), 'Acme NV')),
+        UI.Field('Contactpersoon', UI.Input(f.ccContact || '', v => this.setForm('ccContact', v), 'Jan Janssen'))),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('E-mail', UI.Input(f.ccEmail || '', v => this.setForm('ccEmail', v), 'jan@acme.be', 'email')),
+        UI.Field('Telefoon', UI.Input(f.ccPhone || '', v => this.setForm('ccPhone', v), '+32 499 ...'))),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('BTW-nummer', UI.Input(f.ccVat || '', v => this.setForm('ccVat', v), 'BE0123456789')),
+        UI.Field('Type', UI.Select(clientType, v => this.setForm('ccType', v), [{ v: 'direct', l: 'Direct client' }, { v: 'agency', l: 'Lead agency' }]))),
+      clientType === 'direct' && agencies.length ? UI.Field('Koppelen aan lead agency (optioneel)', UI.Select(f.ccLinkAgency || '', v => this.setForm('ccLinkAgency', v), [{ v: '', l: '— Geen —' }, ...agencies.map(a => ({ v: a.id, l: a.name }))])) : null,
+
+      sec('Vergoedingstructuur'),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('Per afspraak (€)', UI.Input(f.ccPerAppt || '', v => this.setForm('ccPerAppt', v), 'bv. 140', 'number')),
+        UI.Field('Per uur (€)', UI.Input(f.ccPerHour || '', v => this.setForm('ccPerHour', v), 'bv. 75', 'number'))),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('Vaste maandelijkse fee (€)', UI.Input(f.ccMonthly || '', v => this.setForm('ccMonthly', v), 'bv. 1500', 'number')),
+        UI.Field('Commissie (%)', UI.Input(f.ccCommission || '', v => this.setForm('ccCommission', v), 'bv. 10', 'number'))),
+      UI.Grid('1fr 1fr', 10,
+        UI.Field('Opstartkost eenmalig (€)', UI.Input(f.ccSetup || '', v => this.setForm('ccSetup', v), 'bv. 500', 'number')),
+        UI.Field('Betalingstermijn (dagen)', UI.Input(f.ccPayDays || '', v => this.setForm('ccPayDays', v), 'bv. 30', 'number'))),
+
+      sec('Contract PDF (optioneel)'),
+      dropZone);
+
+    const submit = async () => {
+      if (!f.ccName) { this.toast('Fout', 'Vul een bedrijfsnaam in', 'var(--down)'); return; }
+      this.setForm('uploading', true);
+      try {
+        let pdfUrl = null;
+        if (file) pdfUrl = await API.uploadContractPdf(file);
+
+        // Build rate string for contract value
+        const parts = [];
+        if (f.ccPerAppt) parts.push('€' + f.ccPerAppt + '/afspraak');
+        if (f.ccPerHour) parts.push('€' + f.ccPerHour + '/uur');
+        if (f.ccMonthly) parts.push('€' + f.ccMonthly + '/maand');
+        if (f.ccCommission) parts.push(f.ccCommission + '% commissie');
+        if (f.ccSetup) parts.push('€' + f.ccSetup + ' opstart');
+
+        const primaryRate = +(f.ccPerAppt || f.ccPerHour || f.ccMonthly || 0) || 0;
+        const row = {
+          name: f.ccName, type: clientType, status: 'starting',
+          crm: 'none', crm_on: false,
+          kickoff: new Date().toISOString().slice(0, 10),
+          rate: primaryRate,
+          contact_person: f.ccContact || f.ccName,
+          email: f.ccEmail || '',
+          phone: f.ccPhone || '',
+          vat: f.ccVat || '',
+          company: f.ccName,
+          bill_status: 'pending',
+          subclients: [],
+        };
+        const res = await API.createClient(row);
+        if (res) {
+          const norm = { ...row, id: res[0]?.id || 'c' + Date.now(), agents: [], clients: [], crmOn: false, contactPerson: row.contact_person, billStatus: row.bill_status };
+          this.mutLocal(d => d.clients.push(norm));
+          if (clientType === 'direct' && f.ccLinkAgency) {
+            const agency = (this.state.data.clients || []).find(x => x.id === f.ccLinkAgency);
+            if (agency) {
+              const newSubs = [...(agency.subclients || []), { name: f.ccName, rate: primaryRate }];
+              this.mutLocal(d => { const ag = d.clients.find(x => x.id === f.ccLinkAgency); if (ag) ag.subclients = newSubs; });
+              await API.updateClient(f.ccLinkAgency, { subclients: newSubs });
+            }
+          }
+        }
+
+        if (pdfUrl || parts.length) {
+          const contract = {
+            id: 'ct' + Date.now(),
+            party: f.ccName,
+            party_type: 'client',
+            type: parts.length > 1 ? 'Gecombineerd' : (f.ccPerAppt ? 'Pay per appointment' : f.ccMonthly ? 'Vaste fee' : 'Geüpload contract'),
+            value: parts.join(' + '),
+            sent: new Date().toISOString().slice(0, 10),
+            status: 'signed',
+            email: f.ccEmail || '',
+            vat: f.ccVat || '',
+            contact: f.ccContact || '',
+            address: '', duration: f.ccPayDays ? f.ccPayDays + ' dagen betalingstermijn' : '',
+            notes: '', setup_fee: f.ccSetup || '', signing_link: '',
+            signed_at: new Date().toISOString(),
+            signer_name: f.ccContact || f.ccName,
+            pdf_url: pdfUrl || null,
+          };
+          await API.addContract(contract);
+          this.mutLocal(d => d.contracts.unshift(contract));
+        }
+
+        this.toast('Klaar', f.ccName + ' aangemaakt' + (pdfUrl ? ' + contract geüpload' : ''), 'var(--up)');
+        this.closeModal();
+      } catch(err) {
+        this.toast('Fout', err.message || 'Aanmaken mislukt', 'var(--down)');
+        this.setForm('uploading', false);
+      }
+    };
+
+    return wrap('Klant aanmaken + contract', body,
+      [UI.Btn('Annuleren', () => this.closeModal(), 'soft'),
+       UI.Btn(uploading ? 'Bezig…' : 'Opslaan', submit, 'primary')], '620px');
   },
 };

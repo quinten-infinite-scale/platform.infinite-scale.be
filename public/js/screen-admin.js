@@ -1908,7 +1908,7 @@ const ScreenAdmin = {
           }).filter(Boolean)))) : null;
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
-      UI.Row({ justifyContent: 'space-between' }, UI.Hd('Clients & lead agencies'), UI.Btn('Add client', () => this.openModal('createClient'), 'primary')),
+      UI.Row({ justifyContent: 'space-between' }, UI.Hd('Clients & lead agencies'), UI.Row({ gap: 8 }, UI.Btn('↑ Upload contract', () => this.openModal('uploadClientContract'), 'soft'), UI.Btn('Add client', () => this.openModal('createClient'), 'primary'))),
       agencies.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
         UI.SectionHd('Lead agencies'),
         UI.C({ padding: 0, overflow: 'hidden' }, UI.Table(agencyCols, agencies, { min: 580, empty: 'No agencies yet.' }))) : null,
@@ -2294,7 +2294,6 @@ const ScreenAdmin = {
             e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, contracts.length + ' contracts')),
           e('div', { onClick: ev => ev.stopPropagation(), style: { display: 'flex', gap: 8 } },
             partyType === 'agent' ? UI.Btn('+ Addendum', () => this.openModal('wizard', { step: 0, partyType: 'addendum' }), 'soft', { padding: '6px 14px', fontSize: 12.5 }) : null,
-            UI.Btn('↑ Upload', () => this.openModal('uploadContract', { uPartyType: partyType }), 'soft', { padding: '6px 14px', fontSize: 12.5 }),
             UI.Btn('+ New contract', () => this.openModal('wizard', { step: 0, partyType }), 'primary', { padding: '6px 14px', fontSize: 12.5 }))),
         open ? UI.Table(cols, contracts.map(x => ({ ...x, _onClick: () => this.openModal('contractDetail', { contract: x }) })), { min: 680, empty: 'No contracts yet.' }) : null);
     };
