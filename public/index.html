@@ -15,14 +15,14 @@
 <script src="./js/ui.js?v=20260823b"></script>
 <script src="./js/contract-templates.js?v=20260825p"></script>
 <script src="./js/screen-shared.js?v=20260818a"></script>
-<script src="./js/screen-agent.js?v=20260827a"></script>
+<script src="./js/screen-agent.js?v=20260830a"></script>
 <script src="./js/screen-client.js?v=20260818a"></script>
 <script src="./js/screen-subclient.js?v=20260821b"></script>
-<script src="./js/screen-admin.js?v=20260827a"></script>
+<script src="./js/screen-admin.js?v=20260830a"></script>
 <script src="./js/pdf-ttf.js?v=20260815a"></script>
-<script src="./js/modals.js?v=20260827a"></script>
-<script src="./js/app.js?v=20260827a"></script>
-<script src="./js/api.js?v=20260827a"></script>
+<script src="./js/modals.js?v=20260830b"></script>
+<script src="./js/app.js?v=20260830a"></script>
+<script src="./js/api.js?v=20260830a"></script>
 </head>
 <body>
 <x-dc>
@@ -1039,6 +1039,7 @@ class Component extends DCLogic {
   _clientLegal(...a) { return ScreenClient._clientLegal.call(this, ...a); }
   _clientSupport(...a) { return ScreenClient._clientSupport.call(this, ...a); }
   _adminModals(...a) { return Modals._adminModals.call(this, ...a); }
+  _admUploadContract(...a) { return Modals._admUploadContract.call(this, ...a); }
 
   async saveDials(count) {
     const today = this.iso(this.today());
