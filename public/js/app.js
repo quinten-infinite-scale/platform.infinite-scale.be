@@ -850,7 +850,12 @@ class Component extends DCLogic {
     const email = f.editEmail !== undefined ? f.editEmail : (c.email || '');
     const phone = f.editPhone !== undefined ? f.editPhone : (c.phone || '');
     const vat = f.editVat !== undefined ? f.editVat : (c.vat || '');
-    const rate = f.editRate !== undefined ? +(String(f.editRate).replace(/\D/g, '')) || 0 : c.rate;
+    const rate = f.editRate !== undefined ? +(String(f.editRate).replace(/[^\d.]/g, '')) || 0 : c.rate;
+    const perHour = f.editPerHour !== undefined ? +(String(f.editPerHour).replace(/[^\d.]/g, '')) || null : (c.per_hour || null);
+    const monthly = f.editMonthly !== undefined ? +(String(f.editMonthly).replace(/[^\d.]/g, '')) || null : (c.monthly_fee || null);
+    const commission = f.editCommission !== undefined ? +(String(f.editCommission).replace(/[^\d.]/g, '')) || null : (c.commission || null);
+    const setupFee = f.editSetupFee !== undefined ? +(String(f.editSetupFee).replace(/[^\d.]/g, '')) || null : (c.setup_fee || null);
+    const payDays = f.editPayDays !== undefined ? +(String(f.editPayDays).replace(/[^\d.]/g, '')) || null : (c.pay_days || null);
     const status = f.editStatus !== undefined ? f.editStatus : (c.status || 'starting');
     const crm = f.editCrm !== undefined ? f.editCrm : (c.crm || 'none');
     const koDate = f.editKickoffDate !== undefined ? f.editKickoffDate : (c.kickoff || '').slice(0, 10);
@@ -860,6 +865,7 @@ class Component extends DCLogic {
     const subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
     const updates = {
       name, contact_person: contact, email, vat, rate,
+      per_hour: perHour, monthly_fee: monthly, commission, setup_fee: setupFee, pay_days: payDays,
       status, crm, crm_on: crm !== 'none', kickoff, type,
       subclients: type === 'agency' ? subclients : (c.subclients || []),
     };
@@ -867,6 +873,8 @@ class Component extends DCLogic {
       const cl = dd.clients.find(x => x.id === id); if (!cl) return;
       cl.name = name; cl.contactPerson = contact; cl.email = email;
       cl.phone = phone; cl.vat = vat; cl.rate = rate;
+      cl.per_hour = perHour; cl.monthly_fee = monthly; cl.commission = commission;
+      cl.setup_fee = setupFee; cl.pay_days = payDays;
       cl.status = status; cl.crm = crm; cl.crmOn = crm !== 'none'; cl.kickoff = kickoff;
       cl.type = type; if (type === 'agency') cl.subclients = subclients;
     });
