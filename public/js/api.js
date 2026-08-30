@@ -416,6 +416,22 @@ const API = {
     return true;
   },
 
+  async uploadContractPdf(file) {
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = 'uploads/' + Date.now() + '_' + Math.random().toString(36).slice(2) + '.' + ext;
+    const r = await fetch(window.SUPABASE_URL + '/storage/v1/object/contracts/' + path, {
+      method: 'POST',
+      headers: {
+        'apikey': window.SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + ((SB.getSession && SB.getSession()?.access_token) || window.SUPABASE_ANON_KEY),
+        'Content-Type': file.type || 'application/pdf',
+      },
+      body: file,
+    });
+    if (!r.ok) throw new Error('Upload failed: ' + await r.text());
+    return window.SUPABASE_URL + '/storage/v1/object/public/contracts/' + path;
+  },
+
   async upsertDials(agentId, date, count) {
     return SB.upsert('dials', 'agent_id,dial_date', { agent_id: agentId, dial_date: date, count });
   },

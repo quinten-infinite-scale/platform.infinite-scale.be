@@ -1286,4 +1286,5 @@ class Component extends DCLogic {
   _clientLegal(...a) { return ScreenClient._clientLegal.call(this, ...a); }
   _clientSupport(...a) { return ScreenClient._clientSupport.call(this, ...a); }
   _adminModals(...a) { return Modals._adminModals.call(this, ...a); }
+  _admUploadContract(...a) { return Modals._admUploadContract.call(this, ...a); }
 }

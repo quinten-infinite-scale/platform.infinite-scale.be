@@ -2294,6 +2294,7 @@ const ScreenAdmin = {
             e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, contracts.length + ' contracts')),
           e('div', { onClick: ev => ev.stopPropagation(), style: { display: 'flex', gap: 8 } },
             partyType === 'agent' ? UI.Btn('+ Addendum', () => this.openModal('wizard', { step: 0, partyType: 'addendum' }), 'soft', { padding: '6px 14px', fontSize: 12.5 }) : null,
+            UI.Btn('↑ Upload', () => this.openModal('uploadContract', { uPartyType: partyType }), 'soft', { padding: '6px 14px', fontSize: 12.5 }),
             UI.Btn('+ New contract', () => this.openModal('wizard', { step: 0, partyType }), 'primary', { padding: '6px 14px', fontSize: 12.5 }))),
         open ? UI.Table(cols, contracts.map(x => ({ ...x, _onClick: () => this.openModal('contractDetail', { contract: x }) })), { min: 680, empty: 'No contracts yet.' }) : null);
     };
