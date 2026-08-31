@@ -191,11 +191,11 @@ const Modals = {
           this._kv('Appt date', this.fmtDate(ap.dateAppt)),
           this._kv('Logged', this.fmtDate(ap.dateLog) + (loggedTime ? ' · ' + loggedTime : '')),
           role === 'admin' ? this._kv('Amount', ap.amount ? this.euro(ap.amount) : '—') : null,
-          (() => {
+          role === 'admin' ? (() => {
             const agentRate = ap.agentRate != null ? ap.agentRate : (ag && ag.rates ? ((ag.rates[ap.sub] || ag.rates[ap.client]) || null) : null);
             if (!agentRate) return null;
             return this._kv('Agent rate', e('span', null, this.euro(agentRate), ap.agentRate != null ? e('span', { style: { fontSize: 11, color: 'var(--accent)', marginLeft: 5, fontFamily: "'JetBrains Mono'" } }, '✱ override') : null));
-          })(),
+          })() : null,
           role === 'admin' && ap.dealAmount != null ? this._kv('Deal amount IS', e('span', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 600, color: 'var(--text-mute)' } }, this.euro(ap.dealAmount))) : null,
           ap.dealCommission != null ? this._kv('Agent commission', e('span', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, color: 'var(--up)' } }, '💰 ' + this.euro(ap.dealCommission), ap.dealAmount != null && role === 'admin' ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 6 } }, '55%') : null)) : null),
         statusSection,
