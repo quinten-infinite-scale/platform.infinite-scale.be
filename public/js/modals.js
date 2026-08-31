@@ -452,9 +452,10 @@ const Modals = {
           UI.Grid('1fr 1fr', 12,
             UI.Field('Per afspraak (€)', UI.Input(String(f.editRate !== undefined ? f.editRate : (c.rate || '')), v => this.setForm('editRate', v), 'bv. 140', 'number')),
             UI.Field('Per uur (€)', UI.Input(String(f.editPerHour !== undefined ? f.editPerHour : (c.per_hour || '')), v => this.setForm('editPerHour', v), 'bv. 75', 'number'))),
-          UI.Grid('1fr 1fr', 12,
+          UI.Grid('1fr 1fr 1fr', 12,
             UI.Field('Vaste maandelijkse fee (€)', UI.Input(String(f.editMonthly !== undefined ? f.editMonthly : (c.monthly_fee || '')), v => this.setForm('editMonthly', v), 'bv. 1500', 'number')),
-            UI.Field('Commissie (%)', UI.Input(String(f.editCommission !== undefined ? f.editCommission : (c.commission || '')), v => this.setForm('editCommission', v), 'bv. 10', 'number'))),
+            UI.Field('Commissie (%)', UI.Input(String(f.editCommission !== undefined ? f.editCommission : (c.commission || '')), v => this.setForm('editCommission', v), 'bv. 10', 'number')),
+            UI.Field('Vaste close fee (€)', UI.Input(String(f.editCloseFee !== undefined ? f.editCloseFee : (c.close_fee || '')), v => this.setForm('editCloseFee', v), 'bv. 500', 'number'))),
           UI.Field('Opstartkost eenmalig (€)', UI.Input(String(f.editSetupFee !== undefined ? f.editSetupFee : (c.setup_fee || '')), v => this.setForm('editSetupFee', v), 'bv. 500', 'number')),
           UI.Grid('1fr 1fr', 12,
             UI.Field('Status', UI.Select(f.editStatus !== undefined ? f.editStatus : (c.status || 'starting'), v => this.setForm('editStatus', v), [{ v: 'starting', l: 'Starting' }, { v: 'active', l: 'Active' }, { v: 'inactive', l: 'Inactive' }])),
@@ -2100,9 +2101,10 @@ const Modals = {
       UI.Grid('1fr 1fr', 10,
         UI.Field('Per afspraak (€)', UI.Input(f.ccPerAppt || '', v => this.setForm('ccPerAppt', v), 'bv. 140', 'number')),
         UI.Field('Per uur (€)', UI.Input(f.ccPerHour || '', v => this.setForm('ccPerHour', v), 'bv. 75', 'number'))),
-      UI.Grid('1fr 1fr', 10,
+      UI.Grid('1fr 1fr 1fr', 10,
         UI.Field('Vaste maandelijkse fee (€)', UI.Input(f.ccMonthly || '', v => this.setForm('ccMonthly', v), 'bv. 1500', 'number')),
-        UI.Field('Commissie (%)', UI.Input(f.ccCommission || '', v => this.setForm('ccCommission', v), 'bv. 10', 'number'))),
+        UI.Field('Commissie (%)', UI.Input(f.ccCommission || '', v => this.setForm('ccCommission', v), 'bv. 10', 'number')),
+        UI.Field('Vaste close fee (€)', UI.Input(f.ccCloseFee || '', v => this.setForm('ccCloseFee', v), 'bv. 500', 'number'))),
       UI.Grid('1fr 1fr', 10,
         UI.Field('Opstartkost eenmalig (€)', UI.Input(f.ccSetup || '', v => this.setForm('ccSetup', v), 'bv. 500', 'number')),
         UI.Field('Betalingstermijn (dagen)', UI.Input(f.ccPayDays || '', v => this.setForm('ccPayDays', v), 'bv. 30', 'number'))),
@@ -2123,6 +2125,7 @@ const Modals = {
         if (f.ccPerHour) parts.push('€' + f.ccPerHour + '/uur');
         if (f.ccMonthly) parts.push('€' + f.ccMonthly + '/maand');
         if (f.ccCommission) parts.push(f.ccCommission + '% commissie');
+        if (f.ccCloseFee) parts.push('€' + f.ccCloseFee + '/close');
         if (f.ccSetup) parts.push('€' + f.ccSetup + ' opstart');
 
         const primaryRate = +(f.ccPerAppt || f.ccPerHour || f.ccMonthly || 0) || 0;
@@ -2139,6 +2142,7 @@ const Modals = {
           per_hour: f.ccPerHour ? +f.ccPerHour : null,
           monthly_fee: f.ccMonthly ? +f.ccMonthly : null,
           commission: f.ccCommission ? +f.ccCommission : null,
+          close_fee: f.ccCloseFee ? +f.ccCloseFee : null,
           setup_fee: f.ccSetup ? +f.ccSetup : null,
           pay_days: f.ccPayDays ? +f.ccPayDays : null,
         };

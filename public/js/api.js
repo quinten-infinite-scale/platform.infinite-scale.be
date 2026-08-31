@@ -87,6 +87,7 @@ const API = {
         agentVacancy: c.agent_vacancy || 'needed',
         timelineStage: c.timeline_stage || null,
         needsLeadlist: !!c.needs_leadlist,
+        closeFee: c.close_fee || null,
       };
       if (role === 'agent') {
         delete norm.rate;
