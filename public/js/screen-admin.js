@@ -1855,7 +1855,7 @@ const ScreenAdmin = {
       { label: 'Client', render: x => e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.name) },
       { label: 'Status', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); this.cycleClientStatus(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.status || 'inactive')) },
       { label: 'Agents', render: x => d.agents.filter(a => (a.clients || []).includes(x.id)).map(a => this.agentName(a.id, d).split(' ')[0]).join(', ') || '—' },
-      { label: 'Rate', align: 'right', render: x => x.rate ? e('span', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--up)' } }, '€' + x.rate + ' / appt') : e('span', { style: { color: 'var(--text-dim)', fontSize: 12 } }, '—') },
+      { label: 'Vergoeding', align: 'right', render: x => e('span', { style: { fontSize: 12, fontWeight: 600, color: UI.rateStr(x) === '—' ? 'var(--text-dim)' : 'var(--up)' } }, UI.rateStr(x)) },
       { label: 'Month appts', align: 'right', render: x => String(d.appointments.filter(a => a.client === x.id && !a.invoiced).length) },
       { label: 'Billing', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); x.billStatus === 'paid' ? this.unmarkPaid(x.id) : this.markPaid(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.billStatus || 'pending')) },
       { label: '', align: 'right', render: x => UI.Btn('Open', () => this.openModal('clientProfile', { id: x.id }), 'soft', { padding: '5px 12px', fontSize: 12 }) },
@@ -1863,7 +1863,7 @@ const ScreenAdmin = {
     const agencyCols = [
       { label: 'Agency', render: x => UI.Row({ gap: 8 }, e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.name), UI.Pill('Agency', 'var(--info)', 'oklch(0.30 0.05 240)')) },
       { label: 'Sub-clients', render: x => (x.subclients || []).length ? e('span', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, (x.subclients || []).map(sc => sc.name || sc).join(' · ')) : e('span', { style: { fontSize: 12, color: 'var(--text-dim)' } }, '—') },
-      { label: 'Rate', align: 'right', render: x => { const subs = x.subclients || []; const rates = [...new Set([x.rate, ...subs.map(s => s.rate)].filter(r => r > 0))]; return rates.length ? e('span', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--up)' } }, '€' + (rates.length > 1 ? Math.min(...rates) + '–€' + Math.max(...rates) : rates[0]) + ' / appt') : e('span', { style: { color: 'var(--text-dim)', fontSize: 12 } }, '—'); } },
+      { label: 'Vergoeding', align: 'right', render: x => e('span', { style: { fontSize: 12, fontWeight: 600, color: UI.rateStr(x) === '—' ? 'var(--text-dim)' : 'var(--up)' } }, UI.rateStr(x)) },
       { label: 'Status', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); this.cycleClientStatus(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.status || 'inactive')) },
       { label: 'Billing', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); x.billStatus === 'paid' ? this.unmarkPaid(x.id) : this.markPaid(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.billStatus || 'pending')) },
       { label: '', align: 'right', render: x => UI.Btn('Open', () => this.openModal('clientProfile', { id: x.id }), 'soft', { padding: '5px 12px', fontSize: 12 }) },

@@ -506,7 +506,7 @@ const Modals = {
           this._kv('Email', c.email || '—'),
           this._kv('Phone', c.phone || '—'),
           this._kv('VAT', c.vat || '—'),
-          this._kv('Rate', this.euro(c.rate) + ' / appt'),
+          this._kv('Vergoeding', UI.rateStr(c)),
           this._kv('Kickoff', c.kickoff ? this.fmtFull(c.kickoff.slice(0, 10)) + (c.kickoff.slice(11, 16) ? ' · ' + c.kickoff.slice(11, 16) : '') : '—'),
           this._kv('Agents', d.agents.filter(a => (a.clients || []).includes(c.id)).map(a => this.agentName(a.id, d)).join(', ') || '—'),
           this._kv('Billing', c.billStatus || 'pending')),

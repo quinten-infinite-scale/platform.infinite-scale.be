@@ -417,4 +417,14 @@ const UI = {
     return e('div', { style: { display: 'inline-flex', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, gap: 2 } },
       opts.map(o => e('button', { key: o.v, onClick: () => onChange(o.v), style: { padding: '6px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, background: value === o.v ? 'var(--surface-2)' : 'transparent', color: value === o.v ? 'var(--text)' : 'var(--text-mute)' } }, o.l)));
   },
+
+  rateStr(c) {
+    const parts = [];
+    if (c.rate) parts.push('€' + c.rate + '/appt');
+    if (c.per_hour) parts.push('€' + c.per_hour + '/uur');
+    if (c.monthly_fee) parts.push('€' + c.monthly_fee + '/maand');
+    if (c.commission) parts.push(c.commission + '% commissie');
+    if (c.close_fee) parts.push('€' + c.close_fee + '/close');
+    return parts.length ? parts.join(' + ') : '—';
+  },
 };
