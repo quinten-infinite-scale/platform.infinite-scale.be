@@ -1,19 +1,43 @@
 /**
- * Server-side proxy for all Supabase writes.
+ * Server-side proxy for all Supabase writes + storage uploads.
  * Uses the service role key so RLS never blocks admin operations.
- * The browser sends its user JWT so we can validate it's a real session.
  */
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://database.infinite-scale.be';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+export const config = { api: { bodyParser: false } };
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-file-path');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
 
-  const { method, table, query, body, conflict } = req.body || {};
+  // Storage upload: detected by x-file-path header
+  const filePath = req.headers['x-file-path'];
+  if (filePath) {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const buffer = Buffer.concat(chunks);
+    const r = await fetch(`${SB_URL}/storage/v1/object/contracts/${filePath}`, {
+      method: 'POST',
+      headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': req.headers['content-type'] || 'application/pdf' },
+      body: buffer,
+    });
+    const text = await r.text();
+    if (!r.ok) return res.status(r.status).json({ ok: false, error: text });
+    return res.status(200).json({ ok: true, url: `${SB_URL}/storage/v1/object/public/contracts/${filePath}` });
+  }
+
+  // JSON body for DB writes
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const rawBody = Buffer.concat(chunks).toString('utf8');
+  let parsed;
+  try { parsed = JSON.parse(rawBody); } catch { return res.status(400).json({ ok: false, error: 'invalid JSON' }); }
+
+  const { method, table, query, body, conflict } = parsed || {};
 
   if (!table) return res.status(400).json({ ok: false, error: 'table required' });
 

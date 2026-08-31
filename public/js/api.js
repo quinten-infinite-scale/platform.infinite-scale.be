@@ -420,7 +420,7 @@ const API = {
   async uploadContractPdf(file) {
     const ext = file.name.split('.').pop() || 'pdf';
     const path = 'uploads/' + Date.now() + '_' + Math.random().toString(36).slice(2) + '.' + ext;
-    const r = await fetch('/api/upload-contract', {
+    const r = await fetch('/api/db-write', {
       method: 'POST',
       headers: {
         'Content-Type': file.type || 'application/pdf',
