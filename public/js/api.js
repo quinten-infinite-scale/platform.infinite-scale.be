@@ -86,6 +86,7 @@ const API = {
         linkedRecruitId: c.linked_recruit_id || '',
         agentVacancy: c.agent_vacancy || 'needed',
         timelineStage: c.timeline_stage || null,
+        needsLeadlist: !!c.needs_leadlist,
       };
       if (role === 'agent') {
         delete norm.rate;
@@ -442,6 +443,10 @@ const API = {
 
   async updateAgent(id, data) {
     return SB.patch('agents', `?id=eq.${id}`, data);
+  },
+
+  async saveSetting(key, value) {
+    return SB.upsert('platform_settings', 'key', { key, value });
   },
 
   async setAgentClient(agentId, clientId, rate) {

@@ -884,13 +884,14 @@ class Component extends DCLogic {
     else this.toast('Fout', 'Opslaan mislukt — check console', 'var(--down)');
   }
 
-  async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus, kickoff, subclients) {
-    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed', ...(kickoff !== undefined ? { kickoff: kickoff || null } : {}), ...(kickoff === '' ? { timeline_stage: null } : {}), ...(subclients ? { subclients } : {}) };
+  async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus, kickoff, subclients, needsLeadlist) {
+    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed', ...(kickoff !== undefined ? { kickoff: kickoff || null } : {}), ...(kickoff === '' ? { timeline_stage: null } : {}), ...(subclients ? { subclients } : {}), ...(needsLeadlist !== undefined ? { needs_leadlist: !!needsLeadlist } : {}) };
     this.mutLocal(d => {
       const c = d.clients.find(x => x.id === clientId); if (!c) return;
       c.agentStartDate = agentStartDate; c.linkedAgentId = linkedAgentId; c.linkedRecruitId = linkedRecruitId; c.agentVacancy = agentStatus;
       if (kickoff !== undefined) c.kickoff = kickoff || null;
       if (subclients) c.subclients = subclients;
+      if (needsLeadlist !== undefined) c.needsLeadlist = !!needsLeadlist;
     });
     await API.updateClient(clientId, updates);
     this.toast('Saved', 'Timeline updated', 'var(--up)');

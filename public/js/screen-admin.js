@@ -2080,7 +2080,8 @@ const ScreenAdmin = {
               koDate ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 3 } }, '📅 Kickoff: ' + this.fmtFull(koDate)) : null,
               c.agentStartDate ? e('div', { style: { fontSize: 11, color: 'var(--up)', marginBottom: 3, fontWeight: 600 } }, '🚀 Start agent: ' + this.fmtFull(c.agentStartDate)) : null,
               linkedName ? e('div', { style: { fontSize: 11.5, color: linkedAgent ? 'var(--up)' : 'var(--accent)', fontWeight: 600, marginBottom: 3 } }, '→ ' + linkedName + (linkedAgent ? '' : ' (recruit)')) : e('div', { style: { fontSize: 11, color: 'var(--warn)', marginBottom: 3 } }, '⚠ Geen agent'),
-              daysSinceKo !== null ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, `Dag ${daysSinceKo}`) : null);
+              daysSinceKo !== null ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, `Dag ${daysSinceKo}`) : null,
+              c.needsLeadlist ? e('div', { style: { marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'oklch(0.20 0.06 60 / .25)', border: '1px solid var(--warn)', borderRadius: 5, padding: '2px 6px' } }, '📋 Leadlist') : null);
           })
         );
       }));
@@ -2134,13 +2135,20 @@ const ScreenAdmin = {
       { id: 'hired', label: 'Hired', color: 'var(--up)' },
       { id: 'not_qualified', label: 'Not qualified', color: 'var(--text-mute)' },
     ];
-    const LS_KEY = 'is_recruit_stages_v2';
-    try { localStorage.removeItem('is_recruit_stages'); } catch(e) {}
-    const loadStages = () => { try { const v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : null; } catch(e) { return null; } };
-    const saveStages = (next) => { try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch(e) {} this.setState({ _recruitStageTick: (s._recruitStageTick || 0) + 1 }); };
-
-    // Stages always come from localStorage (source of truth), fallback to defaults
-    const stages = loadStages() || defaultStages;
+    // Stages are shared across all admins — stored in platform_settings, loaded into state
+    const saveStages = (next) => {
+      this.setState({ _recruitStages: next, _recruitStageTick: (s._recruitStageTick || 0) + 1 });
+      API.saveSetting('recruit_stages', JSON.stringify(next));
+    };
+    // Use state if loaded, else use data from platform_settings, else defaults
+    const stages = s._recruitStages || (() => {
+      const raw = (d.settings || {}).recruit_stages;
+      if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+      // No DB entry yet — migrate from localStorage if present, else use defaults
+      const lsRaw = (() => { try { return localStorage.getItem('is_recruit_stages_v2') || localStorage.getItem('is_recruit_stages'); } catch(e) { return null; } })();
+      if (lsRaw) { try { const ls = JSON.parse(lsRaw); if (Array.isArray(ls) && ls.length) { API.saveSetting('recruit_stages', lsRaw); return ls; } } catch(e) {} }
+      return defaultStages;
+    })();
 
     const dragOver = s._recruitDragOver || null;
 

@@ -997,9 +997,14 @@ const Modals = {
       const currentTimelineSub = detailSubclients.find(sc => sc.timeline_selected);
       const detailSelSub = f.tlDetailSubclient !== undefined ? f.tlDetailSubclient : (currentTimelineSub ? currentTimelineSub.id : '');
       const detailSubOpts = [{ v: '', l: 'Alle subclients / geen specifiek' }, ...detailSubclients.map(sc => ({ v: sc.id, l: sc.name }))];
+      const needsLeadlist = f.needsLeadlist !== undefined ? f.needsLeadlist : !!(c.needsLeadlist);
       const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
         detailSubclients.length > 0 ? UI.Field('Subclient', UI.Select(detailSelSub, v => this.setForm('tlDetailSubclient', v), detailSubOpts)) : null,
         UI.Field('Kickoff call datum', e('input', { type: 'date', value: kickoffVal, onChange: ev => this.setForm('kickoff', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
+        e('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, border: '1px solid ' + (needsLeadlist ? 'var(--warn)' : 'var(--border-soft)'), background: needsLeadlist ? 'oklch(0.20 0.06 60 / .25)' : 'var(--bg-2)', cursor: 'pointer' } },
+          e('input', { type: 'checkbox', checked: needsLeadlist, onChange: ev => this.setForm('needsLeadlist', ev.target.checked), style: { width: 16, height: 16, accentColor: 'var(--warn)', cursor: 'pointer' } }),
+          e('span', { style: { fontWeight: 700, fontSize: 13, color: needsLeadlist ? 'var(--warn)' : 'var(--text-dim)' } }, '📋 Leadlist aanmaken'),
+          needsLeadlist ? e('span', { style: { fontSize: 11, color: 'var(--warn)', marginLeft: 4 } }, '— nog te doen') : e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 4 } }, '— niet vereist')),
         UI.Field('Agent startdatum (effectieve opstart)', e('input', { type: 'date', value: agentStartDate, onChange: ev => this.setForm('agentStartDate', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
         UI.Field('Vacancy status',
           e('div', { style: { display: 'flex', gap: 8 } },
@@ -1018,7 +1023,7 @@ const Modals = {
            const subPatch = detailSubclients.length > 0
              ? detailSubclients.map(sc => ({ ...sc, timeline_selected: detailSelSub ? sc.id === detailSelSub : false }))
              : null;
-           this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy, kickoffVal, subPatch);
+           this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy, kickoffVal, subPatch, needsLeadlist);
            this.closeModal();
          }, 'primary')], '520px');
     }
