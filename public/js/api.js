@@ -146,6 +146,8 @@ const API = {
       avail: r.availability || [], start: r.can_start, position: r.position,
       motivation: r.motivation, source: r.source, experience: r.experience,
       age: r.age, stage: r.stage,
+      notes: r.notes || '',
+      activityLog: Array.isArray(r.activity_log) ? r.activity_log : [],
     }));
 
     const eventsNorm = (events || []).map(e => ({
@@ -385,6 +387,10 @@ const API = {
 
   async advanceRecruit(id, stage) {
     return SB.patch('recruits', `?id=eq.${id}`, { stage });
+  },
+
+  async updateRecruit(id, patch) {
+    return SB.patch('recruits', `?id=eq.${id}`, patch);
   },
 
   async createClient(data) {

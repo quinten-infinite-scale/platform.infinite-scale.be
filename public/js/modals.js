@@ -1087,12 +1087,65 @@ const Modals = {
 
     if (k === 'recruitProfile') {
       const r = d.recruits.find(x => x.id === f.id); if (!r) return null;
-      return wrap(r.name, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      const actLog = f._actLog !== undefined ? f._actLog : (r.activityLog || []);
+      const notesVal = f._notes !== undefined ? f._notes : (r.notes || '');
+      const notesDirty = f._notesDirty || false;
+      const saveNotes = async () => {
+        this.mutLocal(dd => { const rec = dd.recruits.find(x => x.id === r.id); if (rec) rec.notes = notesVal; });
+        await API.updateRecruit(r.id, { notes: notesVal });
+        this.setForm('_notesDirty', false);
+        this.toast('Opgeslagen ✓', 'Notities bewaard', 'var(--up)');
+      };
+      const addActivity = async () => {
+        const type = f._actType || 'call';
+        const note = (f._actNote || '').trim();
+        if (!note) return;
+        const entry = { type, note, at: new Date().toISOString(), by: d.me?.name || 'Admin' };
+        const newLog = [entry, ...actLog];
+        this.setForm('_actLog', newLog);
+        this.setForm('_actNote', '');
+        this.mutLocal(dd => { const rec = dd.recruits.find(x => x.id === r.id); if (rec) rec.activityLog = newLog; });
+        await API.updateRecruit(r.id, { activity_log: newLog });
+      };
+      const typeOpts = [{ v: 'call', l: '📞 Gebeld' }, { v: 'text', l: '💬 Getekst' }, { v: 'email', l: '✉️ Email' }, { v: 'meeting', l: '🤝 Gesprek' }, { v: 'other', l: '📝 Ander' }];
+      const typeLabel = t => ({ call: '📞', text: '💬', email: '✉️', meeting: '🤝', other: '📝' }[t] || '📝');
+      const fmtDate = iso => { try { const d2 = new Date(iso); return d2.toLocaleDateString('nl-BE', { day: '2-digit', month: 'short' }) + ' ' + d2.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }); } catch(_) { return iso; } };
+      return wrap(r.name, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
         UI.Grid('1fr 1fr', 12, this._kv('Email', r.email || ''), this._kv('Phone', r.phone || ''), this._kv('Country', r.country || ''), this._kv('Language', r.lang || ''), this._kv('Age', String(r.age || '')), this._kv('Source', r.source || ''), this._kv('Position', r.position || ''), this._kv('Can start', r.start || '')),
         e('div', null, UI.Sub('Availability', { marginBottom: 6 }), e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } }, (r.avail || []).map(x => UI.Pill(x, 'var(--text-dim)', 'var(--bg-2)')))),
         UI.Field('Motivation', e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 10 } }, r.motivation)),
-        this._kv('Experience', r.experience || '')),
-        [UI.Btn('Not qualified', () => { this.advanceRecruit(r.id, 'not_qualified'); this.closeModal(); }, 'danger'), UI.Btn('Qualify', () => { this.advanceRecruit(r.id, 'qualified'); this.closeModal(); }, 'soft'), UI.Btn('Move to contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, agent: r.name }); }, 'primary')], '620px');
+        this._kv('Experience', r.experience || ''),
+        e('div', { style: { borderTop: '1px solid var(--border-soft)', paddingTop: 14 } },
+          UI.Sub('Notities', { marginBottom: 8 }),
+          e('textarea', {
+            value: notesVal,
+            onChange: ev => { this.setForm('_notes', ev.target.value); this.setForm('_notesDirty', true); },
+            placeholder: 'Voeg notities toe over deze kandidaat…',
+            rows: 4,
+            style: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, lineHeight: 1.5, resize: 'vertical', fontFamily: 'inherit', outline: 'none' },
+          }),
+          notesDirty ? e('div', { style: { marginTop: 6, display: 'flex', justifyContent: 'flex-end' } }, UI.Btn('Opslaan', saveNotes, 'primary')) : null),
+        e('div', { style: { borderTop: '1px solid var(--border-soft)', paddingTop: 14 } },
+          UI.Sub('Activiteit loggen', { marginBottom: 8 }),
+          e('div', { style: { display: 'flex', gap: 8, alignItems: 'flex-start' } },
+            e('div', { style: { width: 140, flexShrink: 0 } }, UI.Select(f._actType || 'call', v => this.setForm('_actType', v), typeOpts)),
+            e('input', {
+              type: 'text',
+              value: f._actNote || '',
+              onChange: ev => this.setForm('_actNote', ev.target.value),
+              onKeyDown: ev => { if (ev.key === 'Enter') addActivity(); },
+              placeholder: 'Korte beschrijving…',
+              style: { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' },
+            }),
+            UI.Btn('Log', addActivity, 'soft')),
+          actLog.length > 0 ? e('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 } },
+            actLog.map((entry, i) => e('div', { key: i, style: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 10px', background: 'var(--bg-2)', borderRadius: 8, borderLeft: '3px solid var(--accent)' } },
+              e('span', { style: { fontSize: 16, flexShrink: 0, marginTop: 1 } }, typeLabel(entry.type)),
+              e('div', { style: { flex: 1, minWidth: 0 } },
+                e('div', { style: { fontSize: 13, color: 'var(--text)' } }, entry.note),
+                e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, fmtDate(entry.at) + (entry.by ? ' · ' + entry.by : ''))))))
+          : e('div', { style: { marginTop: 8, fontSize: 12.5, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Nog geen activiteit gelogd.'))),
+        [UI.Btn('Not qualified', () => { this.advanceRecruit(r.id, 'not_qualified'); this.closeModal(); }, 'danger'), UI.Btn('Qualify', () => { this.advanceRecruit(r.id, 'qualified'); this.closeModal(); }, 'soft'), UI.Btn('Move to contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, agent: r.name }); }, 'primary')], '640px');
     }
 
     if (k === 'wizard') {
