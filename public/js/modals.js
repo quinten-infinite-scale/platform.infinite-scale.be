@@ -2128,11 +2128,14 @@ const Modals = {
           rate: primaryRate,
           contact_person: f.ccContact || f.ccName,
           email: f.ccEmail || '',
-          phone: f.ccPhone || '',
-          vat: f.ccVat || '',
           company: f.ccName,
           bill_status: 'pending',
           subclients: [],
+          per_hour: f.ccPerHour ? +f.ccPerHour : null,
+          monthly_fee: f.ccMonthly ? +f.ccMonthly : null,
+          commission: f.ccCommission ? +f.ccCommission : null,
+          setup_fee: f.ccSetup ? +f.ccSetup : null,
+          pay_days: f.ccPayDays ? +f.ccPayDays : null,
         };
         const res = await API.createClient(row);
         if (res) {
