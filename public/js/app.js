@@ -711,9 +711,9 @@ class Component extends DCLogic {
     await API.pushNotif('admin', `${clName} vraagt een wijziging voor een afspraak`, 'ticket', { route: 'support' });
     this.toast('Verzonden', 'Wijzigingsverzoek verzonden naar admin', 'var(--info)');
   }
-  async approveInvoice(agentId) {
-    await API.approveAgentInvoice(agentId);
-    this.mutLocal(d => d.appointments.forEach(a => { if (a.agent === agentId) a.invoiced = true; }));
+  async approveInvoice(agentId, ym) {
+    await API.approveAgentInvoice(agentId, ym);
+    this.mutLocal(d => d.appointments.forEach(a => { if (a.agent === agentId && (a.dateLog || '').slice(0, 7) === ym) a.invoiced = true; }));
     this.toast('Approved', 'Invoicing approved — agent can now invoice', 'var(--up)');
   }
   async sendContract() {

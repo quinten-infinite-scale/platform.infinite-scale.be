@@ -346,8 +346,13 @@ const API = {
     return ok;
   },
 
-  async approveAgentInvoice(agentId) {
-    await SB.patch('appointments', `?agent_id=eq.${agentId}&invoiced=eq.false`, { invoiced: true });
+  async approveAgentInvoice(agentId, yearMonth) {
+    const [yr, mo] = yearMonth.split('-').map(Number);
+    const nextMo = mo === 12 ? `${yr + 1}-01` : `${yr}-${String(mo + 1).padStart(2, '0')}`;
+    await SB.patch('appointments',
+      `?agent_id=eq.${agentId}&invoiced=eq.false&date_logged=gte.${yearMonth}-01&date_logged=lt.${nextMo}-01`,
+      { invoiced: true }
+    );
   },
 
   async markClientInvoiced(clientId, yearMonth) {
