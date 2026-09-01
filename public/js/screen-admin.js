@@ -86,20 +86,20 @@ const ScreenAdmin = {
     const aRate = (a) => { if (a.client === 'c15') return rnAgentPay(a) ?? 0; const ag = d.agents.find(g => g.id === a.agent); return (ag && ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client])) || 0; };
     // Expected: all billable appointments logged this month (regardless of invoiced status)
     const curMonthBillable = d.appointments.filter(a => a.dateLog && a.dateLog.startsWith(currentYM) && a.status !== 'cancel' && a.status !== 'no_show');
-    const expected = curMonthBillable.reduce((x, a) => x + cRate(a) + (a.dealAmount || 0), 0);
+    const expected = curMonthBillable.reduce((x, a) => x + cRate(a), 0);
     // Invoiced: all appointments formally marked as invoiced
-    const invoiced = d.appointments.filter(a => a.invoiced && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a) + (a.dealAmount || 0), 0);
-    const received = d.appointments.filter(a => a.paid && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a) + (a.dealAmount || 0), 0);
-    const agentCost = curMonthBillable.filter(a => a.status === 'show').reduce((x, a) => x + aRate(a) + (a.dealCommission || 0), 0);
-    const revToday = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + cRate(a) + (a.dealAmount || 0), 0);
-    const costToday = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + aRate(a) + (a.dealCommission || 0), 0);
+    const invoiced = d.appointments.filter(a => a.invoiced && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
+    const received = d.appointments.filter(a => a.paid && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
+    const agentCost = curMonthBillable.filter(a => a.status === 'show').reduce((x, a) => x + aRate(a), 0);
+    const revToday = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + cRate(a), 0);
+    const costToday = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + aRate(a), 0);
     const pnl = expected - agentCost;
     const pnlToday = revToday - costToday;
     const margin = expected > 0 ? Math.round(pnl / expected * 100) : null;
     const marginToday = revToday > 0 ? Math.round(pnlToday / revToday * 100) : null;
     const allLogged = d.appointments.filter(a => a.status !== 'cancel');
-    const allTimeRev = allLogged.reduce((x, a) => x + cRate(a) + (a.dealAmount || 0), 0);
-    const allTimeCost = allLogged.reduce((x, a) => x + aRate(a) + (a.dealCommission || 0), 0);
+    const allTimeRev = allLogged.reduce((x, a) => x + cRate(a), 0);
+    const allTimeCost = allLogged.reduce((x, a) => x + aRate(a), 0);
     const allTimePnL = allTimeRev - allTimeCost;
     const allTimeMargin = allTimeRev > 0 ? Math.round(allTimePnL / allTimeRev * 100) : null;
     return { expected, invoiced, received, agentCost, pnl, revToday, pnlToday, margin, marginToday, allTimePnL, allTimeMargin };
@@ -234,8 +234,8 @@ const ScreenAdmin = {
     } else {
       const d2 = new Date(now); d2.setDate(1); d2.setMonth(d2.getMonth() - offset);
       const d3 = new Date(now); d3.setDate(1); d3.setMonth(d3.getMonth() - offset - 1);
-      periodKey = iso(d2).slice(0, 7);
-      prevKey = iso(d3).slice(0, 7);
+      periodKey = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
+      prevKey = d3.getFullYear() + '-' + String(d3.getMonth() + 1).padStart(2, '0');
       periodLabel = d2.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' });
       periodStart = periodKey; periodEnd = periodKey + '-99';
     }
@@ -264,15 +264,15 @@ const ScreenAdmin = {
     const prevLogged  = d.appointments.filter(a => a.status !== 'cancel' && inPeriod(prevKey)(a));
     const prevInPeriod = d.appointments.filter(a => a.status !== 'cancel' && a.status !== 'no_show' && inPeriodAppt(prevKey)(a));
 
-    const revLogged   = curLogged.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
-    const revInPeriod = curInPeriod.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
-    const revInvoiced = curInvoiced.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
-    const costLogged  = curLogged.reduce((x, a) => x + getCost(a) + (a.dealCommission || 0), 0);
-    const costInPeriod = curInPeriod.reduce((x, a) => x + getCost(a) + (a.dealCommission || 0), 0);
+    const revLogged   = curLogged.reduce((x, a) => x + getRate(a), 0);
+    const revInPeriod = curInPeriod.reduce((x, a) => x + getRate(a), 0);
+    const revInvoiced = curInvoiced.reduce((x, a) => x + getRate(a), 0);
+    const costLogged  = curLogged.reduce((x, a) => x + getCost(a), 0);
+    const costInPeriod = curInPeriod.reduce((x, a) => x + getCost(a), 0);
     const pnlLogged   = revLogged - costLogged;
     const pnlInPeriod = revInPeriod - costInPeriod;
-    const prevRevLogged = prevLogged.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
-    const prevRevInPeriod = prevInPeriod.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
+    const prevRevLogged = prevLogged.reduce((x, a) => x + getRate(a), 0);
+    const prevRevInPeriod = prevInPeriod.reduce((x, a) => x + getRate(a), 0);
 
     const pct = (a, b) => { if (!b) return a > 0 ? '+100%' : '—'; const v = Math.round((a - b) / b * 100); return (v >= 0 ? '+' : '') + v + '%'; };
     const pctCol = (a, b) => a >= b ? 'var(--up)' : 'var(--down)';
@@ -343,15 +343,15 @@ const ScreenAdmin = {
     // ── Agent cost breakdown (toggle) ──────────────────────────────────
     const agentCostRowsLogged = d.agents.map(ag => {
       const agAppts = curLogged.filter(a => a.agent === ag.id);
-      const agCost = agAppts.reduce((x, a) => x + getCost(a) + (a.dealCommission || 0), 0);
-      const agRev = agAppts.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
+      const agCost = agAppts.reduce((x, a) => x + getCost(a), 0);
+      const agRev = agAppts.reduce((x, a) => x + getRate(a), 0);
       return { name: ag.name, count: agAppts.length, cost: agCost, rev: agRev };
     }).filter(r => r.count > 0).sort((a, b) => b.cost - a.cost);
 
     const agentCostRowsInvoiced = d.agents.map(ag => {
       const agAppts = curInvoiced.filter(a => a.agent === ag.id);
-      const agCost = agAppts.reduce((x, a) => x + getCost(a) + (a.dealCommission || 0), 0);
-      const agRev = agAppts.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
+      const agCost = agAppts.reduce((x, a) => x + getCost(a), 0);
+      const agRev = agAppts.reduce((x, a) => x + getRate(a), 0);
       return { name: ag.name, count: agAppts.length, cost: agCost, rev: agRev };
     }).filter(r => r.count > 0).sort((a, b) => b.cost - a.cost);
 
@@ -405,9 +405,9 @@ const ScreenAdmin = {
         a.invoiced && a.status !== 'cancel' && a.status !== 'no_show' &&
         (a.dateAppt || a.dateLog || '').startsWith(ym));
 
-      const mRevLogged  = logged.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
-      const mRevInMonth = inMonth.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
-      const mRevInvoiced = invoiced.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
+      const mRevLogged  = logged.reduce((x, a) => x + getRate(a), 0);
+      const mRevInMonth = inMonth.reduce((x, a) => x + getRate(a), 0);
+      const mRevInvoiced = invoiced.reduce((x, a) => x + getRate(a), 0);
       const loggedInOwnMonth = logged.filter(a => (a.dateAppt || '').startsWith(ym)).length;
       const pctInMonth = logged.length > 0 ? Math.round(loggedInOwnMonth / logged.length * 100) : null;
 
@@ -506,7 +506,7 @@ const ScreenAdmin = {
             { label: 'Omzet', align: 'right', render: r => UI.Mono(this.euro(r.rev), { color: 'var(--up)', fontWeight: 700 }) },
           ], d.clients.map(cl => {
             const appts = curInvoiced.filter(a => a.client === cl.id);
-            const rev = appts.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
+            const rev = appts.reduce((x, a) => x + getRate(a), 0);
             return { name: cl.name, count: appts.length, rev };
           }).filter(r => r.count > 0).sort((a, b) => b.rev - a.rev), { min: 360, empty: 'Geen gefactureerde afspraken in deze periode.' })),
         // Per agent
@@ -520,7 +520,7 @@ const ScreenAdmin = {
             { label: 'P&L', align: 'right', render: r => UI.Mono(this.euro(r.rev - r.cost), { color: r.rev - r.cost >= 0 ? 'var(--up)' : 'var(--down)', fontWeight: 700 }) },
           ], d.agents.map(ag => {
             const appts = curInvoiced.filter(a => a.agent === ag.id);
-            const rev = appts.reduce((x, a) => x + getRate(a) + (a.dealAmount || 0), 0);
+            const rev = appts.reduce((x, a) => x + getRate(a), 0);
             const cost = appts.reduce((x, a) => x + getCost(a) + (a.dealCommission || 0), 0);
             return { name: ag.name, count: appts.length, rev, cost };
           }).filter(r => r.count > 0).sort((a, b) => b.rev - a.rev), { min: 440, empty: 'Geen gefactureerde afspraken in deze periode.' }))) : null);
@@ -907,14 +907,14 @@ const ScreenAdmin = {
     const clientWeek = (cl, wk) => {
       const wkAppts = wk.days.flatMap(d => d.appts).filter(a => a.client === cl.id);
       if (wkAppts.length === 0) return null;
-      const omzet = wkAppts.reduce((s2, a) => s2 + getRate(a) + (a.dealAmount || 0), 0);
+      const omzet = wkAppts.reduce((s2, a) => s2 + getRate(a), 0);
       const kosten = wkAppts.reduce((s2, a) => s2 + getPayout(a), 0);
       return { n: wkAppts.length, omzet, kosten, winst: omzet - kosten };
     };
 
     // Per day totals
     const dayTotals = (dayAppts) => {
-      const omzet = dayAppts.reduce((s2, a) => s2 + getRate(a) + (a.dealAmount || 0), 0);
+      const omzet = dayAppts.reduce((s2, a) => s2 + getRate(a), 0);
       const kosten = dayAppts.reduce((s2, a) => s2 + getPayout(a), 0);
       return { omzet, kosten, winst: omzet - kosten, n: dayAppts.length };
     };
@@ -923,14 +923,14 @@ const ScreenAdmin = {
     const clientDay = (cl, dayAppts) => {
       const ca = dayAppts.filter(a => a.client === cl.id);
       if (ca.length === 0) return null;
-      const omzet = ca.reduce((s2, a) => s2 + getRate(a) + (a.dealAmount || 0), 0);
+      const omzet = ca.reduce((s2, a) => s2 + getRate(a), 0);
       const kosten = ca.reduce((s2, a) => s2 + getPayout(a), 0);
       const rate = ca.length > 0 ? Math.round(omzet / ca.length) : 0;
       return { n: ca.length, omzet, kosten, winst: omzet - kosten, rate };
     };
 
     // Month totals
-    const monthOmzet = monthAppts.reduce((s2, a) => s2 + getRate(a) + (a.dealAmount || 0), 0);
+    const monthOmzet = monthAppts.reduce((s2, a) => s2 + getRate(a), 0);
     const monthKosten = monthAppts.reduce((s2, a) => s2 + getPayout(a), 0);
     const monthWinst = monthOmzet - monthKosten;
     const monthRatio = monthOmzet > 0 ? monthWinst / monthOmzet : 0;
@@ -1038,7 +1038,7 @@ const ScreenAdmin = {
     const clHdrBg = 'oklch(0.18 0.02 256 / .5)';
     const clientHeaderRow = (cl) => {
       const clAppts = monthAppts.filter(a => a.client === cl.id);
-      const clOmzet = clAppts.reduce((s2, a) => s2 + getRate(a) + (a.dealAmount || 0), 0);
+      const clOmzet = clAppts.reduce((s2, a) => s2 + getRate(a), 0);
       const clKosten = clAppts.reduce((s2, a) => s2 + getPayout(a), 0);
       return e('tr', { style: { background: clHdrBg } },
         e('td', { colSpan: 2, style: css(tdBase, stickyL, { left: 0, padding: '6px 12px', fontWeight: 800, fontSize: 12.5, color: 'var(--accent)', background: clHdrBg, borderRight: '2px solid var(--border)', letterSpacing: '.02em' }) }, cl.name),
@@ -1062,7 +1062,7 @@ const ScreenAdmin = {
     // Client metric rows: Kosten, Omzet, Winst
     const clientMetricRows = (cl) => {
       const clAppts = monthAppts.filter(a => a.client === cl.id);
-      const totalOmzet = clAppts.reduce((s2, a) => s2 + getRate(a) + (a.dealAmount || 0), 0);
+      const totalOmzet = clAppts.reduce((s2, a) => s2 + getRate(a), 0);
       const totalKosten = clAppts.reduce((s2, a) => s2 + getPayout(a), 0);
       const avgRate = cl.rate || 0;
       const agentRate = (() => {
@@ -1537,7 +1537,46 @@ const ScreenAdmin = {
           ].map((c, i) => e('div', { key: i, style: { flex: '1 1 150px', padding: '14px 16px', background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--border-soft)' } },
             e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, c.label),
             e('div', { style: { fontSize: 26, fontWeight: 700, color: c.color, fontFamily: "'Space Grotesk'" } }, c.val),
-            e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 3 } }, c.sub))))));
+            e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 3 } }, c.sub))))),
+
+      // Client revenue / deal stats
+      (() => {
+        const rangeAppts = d.appointments.filter(a => a.dateLog >= rangeFrom && a.dateLog <= rangeTo);
+        const clientRows = d.clients.map(cl => {
+          const appts = rangeAppts.filter(a => a.client === cl.id);
+          const shows = appts.filter(a => a.status === 'show');
+          const deals = shows.filter(a => a.quoteApproved);
+          const revenue = deals.reduce((s, a) => s + (a.dealAmount || 0), 0);
+          const showRate = appts.length ? Math.round(shows.length / appts.length * 100) : 0;
+          const showToDeal = shows.length ? Math.round(deals.length / shows.length * 100) : 0;
+          const leadToDeal = appts.length ? Math.round(deals.length / appts.length * 100) : 0;
+          return { cl, booked: appts.length, shows: shows.length, deals: deals.length, revenue, showRate, showToDeal, leadToDeal };
+        }).filter(r => r.booked > 0).sort((a, b) => b.revenue - a.revenue || b.booked - a.booked);
+        if (!clientRows.length) return null;
+        const totalRevenue = clientRows.reduce((s, r) => s + r.revenue, 0);
+        const Pct = (v) => e('span', { style: { fontFamily: "'JetBrains Mono'", fontSize: 12.5, color: v > 0 ? 'var(--text)' : 'var(--text-mute)' } }, v + '%');
+        return UI.C({},
+          UI.Row({ justifyContent: 'space-between', marginBottom: 14 },
+            UI.Hd('Client revenue & deals', { fontSize: 15 }),
+            e('div', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15, color: 'var(--up)' } }, totalRevenue > 0 ? this.euro(totalRevenue) + ' total' : 'No deals yet')),
+          e('div', { style: { overflowX: 'auto' } },
+            e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+              e('thead', null,
+                e('tr', null,
+                  ['Client', 'Booked', 'Shows', 'Deals', 'Show rate', 'Show→Deal', 'Lead→Deal', 'Revenue'].map((h, i) =>
+                    e('th', { key: h, style: { padding: '6px 10px', textAlign: i === 0 ? 'left' : 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--border-soft)', whiteSpace: 'nowrap' } }, h)))),
+              e('tbody', null,
+                clientRows.map((r, i) =>
+                  e('tr', { key: r.cl.id, style: { borderBottom: i < clientRows.length - 1 ? '1px solid var(--border-soft)' : 'none' } },
+                    e('td', { style: { padding: '10px 10px', fontWeight: 600, color: 'var(--text)' } }, r.cl.name),
+                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, UI.Mono(r.booked)),
+                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, UI.Mono(r.shows, { color: 'var(--up)' })),
+                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, UI.Mono(r.deals, { color: r.deals > 0 ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 700 })),
+                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, Pct(r.showRate)),
+                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, Pct(r.showToDeal)),
+                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, Pct(r.leadToDeal)),
+                    e('td', { style: { padding: '10px 10px', textAlign: 'right', fontFamily: "'JetBrains Mono'", fontWeight: 700, color: r.revenue > 0 ? 'var(--up)' : 'var(--text-mute)' } }, r.revenue > 0 ? this.euro(r.revenue) : '—')))))));
+      })());
   },
 
   _admAppointments(d, s) {
