@@ -108,6 +108,7 @@ const API = {
       loggedAt: a.created_at || '',
       dateAppt: a.date_appt,
       clientFeedback: a.client_feedback || '',
+      adminNotes: a.admin_notes || '',
       status: a.status,
       amount: a.amount != null ? a.amount : null,
       invoiced: a.invoiced || false,
@@ -276,6 +277,10 @@ const API = {
   },
   async saveApptFeedback(id, feedback) {
     return SB.patch('appointments', `?id=eq.${id}`, { client_feedback: feedback });
+  },
+
+  async saveAdminNotes(id, notes) {
+    return SB.patch('appointments', `?id=eq.${id}`, { admin_notes: notes });
   },
 
   async setWorking(agentId, working) {

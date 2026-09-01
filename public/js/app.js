@@ -428,6 +428,12 @@ class Component extends DCLogic {
     this.toast('Saved', 'Feedback saved', 'var(--accent)');
   }
 
+  async saveAdminNotes(id, notes) {
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = notes; });
+    await API.saveAdminNotes(id, notes);
+    this.toast('Saved', 'Notes saved', 'var(--accent)');
+  }
+
   async toggleWorking() {
     const me = this.state.data.agents.find(a => a.id === this.myAgentId);
     if (!me) return;

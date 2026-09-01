@@ -125,6 +125,19 @@ const Modals = {
                 ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, ap.clientFeedback)
                 : e('div', { style: { fontSize: 13, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'No client feedback yet.'));
 
+      const adminNotesVal = f.adminNotesDraft !== undefined ? f.adminNotesDraft : (ap.adminNotes || '');
+      const adminNotesSection = role === 'admin'
+        ? e('div', null,
+            UI.Sub('Admin notes', { marginBottom: 8 }),
+            e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+              e('textarea', { value: adminNotesVal, placeholder: 'Add internal notes visible to client…', onChange: ev => this.setForm('adminNotesDraft', ev.target.value), style: { width: '100%', minHeight: 72, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
+              UI.Btn('Save notes', () => this.saveAdminNotes(ap.id, adminNotesVal), 'primary', { fontSize: 12, padding: '7px 14px', alignSelf: 'flex-end' })))
+        : ap.adminNotes
+          ? e('div', null,
+              UI.Sub('Notes', { marginBottom: 8 }),
+              e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, ap.adminNotes))
+          : null;
+
       const loggedTime = ap.loggedAt ? new Date(ap.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : null;
 
       // Edit form
@@ -200,6 +213,7 @@ const Modals = {
           ap.dealCommission != null ? this._kv('Agent commission', e('span', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, color: 'var(--up)' } }, '💰 ' + this.euro(ap.dealCommission), ap.dealAmount != null && role === 'admin' ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 6 } }, '55%') : null)) : null),
         statusSection,
         feedbackSection,
+        adminNotesSection,
         f.deleteConfirm ? e('div', { style: { padding: '12px 14px', borderRadius: 10, background: 'oklch(0.22 0.08 0 / .25)', border: '1px solid var(--down)', fontSize: 13, color: 'var(--down)', fontWeight: 600 } }, '⚠ This will permanently delete this appointment. This cannot be undone.') : null),
         detailBtns, '520px');
     }
