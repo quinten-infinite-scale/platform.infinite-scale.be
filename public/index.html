@@ -1056,6 +1056,12 @@ class Component extends DCLogic {
     this.toast('Saved', 'Feedback saved', 'var(--up)');
   }
 
+  async saveAdminNotes(id, notes) {
+    this.mutLocal(d => { const a = d.appointments.find(x => x.id === id); if (a) a.adminNotes = notes; });
+    await API.saveAdminNotes(id, notes);
+    this.toast('Saved', 'Notes saved', 'var(--up)');
+  }
+
   async updateContract(contractId, updates) {
     this.mutLocal(d => { const c = d.contracts.find(x => x.id === contractId); if (c) Object.assign(c, updates); });
     await API.updateContract(contractId, updates);
