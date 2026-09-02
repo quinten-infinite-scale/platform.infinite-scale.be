@@ -83,9 +83,10 @@ const SB = (() => {
   }
 
   async function _serverWrite(payload) {
+    if (!_session?.access_token) return null;
     const r = await fetch('/api/db-write', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _session.access_token },
       body: JSON.stringify(payload),
     });
     const j = await r.json();

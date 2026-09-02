@@ -471,11 +471,13 @@ const API = {
   async uploadContractPdf(file) {
     const ext = file.name.split('.').pop() || 'pdf';
     const path = 'uploads/' + Date.now() + '_' + Math.random().toString(36).slice(2) + '.' + ext;
+    const sess = SB.getSession();
     const r = await fetch('/api/db-write', {
       method: 'POST',
       headers: {
         'Content-Type': file.type || 'application/pdf',
         'x-file-path': path,
+        ...(sess?.access_token ? { 'Authorization': 'Bearer ' + sess.access_token } : {}),
       },
       body: file,
     });
@@ -615,9 +617,10 @@ const API = {
 </table>
 </body></html>`;
 
+    const _sess = SB.getSession();
     const res = await fetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(_sess?.access_token ? { 'Authorization': 'Bearer ' + _sess.access_token } : {}) },
       body: JSON.stringify({ to, subject: `Contract klaar ter ondertekening - Infinite Scale`, html }),
     });
     const j = await res.json();
@@ -661,9 +664,10 @@ const API = {
   </td></tr>
 </table>
 </body></html>`;
+    const _sess = SB.getSession();
     const res = await fetch('/api/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(_sess?.access_token ? { 'Authorization': 'Bearer ' + _sess.access_token } : {}) },
       body: JSON.stringify({ to, subject: 'Welkom bij Infinite Scale — stel uw account in', html }),
     });
     const j = await res.json();
