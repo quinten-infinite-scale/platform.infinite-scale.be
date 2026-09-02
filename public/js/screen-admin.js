@@ -109,7 +109,11 @@ const ScreenAdmin = {
     const e = React.createElement; const F = this._fin(d); const today = this.iso(this.today());
     const dialsToday = Object.keys(d.dials).reduce((x, id) => x + ((d.dials[id] || {})[today] || 0), 0);
     const apptsToday = d.appointments.filter(a => a.dateLog === today).length;
-    const openHires = d.recruits.filter(r => r.stage !== 'hired' && r.stage !== 'not_qualified');
+    const recruitStages = (() => { try { return JSON.parse((d.settings || {}).recruit_stages || '[]'); } catch(_) { return []; } })();
+    const stageLabel = id => { const sg = recruitStages.find(s => s.id === id); return sg ? sg.label : id.replace(/_/g, ' '); };
+    const recruitOverrides = (() => { try { return JSON.parse((d.settings || {}).recruit_stage_overrides || '{}'); } catch(_) { return {}; } })();
+    const effectiveStage = r => recruitOverrides[r.id] || r.stage;
+    const openHires = d.recruits.filter(r => { const st = effectiveStage(r); return st !== 'hired' && st !== 'not_qualified'; });
 
     const marginBadge = (pct) => (pct === null || pct === undefined) ? null : e('span', { style: { fontSize: 10.5, fontWeight: 700, color: pct >= 0 ? 'var(--up)' : 'var(--down)', background: pct >= 0 ? 'oklch(0.22 0.08 152 / .5)' : 'oklch(0.22 0.08 0 / .5)', padding: '2px 7px', borderRadius: 20, letterSpacing: '.01em' } }, pct + '% margin');
     const statCard = (label, val, sub, onClick, margin) => e('div', {
@@ -146,7 +150,7 @@ const ScreenAdmin = {
             e('div', { style: { display: 'flex', flexDirection: 'column', gap: 9 } },
               openHires.slice(0, 4).map(h => e('div', { key: h.id, onClick: () => this.setState({ route: 'recruitment' }), style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 11px', borderRadius: 9, background: 'var(--bg-2)', cursor: 'pointer', transition: 'background .15s' }, onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; }, onMouseLeave: ev => { ev.currentTarget.style.background = 'var(--bg-2)'; } },
                 e('span', { style: { fontSize: 13, fontWeight: 600 } }, h.name),
-                UI.Pill(h.stage.replace('_', ' '), 'var(--violet)', 'oklch(0.30 0.05 295)'))))),
+                UI.Pill(stageLabel(effectiveStage(h)), 'var(--violet)', 'oklch(0.30 0.05 295)'))))),
           UI.C({}, UI.Hd('Quick actions', { fontSize: 15, marginBottom: 12 }),
             e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
               [['Add client', () => this.openModal('createClient')], ['Create agent', () => this.openModal('createAgent')], ['New contract', () => this.openModal('wizard', { step: 0 })]].map(([label, fn]) =>
