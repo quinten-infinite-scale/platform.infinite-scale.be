@@ -861,15 +861,27 @@ const ScreenAdmin = {
       { label: 'Verplaatsing / Netwerking', amount: 200 },
       { label: 'Diversen', amount: 400 },
     ];
-    const fixedOverrides = s.pnlFixedCosts || {};
+    const fixedOverrides = (() => { try { return JSON.parse(d.settings.pnl_fixed_costs || '{}'); } catch(_) { return {}; } })();
+    const saveFixedOverrides = (next) => {
+      const val = JSON.stringify(next);
+      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.pnl_fixed_costs = val; });
+      API.saveSetting('pnl_fixed_costs', val);
+    };
     const FIXED_COSTS_RESOLVED = FIXED_COSTS
       .map(fc => {
         const ov = fixedOverrides[fc.label] || {};
+        if (ov._deleted) return null;
         return { originalLabel: fc.label, label: ov.label != null ? ov.label : fc.label, amount: ov.amount != null ? ov.amount : fc.amount, defaultLabel: fc.label, defaultAmount: fc.amount };
       })
+      .filter(Boolean)
       .sort((a, b) => b.amount - a.amount);
     const TOTAL_FIXED = FIXED_COSTS_RESOLVED.reduce((s2, x) => s2 + x.amount, 0);
-    const extraCosts = s.pnlExtraCosts || [];
+    const extraCosts = (() => { try { return JSON.parse(d.settings.pnl_extra_costs || '[]'); } catch(_) { return []; } })();
+    const saveExtraCosts = (next) => {
+      const val = JSON.stringify(next);
+      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.pnl_extra_costs = val; });
+      API.saveSetting('pnl_extra_costs', val);
+    };
     const totalExtraCosts = extraCosts.reduce((s2, x) => s2 + (parseFloat(x.amount) || 0), 0);
 
     // Week number helper
@@ -1189,28 +1201,34 @@ const ScreenAdmin = {
               e('span', { style: css(mono, { fontSize: 12, color: 'var(--text-mute)' }) }, this.euro(TOTAL_FIXED) + '/mnd')),
             e('div', null, FIXED_COSTS_RESOLVED.map((fc, i) => {
               const isModified = fc.label !== fc.defaultLabel || fc.amount !== fc.defaultAmount;
-              const setOv = (patch) => this.setState(st => ({
-                pnlFixedCosts: Object.assign({}, st.pnlFixedCosts || {}, {
-                  [fc.originalLabel]: Object.assign({}, (st.pnlFixedCosts || {})[fc.originalLabel] || {}, patch)
-                })
-              }));
+              const setOv = (patch) => {
+                const next = Object.assign({}, fixedOverrides, { [fc.originalLabel]: Object.assign({}, fixedOverrides[fc.originalLabel] || {}, patch) });
+                saveFixedOverrides(next);
+              };
+              const deleteLine = () => {
+                const next = Object.assign({}, fixedOverrides, { [fc.originalLabel]: { _deleted: true } });
+                saveFixedOverrides(next);
+              };
+              const resetLine = () => {
+                const next = Object.assign({}, fixedOverrides);
+                delete next[fc.originalLabel];
+                saveFixedOverrides(next);
+              };
               return e('div', { key: fc.originalLabel, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 16px', borderTop: '1px solid var(--border-soft)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-2)' } },
                 e('input', {
                   type: 'text', value: fc.label,
                   onChange: ev => setOv({ label: ev.target.value }),
-                  style: { flex: 1, fontSize: 12, padding: '3px 6px', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text)', outline: 'none', minWidth: 0,
-                    onFocus: undefined },
+                  style: { flex: 1, fontSize: 12, padding: '3px 6px', borderRadius: 6, border: '1px solid transparent', background: 'transparent', color: 'var(--text)', outline: 'none', minWidth: 0 },
                   onFocus: ev => { ev.target.style.border = '1px solid var(--border)'; ev.target.style.background = 'var(--surface)'; },
                   onBlur: ev => { ev.target.style.border = '1px solid transparent'; ev.target.style.background = 'transparent'; }
                 }),
-                isModified ? e('button', {
-                  onClick: () => this.setState(st => { const o = Object.assign({}, st.pnlFixedCosts || {}); delete o[fc.originalLabel]; return { pnlFixedCosts: o }; }),
-                  style: { background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 11, padding: '0 2px', opacity: 0.6 }, title: 'Reset naar standaard' }, '↺') : null,
+                isModified ? e('button', { onClick: resetLine, style: { background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 11, padding: '0 2px', opacity: 0.6 }, title: 'Reset naar standaard' }, '↺') : null,
                 e('input', {
                   type: 'number', min: 0, value: fc.amount,
                   onChange: ev => { const v = parseFloat(ev.target.value); setOv({ amount: isNaN(v) ? 0 : v }); },
                   style: css(mono, { width: 80, padding: '3px 6px', textAlign: 'right', borderRadius: 6, border: '1px solid var(--border)', background: isModified ? 'oklch(0.22 0.06 85 / .15)' : 'var(--surface)', color: 'var(--text)', fontSize: 12 })
-                }));
+                }),
+                e('button', { onClick: deleteLine, style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }, title: 'Verwijder lijn' }, '×'));
             }))),
 
         // Extra kosten + netto resultaat
@@ -1226,7 +1244,7 @@ const ScreenAdmin = {
                 e('span', { style: { flex: 1, fontSize: 12 } }, ec.desc),
                 e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, ec.date),
                 e('span', { style: css(mono, { fontSize: 12, color: 'var(--warn)', fontWeight: 700 }) }, this.euro(parseFloat(ec.amount) || 0)),
-                e('button', { onClick: () => this.setState(st => ({ pnlExtraCosts: (st.pnlExtraCosts || []).filter((_, j) => j !== i) })), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 15, padding: 0 } }, '×')))) : null,
+                e('button', { onClick: () => saveExtraCosts(extraCosts.filter((_, j) => j !== i)), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 15, padding: 0 } }, '×')))) : null,
             e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
               e('input', { type: 'date', value: s.pnlNewCostDate || monthYM + '-01', onChange: ev => this.setState({ pnlNewCostDate: ev.target.value }), style: { padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12 } }),
               e('input', { type: 'text', placeholder: 'Omschrijving', value: s.pnlNewCostDesc || '', onChange: ev => this.setState({ pnlNewCostDesc: ev.target.value }), style: { flex: 1, minWidth: 110, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12 } }),
@@ -1235,7 +1253,8 @@ const ScreenAdmin = {
                 const desc = (s.pnlNewCostDesc || '').trim();
                 const amt = parseFloat(s.pnlNewCostAmt);
                 if (!desc || isNaN(amt) || amt <= 0) return;
-                this.setState(st => ({ pnlExtraCosts: [...(st.pnlExtraCosts || []), { date: st.pnlNewCostDate || monthYM + '-01', desc, amount: amt }], pnlNewCostDesc: '', pnlNewCostAmt: '' }));
+                saveExtraCosts([...extraCosts, { date: s.pnlNewCostDate || monthYM + '-01', desc, amount: amt }]);
+                this.setState({ pnlNewCostDesc: '', pnlNewCostAmt: '' });
               }, 'primary', { padding: '5px 12px', fontSize: 13 }))),
 
           // Netto resultaat
