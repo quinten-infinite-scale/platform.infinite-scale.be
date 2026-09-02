@@ -127,23 +127,23 @@ const Modals = {
 
       // Deal tracking — clients can update quote/deal status; admin can see
       const canDealTrack = role === 'client' || role === 'agency' || role === 'admin';
-      const dealSection = canDealTrack && ap.status === 'show' ? (() => {
+      const dealSection = canDealTrack && ap.status !== 'cancel' ? (() => {
         const qSent = f.dealQuoteSent !== undefined ? f.dealQuoteSent : ap.quoteSent;
         const qApproved = f.dealQuoteApproved !== undefined ? f.dealQuoteApproved : ap.quoteApproved;
         const dealRev = f.dealRevenueDraft !== undefined ? f.dealRevenueDraft : (ap.dealAmount != null ? String(ap.dealAmount) : '');
         const canEdit = role === 'client' || role === 'agency';
-        const Toggle = (label, val, key, enabled, activeColor, activeBg) => e('button', {
+        const Toggle = (label, val, key, enabled, activeColor, activeBg, newQSent, newQApproved) => e('button', {
           type: 'button',
           disabled: !canEdit || !enabled,
-          onClick: canEdit && enabled ? () => this.setForm(key, !val) : undefined,
+          onClick: canEdit && enabled ? () => { this.setForm(key, !val); this.saveDealStatus(ap.id, newQSent, newQApproved, dealRev); } : undefined,
           style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 9, border: '1.5px solid ' + (val ? activeColor : 'var(--border)'), background: val ? activeBg : 'transparent', color: val ? activeColor : 'var(--text-mute)', fontWeight: 700, fontSize: 13, cursor: canEdit && enabled ? 'pointer' : 'default', opacity: !canEdit || !enabled ? 0.5 : 1, transition: 'all .15s' },
         }, e('span', null, val ? '✓' : '○'), label);
         return e('div', null,
           UI.Sub('Deal tracking', { marginBottom: 10 }),
           e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
             e('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-              Toggle('Offerte verstuurd', qSent, 'dealQuoteSent', true, 'var(--warn)', 'oklch(0.22 0.08 85 / .35)'),
-              Toggle('Offerte akkoord', qApproved, 'dealQuoteApproved', qSent, 'var(--up)', 'oklch(0.22 0.08 152 / .35)')),
+              Toggle('Offerte verstuurd', qSent, 'dealQuoteSent', true, 'var(--warn)', 'oklch(0.22 0.08 85 / .35)', !qSent, qSent ? false : qApproved),
+              Toggle('Offerte akkoord', qApproved, 'dealQuoteApproved', qSent, 'var(--up)', 'oklch(0.22 0.08 152 / .35)', qSent, !qApproved)),
             e('div', { style: { display: 'flex', gap: 8, alignItems: 'flex-end' } },
               e('div', { style: { flex: 1 } },
                 UI.Sub('Omzet (€)', { marginBottom: 4 }),
