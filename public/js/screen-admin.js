@@ -861,11 +861,12 @@ const ScreenAdmin = {
       { label: 'Verplaatsing / Netwerking', amount: 200 },
       { label: 'Diversen', amount: 400 },
     ];
-    const fixedOverrides = (() => { try { return JSON.parse(d.settings.pnl_fixed_costs || '{}'); } catch(_) { return {}; } })();
+    const fixedKey = 'pnl_fixed_costs_' + monthYM;
+    const fixedOverrides = (() => { try { return JSON.parse(d.settings[fixedKey] || '{}'); } catch(_) { return {}; } })();
     const saveFixedOverrides = (next) => {
       const val = JSON.stringify(next);
-      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.pnl_fixed_costs = val; });
-      API.saveSetting('pnl_fixed_costs', val);
+      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings[fixedKey] = val; });
+      API.saveSetting(fixedKey, val);
     };
     const FIXED_COSTS_RESOLVED = FIXED_COSTS
       .map(fc => {
@@ -876,11 +877,12 @@ const ScreenAdmin = {
       .filter(Boolean)
       .sort((a, b) => b.amount - a.amount);
     const TOTAL_FIXED = FIXED_COSTS_RESOLVED.reduce((s2, x) => s2 + x.amount, 0);
-    const extraCosts = (() => { try { return JSON.parse(d.settings.pnl_extra_costs || '[]'); } catch(_) { return []; } })();
+    const extraKey = 'pnl_extra_costs_' + monthYM;
+    const extraCosts = (() => { try { return JSON.parse(d.settings[extraKey] || '[]'); } catch(_) { return []; } })();
     const saveExtraCosts = (next) => {
       const val = JSON.stringify(next);
-      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.pnl_extra_costs = val; });
-      API.saveSetting('pnl_extra_costs', val);
+      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings[extraKey] = val; });
+      API.saveSetting(extraKey, val);
     };
     const totalExtraCosts = extraCosts.reduce((s2, x) => s2 + (parseFloat(x.amount) || 0), 0);
 
@@ -2211,7 +2213,7 @@ const ScreenAdmin = {
 
     const dragOver = s._recruitDragOver || null;
 
-    const onDragStart = id => { this._recruitDragId = id; };
+    const onDragStart = id => { this._recruitDragId = id; this._stageDragIdx = null; };
     const onDragOver = (ev, stageId) => { ev.preventDefault(); if (dragOver !== stageId) this.setState({ _recruitDragOver: stageId }); };
     const onDrop = (ev, stageId) => {
       ev.preventDefault();
@@ -2223,7 +2225,24 @@ const ScreenAdmin = {
       if (!recruit || recruit.stage === stageId) return;
       this.advanceRecruit(id, stageId);
     };
-    const onDragEnd = () => { this._recruitDragId = null; this.setState({ _recruitDragOver: null }); };
+    const onDragEnd = () => { this._recruitDragId = null; this._stageDragIdx = null; this.setState({ _recruitDragOver: null, _stageDragOverIdx: null }); };
+
+    // Stage reordering drag
+    const stageDragOverIdx = s._stageDragOverIdx != null ? s._stageDragOverIdx : null;
+    const onStageDragStart = (ev, idx) => { ev.stopPropagation(); this._stageDragIdx = idx; this._recruitDragId = null; ev.dataTransfer.effectAllowed = 'move'; };
+    const onStageDragOver = (ev, idx) => { ev.preventDefault(); ev.stopPropagation(); if (stageDragOverIdx !== idx) this.setState({ _stageDragOverIdx: idx }); };
+    const onStageDrop = (ev, idx) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const from = this._stageDragIdx;
+      this._stageDragIdx = null;
+      this.setState({ _stageDragOverIdx: null });
+      if (from == null || from === idx) return;
+      const next = [...stages];
+      const [moved] = next.splice(from, 1);
+      next.splice(idx, 0, moved);
+      saveStages(next);
+    };
+    const onStageDragEnd = () => { this._stageDragIdx = null; this.setState({ _stageDragOverIdx: null }); };
 
     const renameStage = (id, newLabel) => saveStages(stages.map(sg => sg.id === id ? { ...sg, label: newLabel } : sg));
     const recolorStage = (id, color) => saveStages(stages.map(sg => sg.id === id ? { ...sg, color } : sg));
@@ -2330,15 +2349,24 @@ const ScreenAdmin = {
         stages.map((sg, si) => {
           const items = d.recruits.filter(r => r.stage === sg.id);
           const isOver = dragOver === sg.id;
+          const isStageOver = stageDragOverIdx === si;
           const isCollapsed = collapsed[sg.id];
           return e('div', {
             key: sg.id,
-            onDragOver: ev => onDragOver(ev, sg.id),
-            onDrop: ev => onDrop(ev, sg.id),
-            style: { borderTop: si > 0 ? '2px solid var(--border)' : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s' },
+            onDragOver: ev => { onDragOver(ev, sg.id); onStageDragOver(ev, si); },
+            onDrop: ev => { onDrop(ev, sg.id); onStageDrop(ev, si); },
+            style: { borderTop: si > 0 ? `2px solid ${isStageOver ? sg.color : 'var(--border)'}` : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s, border-color .15s' },
           },
             // Stage header
             e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none', minWidth: totalW + 'px' }, onClick: () => toggleCollapse(sg.id) },
+              e('span', {
+                draggable: true,
+                onDragStart: ev => onStageDragStart(ev, si),
+                onDragEnd: onStageDragEnd,
+                onClick: ev => ev.stopPropagation(),
+                style: { fontSize: 12, color: 'var(--text-mute)', width: 16, textAlign: 'center', cursor: 'grab', opacity: 0.5, flexShrink: 0 },
+                title: 'Drag to reorder stage',
+              }, '⠿'),
               e('span', { style: { fontSize: 10, color: 'var(--text-mute)', width: 16, textAlign: 'center', transition: 'transform .15s', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'none' } }, '▾'),
               e('label', {
                 style: { width: 12, height: 12, borderRadius: '50%', background: sg.color, display: 'inline-block', flexShrink: 0, cursor: 'pointer', position: 'relative', overflow: 'hidden' },
