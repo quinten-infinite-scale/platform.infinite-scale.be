@@ -844,26 +844,32 @@ const ScreenAdmin = {
       return ym === monthYM && a.status !== 'cancel' && a.status !== 'no_show';
     });
 
-    // Fixed costs
+    // Fixed costs (defaults = Aug 2026 actuals from Excel)
     const FIXED_COSTS = [
-      { label: 'Loon Quinten', amount: 2000 },
-      { label: 'Loon medewerker', amount: 1500 },
-      { label: 'Sociale lasten', amount: 800 },
-      { label: 'Boekhouding', amount: 300 },
-      { label: 'Juridisch / Rechtsbijstand', amount: 150 },
-      { label: 'Verzekering BA beroep', amount: 120 },
-      { label: 'CloudTalk (telefonie)', amount: 200 },
-      { label: 'CRM / Supabase', amount: 75 },
-      { label: 'n8n (automatisering)', amount: 50 },
-      { label: 'Overige SaaS tools', amount: 150 },
-      { label: 'LinkedIn Premium / Ads', amount: 400 },
-      { label: 'Google Workspace', amount: 30 },
-      { label: 'Hosting / Server', amount: 80 },
-      { label: 'Marketing materiaal', amount: 200 },
-      { label: 'Kantoorbenodigdheden', amount: 100 },
-      { label: 'Telefoon / Internet', amount: 150 },
-      { label: 'Verplaatsing / Netwerking', amount: 200 },
-      { label: 'Diversen', amount: 400 },
+      { label: 'Software - CloudTalk (phone/CRM)', amount: 873.62 },
+      { label: 'Software - CRM/Automation (HighLevel)', amount: 272.65 },
+      { label: 'Software - Slack', amount: 139.18 },
+      { label: 'Software - Skool.com', amount: 111.9 },
+      { label: 'Advertising (LinkedIn)', amount: 82.64 },
+      { label: 'Software - Anthropic/Claude', amount: 72.73 },
+      { label: 'Software - Google Workspace', amount: 62.28 },
+      { label: 'Software - Monday.com', amount: 60.61 },
+      { label: 'Rent / Office (Huur Media)', amount: 49 },
+      { label: 'Software - Lusha (lead data)', amount: 45.03 },
+      { label: 'Software - DocuSign', amount: 39.61 },
+      { label: 'Software - GoDaddy (domains/hosting)', amount: 38.67 },
+      { label: 'Software - CapCut', amount: 29.99 },
+      { label: 'Software - Billit (invoicing)', amount: 27.23 },
+      { label: 'Software - Zinrai/Copecart', amount: 22.7 },
+      { label: 'Software - Veed (video editing)', amount: 22 },
+      { label: 'Software - Subscriptions (misc)', amount: 21.07 },
+      { label: 'Software - Resend (email API)', amount: 18.59 },
+      { label: 'Software - Twilio', amount: 18.2 },
+      { label: 'Software - Webdock (hosting)', amount: 12.41 },
+      { label: 'Property/Real Estate Fees', amount: 7.5 },
+      { label: 'Employee Benefits (Meal Vouchers)', amount: 0 },
+      { label: 'Software - Paddle.net', amount: 0 },
+      { label: 'Software - Rentumo', amount: 0 },
     ];
     const fixedKey = 'pnl_fixed_costs_' + monthYM;
     const fixedOverrides = (() => { try { return JSON.parse(d.settings[fixedKey] || '{}'); } catch(_) { return {}; } })();
