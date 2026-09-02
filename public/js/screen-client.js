@@ -90,10 +90,14 @@ const ScreenClient = {
     const cDateTo = s.cDateTo !== undefined ? s.cDateTo : '';
     const activeQuick = quickRanges.find(r => r.from === cDateFrom && r.to === cDateTo) || (cDateFrom === '' && cDateTo === '' ? quickRanges[quickRanges.length - 1] : null);
 
+    const sortAsc = !!s.cSortAsc;
     let list = this._filterAppts(appts, s);
     if (cDateFrom) list = list.filter(r => (r.dateAppt || r.dateLog || '') >= cDateFrom);
     if (cDateTo) list = list.filter(r => (r.dateAppt || r.dateLog || '') <= cDateTo);
-    list = [...list].sort((a, b) => (b.dateAppt || b.dateLog || '').localeCompare(a.dateAppt || a.dateLog || ''));
+    list = [...list].sort((a, b) => {
+      const cmp = (a.dateAppt || a.dateLog || '').localeCompare(b.dateAppt || b.dateLog || '');
+      return sortAsc ? cmp : -cmp;
+    });
 
     const scRate = r => { if (r.sub) { const sc = (cl.subclients || []).find(x => x.id === r.sub || x.name === r.sub); if (sc && sc.rate) return sc.rate; } return cl.rate || 0; };
 
@@ -120,7 +124,9 @@ const ScreenClient = {
             onClick: () => this.setState({ cPickOpen: !s.cPickOpen }),
             style: { padding: '6px 13px', borderRadius: 8, border: '1px solid ' + (!activeQuick && (cDateFrom || cDateTo) ? 'var(--accent)' : 'var(--border)'), background: !activeQuick && (cDateFrom || cDateTo) ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: !activeQuick && (cDateFrom || cDateTo) ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }
           }, '📅 ' + (cDateFrom || cDateTo ? (cDateFrom || '…') + ' → ' + (cDateTo || '…') : 'Kies periode'))),
-        e('button', { onClick: exportCSV, style: { padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' } }, '↓ Export CSV')),
+        e('div', { style: { display: 'flex', gap: 8 } },
+          e('button', { onClick: () => this.setState({ cSortAsc: !sortAsc }), style: { padding: '6px 13px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 } }, sortAsc ? '↑ Oudste eerst' : '↓ Nieuwste eerst'),
+          e('button', { onClick: exportCSV, style: { padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' } }, '↓ Export CSV'))),
       s.cPickOpen ? e('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
         e('input', { type: 'date', value: cDateFrom, onChange: ev => this.setState({ cDateFrom: ev.target.value }), style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none' } }),
         e('span', { style: { color: 'var(--text-mute)' } }, '→'),
