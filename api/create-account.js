@@ -5,26 +5,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { email, password, phone, party, party_type, link_only, force_recreate, fix_corrupted, generate_link, run_migration } = req.body || {};
-
-  // run_migration mode: run a one-off DB migration (admin/cron only)
-  if (run_migration) {
-    const cronSecret = process.env.CRON_SECRET;
-    const authHeader = req.headers['authorization'] || '';
-    if (!cronSecret || authHeader !== 'Bearer ' + cronSecret) return res.status(403).json({ error: 'Forbidden' });
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const SB_URL = 'https://database.infinite-scale.be';
-    const sql = req.body.sql;
-    if (!sql) return res.status(400).json({ error: 'sql required' });
-    const r = await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`, {
-      method: 'POST',
-      headers: { 'apikey': serviceKey, 'Authorization': 'Bearer ' + serviceKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql }),
-    });
-    const txt = await r.text();
-    return res.status(r.status).json({ ok: r.ok, status: r.status, body: txt });
-  }
-
+  const { email, password, phone, party, party_type, link_only, force_recreate, fix_corrupted, generate_link } = req.body || {};
   if (!email) return res.status(400).json({ error: 'email required' });
   if (!link_only && !generate_link && !password) return res.status(400).json({ error: 'password required' });
 

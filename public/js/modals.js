@@ -125,6 +125,33 @@ const Modals = {
                 ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, ap.clientFeedback)
                 : e('div', { style: { fontSize: 13, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'No client feedback yet.'));
 
+      // Deal tracking — clients can update quote/deal status; admin can see
+      const canDealTrack = role === 'client' || role === 'agency' || role === 'admin';
+      const dealSection = canDealTrack && ap.status === 'show' ? (() => {
+        const qSent = f.dealQuoteSent !== undefined ? f.dealQuoteSent : ap.quoteSent;
+        const qApproved = f.dealQuoteApproved !== undefined ? f.dealQuoteApproved : ap.quoteApproved;
+        const dealRev = f.dealRevenueDraft !== undefined ? f.dealRevenueDraft : (ap.dealAmount != null ? String(ap.dealAmount) : '');
+        const canEdit = role === 'client' || role === 'agency';
+        const Toggle = (label, val, key, enabled) => e('button', {
+          type: 'button',
+          disabled: !canEdit || !enabled,
+          onClick: canEdit && enabled ? () => this.setForm(key, !val) : undefined,
+          style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 9, border: '1.5px solid ' + (val ? 'var(--up)' : 'var(--border)'), background: val ? 'oklch(0.22 0.08 152 / .35)' : 'transparent', color: val ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700, fontSize: 13, cursor: canEdit && enabled ? 'pointer' : 'default', opacity: !canEdit || !enabled ? 0.5 : 1, transition: 'all .15s' },
+        }, e('span', null, val ? '✓' : '○'), label);
+        return e('div', null,
+          UI.Sub('Deal tracking', { marginBottom: 10 }),
+          e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+            e('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+              Toggle('Quote sent', qSent, 'dealQuoteSent', true),
+              Toggle('Quote approved', qApproved, 'dealQuoteApproved', qSent)),
+            qApproved ? e('div', { style: { display: 'flex', gap: 8, alignItems: 'flex-end' } },
+              e('div', { style: { flex: 1 } },
+                UI.Sub('Revenue (€)', { marginBottom: 4 }),
+                canEdit ? UI.Input(dealRev, v => this.setForm('dealRevenueDraft', v), '0', 'number') : e('div', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15, color: 'var(--up)' } }, ap.dealAmount ? this.euro(ap.dealAmount) : '—'))
+              , canEdit ? UI.Btn('Save', () => this.saveDealStatus(ap.id, qSent, qApproved, dealRev), 'primary', { padding: '9px 18px', fontSize: 13 }) : null)
+            : canEdit ? UI.Btn('Save', () => this.saveDealStatus(ap.id, qSent, qApproved, null), 'soft', { fontSize: 13 }) : null));
+      })() : null;
+
       const adminNotesVal = f.adminNotesDraft !== undefined ? f.adminNotesDraft : (ap.adminNotes || '');
       const adminNotesSection = role === 'admin'
         ? e('div', null,
@@ -213,6 +240,7 @@ const Modals = {
           ap.dealCommission != null ? this._kv('Agent commission', e('span', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, color: 'var(--up)' } }, '💰 ' + this.euro(ap.dealCommission), ap.dealAmount != null && role === 'admin' ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 6 } }, '55%') : null)) : null),
         statusSection,
         feedbackSection,
+        dealSection,
         adminNotesSection,
         f.deleteConfirm ? e('div', { style: { padding: '12px 14px', borderRadius: 10, background: 'oklch(0.22 0.08 0 / .25)', border: '1px solid var(--down)', fontSize: 13, color: 'var(--down)', fontWeight: 600 } }, '⚠ This will permanently delete this appointment. This cannot be undone.') : null),
         detailBtns, '520px');
@@ -679,9 +707,19 @@ const Modals = {
         return { total: done.length, shows, canc, ns, cancPct: Math.round(canc / (done.length || 1) * 100), nsPct: Math.round(ns / (done.length || 1) * 100), showPct: Math.round(shows / (done.length || 1) * 100) };
       };
       const view = s.qbView || 'client';
+      const now = new Date();
+      // Build month options: all-time + last 18 months
+      const monthOpts = [{ v: 'all', l: 'All time' }];
+      for (let i = 0; i < 18; i++) {
+        const d2 = new Date(now); d2.setDate(1); d2.setMonth(d2.getMonth() - i);
+        const ym = d2.toISOString().slice(0, 7);
+        monthOpts.push({ v: ym, l: d2.toLocaleString('en', { month: 'long', year: 'numeric' }) });
+      }
+      const qbPeriod = s.qbPeriod || 'all';
+      const filterAppts = appts => qbPeriod === 'all' ? appts : appts.filter(a => (a.dateAppt || a.dateLog || '').startsWith(qbPeriod));
       const rows = view === 'client'
-        ? d.clients.map(c => ({ name: c.name, ...ratio(d.appointments.filter(a => a.client === c.id)) }))
-        : d.agents.filter(a => a.active).map(a => ({ name: a.name.split(' ')[0], ...ratio(d.appointments.filter(ap => ap.agent === a.id)) }));
+        ? d.clients.map(c => ({ name: c.name, ...ratio(filterAppts(d.appointments.filter(a => a.client === c.id))) })).filter(r => r.total > 0)
+        : d.agents.filter(a => a.active).map(a => ({ name: a.name.split(' ')[0], ...ratio(filterAppts(d.appointments.filter(ap => ap.agent === a.id))) })).filter(r => r.total > 0);
       const cols = [
         { label: view === 'client' ? 'Client' : 'Agent', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.name) },
         { label: 'Done', align: 'right', render: r => UI.Mono(String(r.total), { color: 'var(--text-dim)' }) },
@@ -689,11 +727,14 @@ const Modals = {
         { label: 'No-shows', align: 'right', render: r => e('div', { style: { textAlign: 'right' } }, UI.Mono(String(r.ns), { fontWeight: 700, color: r.nsPct > 15 ? 'var(--down)' : 'var(--text-dim)' }), e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, r.nsPct + '%')) },
         { label: 'Cancelled', align: 'right', render: r => e('div', { style: { textAlign: 'right' } }, UI.Mono(String(r.canc), { fontWeight: 700, color: 'var(--text-dim)' }), e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, r.cancPct + '%')) },
       ];
+      const periodSelector = UI.Select(qbPeriod, v => this.setState({ qbPeriod: v }), monthOpts);
       return wrap('Quality breakdown',
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
-          UI.Seg(view, v => this.setState({ qbView: v }), [{ v: 'client', l: 'Per client' }, { v: 'agent', l: 'Per agent' }]),
-          UI.Table(cols, rows, { min: 480, empty: 'No data yet.' })),
-        [], '640px');
+          e('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' } },
+            UI.Seg(view, v => this.setState({ qbView: v }), [{ v: 'client', l: 'Per client' }, { v: 'agent', l: 'Per agent' }]),
+            e('div', { style: { minWidth: 180 } }, periodSelector)),
+          UI.Table(cols, rows, { min: 480, empty: 'No data for this period.' })),
+        [], '680px');
     }
 
     if (k === 'invoiceReview') {
@@ -1129,6 +1170,28 @@ const Modals = {
         e('div', null, UI.Sub('Availability', { marginBottom: 6 }), e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } }, (r.avail || []).map(x => UI.Pill(x, 'var(--text-dim)', 'var(--bg-2)')))),
         UI.Field('Motivation', e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 10 } }, r.motivation)),
         this._kv('Experience', r.experience || ''),
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: r.salesExp ? 'oklch(0.22 0.08 152 / .2)' : 'var(--bg-2)', borderRadius: 10, border: '1px solid ' + (r.salesExp ? 'var(--up)' : 'var(--border-soft)'), cursor: 'pointer' },
+          onClick: () => {
+            const val = !r.salesExp;
+            this.mutLocal(dd => {
+              const rec = dd.recruits.find(x => x.id === r.id);
+              if (rec) rec.salesExp = val;
+              dd.settings = dd.settings || {};
+              const raw = dd.settings.recruit_sales_exp;
+              let map = {};
+              try { map = raw ? JSON.parse(raw) : {}; } catch(_) {}
+              if (val) map[r.id] = true; else delete map[r.id];
+              dd.settings.recruit_sales_exp = JSON.stringify(map);
+            });
+            API.saveSalesExp(r.id, val);
+          },
+        },
+          e('div', {
+            style: { width: 16, height: 16, borderRadius: 4, border: '2px solid ' + (r.salesExp ? 'var(--up)' : 'var(--border)'), background: r.salesExp ? 'var(--up)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+          }, r.salesExp ? e('span', { style: { fontSize: 10, color: '#fff', lineHeight: 1 } }, '✓') : null),
+          e('div', null,
+            e('div', { style: { fontSize: 13, fontWeight: 600, color: r.salesExp ? 'var(--up)' : 'var(--text)' } }, 'Sales experience'),
+            e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, r.salesExp ? 'Has prior sales experience' : 'No sales experience indicated'))),
         e('div', { style: { borderTop: '1px solid var(--border-soft)', paddingTop: 14 } },
           UI.Sub('Notities', { marginBottom: 8 }),
           e('textarea', {

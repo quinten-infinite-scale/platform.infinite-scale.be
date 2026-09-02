@@ -2177,6 +2177,7 @@ const ScreenAdmin = {
     // Stages are shared across all admins — stored in platform_settings, loaded into state
     const saveStages = (next) => {
       this.setState({ _recruitStages: next, _recruitStageTick: (s._recruitStageTick || 0) + 1 });
+      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.recruit_stages = JSON.stringify(next); });
       API.saveSetting('recruit_stages', JSON.stringify(next));
     };
     // Use state if loaded, else use data from platform_settings, else defaults
@@ -2206,15 +2207,33 @@ const ScreenAdmin = {
     const onDragEnd = () => { this._recruitDragId = null; this.setState({ _recruitDragOver: null }); };
 
     const renameStage = (id, newLabel) => saveStages(stages.map(sg => sg.id === id ? { ...sg, label: newLabel } : sg));
+    const recolorStage = (id, color) => saveStages(stages.map(sg => sg.id === id ? { ...sg, color } : sg));
     const removeStage = id => saveStages(stages.filter(sg => sg.id !== id));
-    const addStage = () => { const id = 'stage_' + Date.now(); saveStages([...stages, { id, label: 'New stage', color: 'var(--text-dim)' }]); };
+    const addStage = () => { const id = 'stage_' + Date.now(); saveStages([...stages, { id, label: 'New stage', color: '#6366f1' }]); };
 
     const collapsed = s._recruitCollapsed || {};
     const toggleCollapse = id => this.setState(st => { const c = { ...(st._recruitCollapsed || {}) }; c[id] = !c[id]; return { _recruitCollapsed: c }; });
 
+    const toggleSalesExp = (id, cur) => {
+      const val = !cur;
+      this.mutLocal(dd => {
+        const r = dd.recruits.find(x => x.id === id);
+        if (r) r.salesExp = val;
+        // Also update settings map so it survives re-renders without a full reload
+        dd.settings = dd.settings || {};
+        const raw = dd.settings.recruit_sales_exp;
+        let map = {};
+        try { map = raw ? JSON.parse(raw) : {}; } catch(_) {}
+        if (val) map[id] = true; else delete map[id];
+        dd.settings.recruit_sales_exp = JSON.stringify(map);
+      });
+      API.saveSalesExp(id, val);
+    };
+
     // Table column definitions
     const cols = [
       { label: 'Name', key: 'name', w: 150, bold: true },
+      { label: 'Sales', key: 'salesExp', w: 54, salesExp: true },
       { label: 'Role', key: 'position', w: 130 },
       { label: 'Country', key: 'country', w: 90 },
       { label: 'Age', key: 'age', w: 55 },
@@ -2255,6 +2274,17 @@ const ScreenAdmin = {
       e('div', { style: { width: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
         e('span', { style: { width: 3, height: 14, borderRadius: 2, background: stageColor, display: 'inline-block', opacity: 0.7 } })),
       cols.map(col => {
+        if (col.salesExp) {
+          const hasSales = !!it.salesExp;
+          return e('div', {
+            key: col.key,
+            style: { ...cellStyle(col), display: 'flex', alignItems: 'center', justifyContent: 'center' },
+            onClick: ev => { ev.stopPropagation(); toggleSalesExp(it.id, it.salesExp); },
+            title: hasSales ? 'Has sales experience (click to toggle)' : 'No sales experience (click to toggle)',
+          }, hasSales
+            ? e('span', { style: { fontSize: 9.5, fontWeight: 700, color: 'var(--up)', background: 'oklch(0.22 0.08 152 / .25)', border: '1px solid var(--up)', borderRadius: 3, padding: '1px 5px', letterSpacing: '.03em', cursor: 'pointer' } }, 'SALES')
+            : null);
+        }
         let val = it[col.key];
         if (col.arr && Array.isArray(val)) val = val.join(', ');
         val = val || '';
@@ -2291,7 +2321,18 @@ const ScreenAdmin = {
             // Stage header
             e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none', minWidth: totalW + 'px' }, onClick: () => toggleCollapse(sg.id) },
               e('span', { style: { fontSize: 10, color: 'var(--text-mute)', width: 16, textAlign: 'center', transition: 'transform .15s', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'none' } }, '▾'),
-              e('span', { style: { width: 8, height: 8, borderRadius: '50%', background: sg.color, display: 'inline-block', flexShrink: 0 } }),
+              e('label', {
+                style: { width: 12, height: 12, borderRadius: '50%', background: sg.color, display: 'inline-block', flexShrink: 0, cursor: 'pointer', position: 'relative', overflow: 'hidden' },
+                title: 'Change color',
+                onClick: ev => ev.stopPropagation(),
+              },
+                e('input', {
+                  type: 'color',
+                  value: sg.color.startsWith('#') ? sg.color : '#6366f1',
+                  onChange: ev => { ev.stopPropagation(); recolorStage(sg.id, ev.target.value); },
+                  onClick: ev => ev.stopPropagation(),
+                  style: { position: 'absolute', opacity: 0, width: '100%', height: '100%', top: 0, left: 0, cursor: 'pointer', padding: 0, border: 'none' },
+                })),
               e('input', {
                 value: sg.label,
                 onChange: ev => { ev.stopPropagation(); renameStage(sg.id, ev.target.value); },
