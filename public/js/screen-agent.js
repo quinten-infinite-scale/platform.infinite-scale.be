@@ -18,12 +18,15 @@ const ScreenAgent = {
     const dialsT = agDials[today] || 0, dialsY = agDials[yest] || 1;
     const apT = d.appointments.filter(a => a.agent === me.id && a.dateLog === today);
     const apY = d.appointments.filter(a => a.agent === me.id && a.dateLog === yest);
-    const agentPay = a => a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0);
+    const agentPay = a => a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0));
     const moneyT = apT.reduce((x, a) => x + agentPay(a), 0);
     const moneyY = apY.reduce((x, a) => x + agentPay(a), 0) || 1;
     const pct = (a, b) => Math.round(((a - b) / (b || 1)) * 100);
+    const allMyAppts = d.appointments.filter(a => a.agent === me.id);
+    const allTimeMoney = allMyAppts.reduce((x, a) => x + agentPay(a), 0);
+    const allTimeAppts = allMyAppts.length;
 
-    if (s.route === 'dashboard') return this._agentDash(d, s, me, { dialsT, dialsY, apT, apY, moneyT, moneyY, pct, today });
+    if (s.route === 'dashboard') return this._agentDash(d, s, me, { dialsT, dialsY, apT, apY, moneyT, moneyY, pct, today, allTimeMoney, allTimeAppts });
     if (s.route === 'log') return this._agentLog(d, s, me);
     if (s.route === 'appointments') return this._agentAppointments(d, s, me);
     if (s.route === 'eod') return this._agentEod(d, s, me, today);
@@ -35,7 +38,7 @@ const ScreenAgent = {
     return e('div', null, '');
   },
 
-  _agentDash(d, s, me, { dialsT, dialsY, apT, apY, moneyT, moneyY, pct, today }) {
+  _agentDash(d, s, me, { dialsT, dialsY, apT, apY, moneyT, moneyY, pct, today, allTimeMoney, allTimeAppts }) {
     const e = React.createElement;
     const recent = d.appointments.filter(a => a.agent === me.id).slice(0, 10);
     const recentTable = UI.Table([
@@ -71,6 +74,11 @@ const ScreenAgent = {
         UI.Stat('Dials today', String(dialsT), pct(dialsT, dialsY), 'vs ' + dialsY + ' yesterday'),
         UI.Stat('Appointments today', String(apT.length), pct(apT.length, apY.length || 0), 'vs ' + apY.length + ' yesterday'),
         UI.Stat('Money made today', this.euro(moneyT), pct(moneyT, moneyY), 'live, per logged appt'),
+      ),
+      UI.Grid('repeat(auto-fit,minmax(190px,1fr))', 14,
+        UI.Stat('All-time appointments', String(allTimeAppts), null, 'every appt you ever logged'),
+        UI.Stat('All-time earnings', this.euro(allTimeMoney), null, 'total across all appointments'),
+        UI.Stat('Lifetime paid', this.euro(me.lifetime || 0), null, 'confirmed & invoiced'),
       ),
       UI.Grid('minmax(0,2fr) minmax(0,1fr)', 18,
         UI.C({ padding: 0, overflow: 'hidden' },
@@ -397,8 +405,10 @@ const ScreenAgent = {
         UI.Bars(payLabels.map((l, i) => ({ label: l, value: payAppts[i] })), 'var(--info)')));
 
     const apptThisMonth = a => a.agent === me.id && (a.dateLog || '').startsWith(currentYM);
-    const running = d.appointments.filter(a => apptThisMonth(a) && a.status !== 'cancel').reduce((x, a) => x + ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0) + (a.dealCommission || 0), 0);
-    const confirmed = d.appointments.filter(a => apptThisMonth(a) && a.status === 'show').reduce((x, a) => x + ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0) + (a.dealCommission || 0), 0);
+    const agentRate = a => ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0) + (a.dealCommission || 0);
+    const running = d.appointments.filter(a => apptThisMonth(a) && a.status !== 'cancel').reduce((x, a) => x + agentRate(a), 0);
+    const confirmed = d.appointments.filter(a => apptThisMonth(a) && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
+    const allTimeRunning = d.appointments.filter(a => a.agent === me.id && a.status !== 'cancel').reduce((x, a) => x + agentRate(a), 0);
     const months = [];
     for (let i = 0; i < 12; i++) {
       const m = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
@@ -531,6 +541,7 @@ const ScreenAgent = {
       UI.Grid('repeat(auto-fit,minmax(190px,1fr))', 14,
         UI.Stat('Lopend deze maand', this.euro(running), null, 'open + shows · excl. cancels'),
         UI.Stat('Bevestigde shows', this.euro(confirmed), null, 'enkel shows deze maand'),
+        UI.Stat('All-time running', this.euro(allTimeRunning), null, 'all appointments · excl. cancels'),
         UI.Stat('Lifetime paid', this.euro(me.lifetime || 0), null, 'since you joined')),
       earningsGraph,
       mfSection,
