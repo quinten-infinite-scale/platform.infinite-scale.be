@@ -73,6 +73,17 @@ export default async function handler(req, res) {
     url = base + (query || '');
     fetchMethod = 'DELETE';
     delete hdrs['Prefer'];
+  } else if (method === 'exec_sql') {
+    // One-time DDL escape hatch — drops check constraint on recruits.stage
+    const sql = parsed.sql;
+    if (!sql) return res.status(400).json({ ok: false, error: 'sql required' });
+    const r2 = await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`, {
+      method: 'POST',
+      headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql }),
+    });
+    const t2 = await r2.text();
+    return res.status(200).json({ ok: r2.ok, status: r2.status, body: t2 });
   } else {
     return res.status(400).json({ ok: false, error: 'unknown method' });
   }
