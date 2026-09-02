@@ -43,12 +43,16 @@ const ScreenClient = {
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
       { label: 'Set status', align: 'right', render: statusBtns },
     ];
+    const deals = appts.filter(a => a.quoteApproved);
+    const totalRevenue = deals.reduce((s, a) => s + (a.dealAmount || 0), 0);
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       UI.Grid('repeat(auto-fit,minmax(180px,1fr))', 14,
         UI.Stat('Appointments (this month)', String(appts.filter(a => !a.invoiced).length), null, 'this month'),
         UI.Stat('Shows', String(showN), null, Math.round(showN / total * 100) + '% of set'),
+        UI.Stat('Deals closed', String(deals.length), null, deals.length ? Math.round(deals.length / (showN || 1) * 100) + '% of shows' : 'all time'),
+        totalRevenue > 0 ? UI.Stat('Revenue tracked', this.euro(totalRevenue), null, 'from approved quotes') : null,
         leads != null ? UI.Stat('Leads in', String(leads), null, 'from ' + cl.crm)
-          : UI.C({ display: 'flex', flexDirection: 'column', justifyContent: 'center' }, UI.Sub('Leads'), e('div', { style: { fontSize: 14, color: 'var(--text-mute)', marginTop: 6 } }, 'CRM not connected')),
+          : null,
         UI.Stat('Cancellations', String(cancN), null, 'this month')),
       UI.C({ padding: 0, overflow: 'hidden' },
         e('div', { style: { padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
@@ -160,12 +164,28 @@ const ScreenClient = {
       }),
       r.invoiced ? e('button', { onClick: ev => { ev.stopPropagation(); this.requestChange(r.id, r.lead); }, style: { padding: '3px 8px', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', cursor: 'pointer', marginLeft: 4 } }, '✎') : null);
 
+    const dealPill = r => {
+      if (r.status !== 'show') return null;
+      if (r.quoteApproved) return UI.Pill('Deal ✓', 'var(--up)', 'oklch(0.22 0.08 152 / .4)');
+      if (r.quoteSent) return UI.Pill('Quote sent', 'var(--warn)', 'oklch(0.22 0.05 85 / .4)');
+      return e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, '—');
+    };
     const cols = [
       { label: 'Booked', render: r => UI.Mono(this.fmtDate(r.dateLog), { fontSize: 12, color: 'var(--text-mute)' }) },
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       isAgency ? { label: 'Client', render: r => subName(r.sub) || '—' } : { label: 'Agent', render: r => this.agentName(r.agent, d) },
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Offerte', align: 'center', render: r => {
+        if (r.status !== 'show') return null;
+        if (r.quoteApproved) return UI.Pill('Akkoord', 'var(--up)', 'oklch(0.22 0.08 152 / .4)');
+        if (r.quoteSent) return UI.Pill('Verstuurd', 'var(--warn)', 'oklch(0.22 0.05 85 / .4)');
+        return e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '—');
+      }},
+      { label: 'Omzet', align: 'right', render: r => {
+        if (r.status !== 'show') return null;
+        return r.dealAmount ? UI.Mono(this.euro(r.dealAmount), { fontWeight: 700, color: 'var(--up)' }) : e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '—');
+      }},
       isAgency ? { label: 'Bedrag', align: 'right', render: r => UI.Mono(this.euro(scRate(r)), { fontWeight: 700, color: 'var(--info)' }) } : null,
       { label: 'Status bijwerken', align: 'right', render: statusBtns },
     ].filter(Boolean);

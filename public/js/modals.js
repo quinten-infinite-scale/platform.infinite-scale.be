@@ -132,24 +132,23 @@ const Modals = {
         const qApproved = f.dealQuoteApproved !== undefined ? f.dealQuoteApproved : ap.quoteApproved;
         const dealRev = f.dealRevenueDraft !== undefined ? f.dealRevenueDraft : (ap.dealAmount != null ? String(ap.dealAmount) : '');
         const canEdit = role === 'client' || role === 'agency';
-        const Toggle = (label, val, key, enabled) => e('button', {
+        const Toggle = (label, val, key, enabled, activeColor, activeBg) => e('button', {
           type: 'button',
           disabled: !canEdit || !enabled,
           onClick: canEdit && enabled ? () => this.setForm(key, !val) : undefined,
-          style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 9, border: '1.5px solid ' + (val ? 'var(--up)' : 'var(--border)'), background: val ? 'oklch(0.22 0.08 152 / .35)' : 'transparent', color: val ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700, fontSize: 13, cursor: canEdit && enabled ? 'pointer' : 'default', opacity: !canEdit || !enabled ? 0.5 : 1, transition: 'all .15s' },
+          style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 9, border: '1.5px solid ' + (val ? activeColor : 'var(--border)'), background: val ? activeBg : 'transparent', color: val ? activeColor : 'var(--text-mute)', fontWeight: 700, fontSize: 13, cursor: canEdit && enabled ? 'pointer' : 'default', opacity: !canEdit || !enabled ? 0.5 : 1, transition: 'all .15s' },
         }, e('span', null, val ? '✓' : '○'), label);
         return e('div', null,
           UI.Sub('Deal tracking', { marginBottom: 10 }),
           e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
             e('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-              Toggle('Quote sent', qSent, 'dealQuoteSent', true),
-              Toggle('Quote approved', qApproved, 'dealQuoteApproved', qSent)),
-            qApproved ? e('div', { style: { display: 'flex', gap: 8, alignItems: 'flex-end' } },
+              Toggle('Offerte verstuurd', qSent, 'dealQuoteSent', true, 'var(--warn)', 'oklch(0.22 0.08 85 / .35)'),
+              Toggle('Offerte akkoord', qApproved, 'dealQuoteApproved', qSent, 'var(--up)', 'oklch(0.22 0.08 152 / .35)')),
+            e('div', { style: { display: 'flex', gap: 8, alignItems: 'flex-end' } },
               e('div', { style: { flex: 1 } },
-                UI.Sub('Revenue (€)', { marginBottom: 4 }),
-                canEdit ? UI.Input(dealRev, v => this.setForm('dealRevenueDraft', v), '0', 'number') : e('div', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15, color: 'var(--up)' } }, ap.dealAmount ? this.euro(ap.dealAmount) : '—'))
-              , canEdit ? UI.Btn('Save', () => this.saveDealStatus(ap.id, qSent, qApproved, dealRev), 'primary', { padding: '9px 18px', fontSize: 13 }) : null)
-            : canEdit ? UI.Btn('Save', () => this.saveDealStatus(ap.id, qSent, qApproved, null), 'soft', { fontSize: 13 }) : null));
+                UI.Sub('Omzet (€)', { marginBottom: 4 }),
+                canEdit ? UI.Input(dealRev, v => this.setForm('dealRevenueDraft', v), '0', 'number') : e('div', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15, color: 'var(--up)' } }, ap.dealAmount ? this.euro(ap.dealAmount) : '—')),
+              canEdit ? UI.Btn('Opslaan', () => this.saveDealStatus(ap.id, qSent, qApproved, dealRev), 'primary', { padding: '9px 18px', fontSize: 13 }) : null)));
       })() : null;
 
       const adminNotesVal = f.adminNotesDraft !== undefined ? f.adminNotesDraft : (ap.adminNotes || '');
