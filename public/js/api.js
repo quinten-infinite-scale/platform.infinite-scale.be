@@ -145,12 +145,14 @@ const API = {
 
     const salesExpRaw = (platformSettings || []).find(r => r.key === 'recruit_sales_exp');
     const salesExpMap = (() => { try { return salesExpRaw ? JSON.parse(salesExpRaw.value) : {}; } catch(_) { return {}; } })();
+    const stageOvRaw = (platformSettings || []).find(r => r.key === 'recruit_stage_overrides');
+    const stageOvMap = (() => { try { return stageOvRaw ? JSON.parse(stageOvRaw.value) : {}; } catch(_) { return {}; } })();
     const recruitsNorm = (recruits || []).map(r => ({
       id: r.id, name: r.name, email: r.email, phone: r.phone,
       gender: r.gender, country: r.country, lang: r.language, vat: r.vat || '',
       avail: r.availability || [], start: r.can_start, position: r.position,
       motivation: r.motivation, source: r.source, experience: r.experience,
-      age: r.age, stage: r.stage,
+      age: r.age, stage: stageOvMap[r.id] || r.stage,
       salesExp: salesExpMap[r.id] || false,
       notes: r.notes || '',
       activityLog: Array.isArray(r.activity_log) ? r.activity_log : [],
@@ -401,7 +403,25 @@ const API = {
   },
 
   async advanceRecruit(id, stage) {
-    return SB.patch('recruits', `?id=eq.${id}`, { stage });
+    const defaultStages = ['new', 'qualified', 'interview', 'hired', 'not_qualified'];
+    if (defaultStages.includes(stage)) {
+      // Remove any custom override and write directly to DB
+      const rows = await SB.get('platform_settings', '?key=eq.recruit_stage_overrides');
+      const raw = rows?.[0]?.value;
+      let map = {};
+      try { map = raw ? JSON.parse(raw) : {}; } catch(_) {}
+      delete map[id];
+      await SB.upsert('platform_settings', 'key', { key: 'recruit_stage_overrides', value: JSON.stringify(map) });
+      return SB.patch('recruits', `?id=eq.${id}`, { stage });
+    } else {
+      // Custom stage — store in override map, don't touch recruits.stage
+      const rows = await SB.get('platform_settings', '?key=eq.recruit_stage_overrides');
+      const raw = rows?.[0]?.value;
+      let map = {};
+      try { map = raw ? JSON.parse(raw) : {}; } catch(_) {}
+      map[id] = stage;
+      return SB.upsert('platform_settings', 'key', { key: 'recruit_stage_overrides', value: JSON.stringify(map) });
+    }
   },
 
   async saveSalesExp(id, val) {

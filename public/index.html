@@ -15,14 +15,14 @@
 <script src="./js/ui.js?v=20260823b"></script>
 <script src="./js/contract-templates.js?v=20260825p"></script>
 <script src="./js/screen-shared.js?v=20260818a"></script>
-<script src="./js/screen-agent.js?v=20260901c"></script>
+<script src="./js/screen-agent.js?v=20260901e"></script>
 <script src="./js/screen-client.js?v=20260818a"></script>
 <script src="./js/screen-subclient.js?v=20260821b"></script>
-<script src="./js/screen-admin.js?v=20260901c"></script>
+<script src="./js/screen-admin.js?v=20260901e"></script>
 <script src="./js/pdf-ttf.js?v=20260815a"></script>
-<script src="./js/modals.js?v=20260901c"></script>
-<script src="./js/app.js?v=20260901c"></script>
-<script src="./js/api.js?v=20260901c"></script>
+<script src="./js/modals.js?v=20260901e"></script>
+<script src="./js/app.js?v=20260901e"></script>
+<script src="./js/api.js?v=20260901e"></script>
 </head>
 <body>
 <x-dc>
@@ -600,7 +600,17 @@ class Component extends DCLogic {
   }
 
   async advanceRecruit(id, stage) {
-    this.mutLocal(d => { const r = d.recruits.find(x => x.id === id); if (r) r.stage = stage; });
+    const defaultStages = ['new', 'qualified', 'interview', 'hired', 'not_qualified'];
+    this.mutLocal(d => {
+      const r = d.recruits.find(x => x.id === id);
+      if (r) r.stage = stage;
+      d.settings = d.settings || {};
+      const raw = d.settings.recruit_stage_overrides;
+      let map = {};
+      try { map = raw ? JSON.parse(raw) : {}; } catch(_) {}
+      if (defaultStages.includes(stage)) delete map[id]; else map[id] = stage;
+      d.settings.recruit_stage_overrides = JSON.stringify(map);
+    });
     await API.advanceRecruit(id, stage);
     this.toast('Recruitment', 'Candidate moved to ' + stage.replace('_', ' '), 'var(--accent)');
   }
@@ -1060,6 +1070,19 @@ class Component extends DCLogic {
     this.mutLocal(d => { const a = d.appointments.find(x => x.id === id); if (a) a.adminNotes = notes; });
     await API.saveAdminNotes(id, notes);
     this.toast('Saved', 'Notes saved', 'var(--up)');
+  }
+
+  async saveDealStatus(id, quoteSent, quoteApproved, revenueStr) {
+    const dealAmount = revenueStr !== null && revenueStr !== '' ? parseFloat(revenueStr) : null;
+    this.mutLocal(d => {
+      const a = d.appointments.find(x => x.id === id);
+      if (a) { a.quoteSent = quoteSent; a.quoteApproved = quoteApproved; a.dealAmount = isNaN(dealAmount) ? a.dealAmount : dealAmount; }
+    });
+    const fields = { quote_sent: quoteSent, quote_approved: quoteApproved };
+    if (dealAmount !== null && !isNaN(dealAmount)) fields.deal_amount = dealAmount;
+    await SB.patch('appointments', `?id=eq.${id}`, fields);
+    this.setState(st => { const f = { ...st.form }; delete f.dealQuoteSent; delete f.dealQuoteApproved; delete f.dealRevenueDraft; return { form: f }; });
+    this.toast('Saved', 'Deal status updated', 'var(--up)');
   }
 
   async updateContract(contractId, updates) {
