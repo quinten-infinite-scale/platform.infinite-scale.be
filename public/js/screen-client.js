@@ -43,14 +43,14 @@ const ScreenClient = {
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
       { label: 'Set status', align: 'right', render: statusBtns },
     ];
-    const deals = appts.filter(a => a.quoteApproved);
-    const totalRevenue = deals.reduce((s, a) => s + (a.dealAmount || 0), 0);
+    const quoteSentAll = appts.filter(a => a.quoteSent);
+    const totalRevenue = appts.reduce((s, a) => s + (a.dealAmount || 0), 0);
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       UI.Grid('repeat(auto-fit,minmax(180px,1fr))', 14,
-        UI.Stat('Appointments (this month)', String(appts.filter(a => !a.invoiced).length), null, 'this month'),
+        UI.Stat('Afspraken (deze maand)', String(appts.filter(a => !a.invoiced).length), null, 'deze maand'),
         UI.Stat('Shows', String(showN), null, Math.round(showN / total * 100) + '% of set'),
-        UI.Stat('Deals closed', String(deals.length), null, deals.length ? Math.round(deals.length / (showN || 1) * 100) + '% of shows' : 'all time'),
-        totalRevenue > 0 ? UI.Stat('Revenue tracked', this.euro(totalRevenue), null, 'from approved quotes') : null,
+        UI.Stat('Offertes verstuurd', String(quoteSentAll.length), null, quoteSentAll.length ? Math.round(quoteSentAll.length / (showN || 1) * 100) + '% van shows' : 'all time'),
+        UI.Stat('Omzet', this.euro(totalRevenue), null, 'all time · goedgekeurde offertes'),
         leads != null ? UI.Stat('Leads in', String(leads), null, 'from ' + cl.crm)
           : null,
         UI.Stat('Cancellations', String(cancN), null, 'this month')),
