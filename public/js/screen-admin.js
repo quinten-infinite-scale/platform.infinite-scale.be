@@ -884,7 +884,7 @@ const ScreenAdmin = {
         if (ov._deleted) return null;
         return { originalLabel: fc.label, label: ov.label != null ? ov.label : fc.label, amount: ov.amount != null ? ov.amount : fc.amount, defaultLabel: fc.label, defaultAmount: fc.amount };
       })
-      .filter(Boolean)
+      .filter(x => x && x.amount > 0)
       .sort((a, b) => b.amount - a.amount);
     const TOTAL_FIXED = FIXED_COSTS_RESOLVED.reduce((s2, x) => s2 + x.amount, 0);
     const extraKey = 'pnl_extra_costs_' + monthYM;
