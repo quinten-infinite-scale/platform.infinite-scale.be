@@ -5,9 +5,28 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { email, password, phone, party, party_type, link_only, force_recreate, fix_corrupted } = req.body || {};
+  const { email, password, phone, party, party_type, link_only, force_recreate, fix_corrupted, generate_link, run_migration } = req.body || {};
+
+  // run_migration mode: run a one-off DB migration (admin/cron only)
+  if (run_migration) {
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers['authorization'] || '';
+    if (!cronSecret || authHeader !== 'Bearer ' + cronSecret) return res.status(403).json({ error: 'Forbidden' });
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const SB_URL = 'https://database.infinite-scale.be';
+    const sql = req.body.sql;
+    if (!sql) return res.status(400).json({ error: 'sql required' });
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`, {
+      method: 'POST',
+      headers: { 'apikey': serviceKey, 'Authorization': 'Bearer ' + serviceKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql }),
+    });
+    const txt = await r.text();
+    return res.status(r.status).json({ ok: r.ok, status: r.status, body: txt });
+  }
+
   if (!email) return res.status(400).json({ error: 'email required' });
-  if (!link_only && !password) return res.status(400).json({ error: 'password required' });
+  if (!link_only && !generate_link && !password) return res.status(400).json({ error: 'password required' });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return res.status(500).json({ error: 'Service key not configured' });
@@ -18,6 +37,42 @@ export default async function handler(req, res) {
     'Authorization': 'Bearer ' + serviceKey,
     'Content-Type': 'application/json',
   };
+
+  // generate_link mode: generate a session for an existing user (admin use only)
+  if (generate_link) {
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers['authorization'] || '';
+    if (!cronSecret || authHeader !== 'Bearer ' + cronSecret) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const lookupR = await fetch(`${SB_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+      headers: { 'apikey': serviceKey, 'Authorization': 'Bearer ' + serviceKey },
+    });
+    const lookupData = await lookupR.json();
+    const existingUser = lookupData?.users?.[0];
+    if (!existingUser) return res.status(404).json({ error: 'User not found' });
+    const linkR = await fetch(`${SB_URL}/auth/v1/admin/generate_link`, {
+      method: 'POST',
+      headers: { 'apikey': serviceKey, 'Authorization': 'Bearer ' + serviceKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'magiclink', email, redirect_to: 'https://platform.infinite-scale.be' }),
+    });
+    const linkData = await linkR.json();
+    const emailOtp = linkData.email_otp;
+    const actionLink = linkData.action_link;
+    // Use email_otp to exchange for a full session including user object
+    if (emailOtp) {
+      const verifyR = await fetch(`${SB_URL}/auth/v1/verify`, {
+        method: 'POST',
+        headers: { 'apikey': serviceKey, 'Authorization': 'Bearer ' + serviceKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: emailOtp, type: 'magiclink', email }),
+      });
+      const sessionData = await verifyR.json();
+      if (sessionData.access_token) {
+        return res.status(200).json({ ok: true, session: sessionData });
+      }
+    }
+    return res.status(200).json({ ok: true, link: actionLink, userId: existingUser.id, debug: { hasOtp: !!emailOtp, linkKeys: Object.keys(linkData) } });
+  }
 
   // link_only mode: just look up existing user and link to client/agent record, no account creation
   if (link_only) {
