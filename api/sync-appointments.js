@@ -14,6 +14,18 @@
 const SB_URL   = 'https://database.infinite-scale.be';
 const SHEET_ID = '1gB02fqBLy0VDiWokhxH9dKUWKiYMSNTq5SATAB-Jq_o';
 
+// Renocheck per-category rates: revenue (IS) and agent pay
+const RENO_RATES = {
+  'Airco':            { revenue: 25, agent: 8  },
+  'Thuisbatt':        { revenue: 40, agent: 12 },
+  'Zonnepanelen':     { revenue: 50, agent: 15 },
+  'Keukens':          { revenue: 55, agent: 15 },
+  'Badkamers':        { revenue: 55, agent: 15 },
+  'Ramen en deuren':  { revenue: 70, agent: 15 },
+  'Crepi':            { revenue: 70, agent: 15 },
+  'Dak':              { revenue: 80, agent: 20 },
+};
+
 // FACTURATIE data for June 2026 — same as migrate.js
 const JUNE_FACTURATIE = {
   'Bali Estate Group':         { goedgekeurd: 1,  afgekeurd: 3,  factuurVerstuurd: true  },
@@ -160,7 +172,7 @@ export default async function handler(req, res) {
     if (!fullSync && loggedDate !== filterDate) return;
 
     let clientName, agentName, dateApptRaw, leadName, invoiceRef;
-    let status = 'open', invoiced = false, amount = 0;
+    let status = 'open', invoiced = false, amount = 0, agentRateOverride = null;
 
     if (isReno) {
       agentName   = row['Agent naam']?.trim();
@@ -168,10 +180,12 @@ export default async function handler(req, res) {
       const categorie = row['Categorie']?.trim();
       dateApptRaw = loggedAtRaw; // Renocheck: logged date = appt date
       clientName  = 'Renocheck';
-      invoiceRef  = categorie || null;
+      const renoRate = RENO_RATES[categorie] || { revenue: 0, agent: 0 };
+      agentRateOverride = renoRate.agent || null;
+      invoiceRef  = categorie ? JSON.stringify({ _rn: true, revenue: renoRate.revenue, category: categorie }) : null;
       const yyyymm = loggedDate ? loggedDate.slice(0, 7) : null;
-      if (yyyymm === '2026-06') { status = 'show'; invoiced = true; amount = 14; }
-      else { status = 'open'; }
+      if (yyyymm === '2026-06') { status = 'show'; invoiced = true; amount = renoRate.revenue; }
+      else { status = 'open'; amount = renoRate.revenue; }
     } else {
       leadName    = row['Naam lead']?.trim();
       clientName  = row['Klant']?.trim();
@@ -232,6 +246,7 @@ export default async function handler(req, res) {
       date_appt:       dateAppt,
       status,
       amount,
+      agent_rate:      agentRateOverride,
       invoiced,
       paid:            invoiced,
       client_feedback: invoiceRef || null,
