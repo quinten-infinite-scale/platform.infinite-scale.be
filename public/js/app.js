@@ -874,11 +874,13 @@ class Component extends DCLogic {
     const kickoff = koDate ? koDate + 'T' + koTime : null;
     const type = f.editType !== undefined ? f.editType : (c.type || 'direct');
     const subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
+    const whatsappEnabled = f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false);
     const updates = {
       name, contact_person: contact, email, vat, rate,
       per_hour: perHour, monthly_fee: monthly, commission, close_fee: closeFee, setup_fee: setupFee, pay_days: payDays,
       status, crm, crm_on: crm !== 'none', kickoff, type,
       subclients: type === 'agency' ? subclients : (c.subclients || []),
+      whatsapp_enabled: whatsappEnabled,
     };
     this.mutLocal(dd => {
       const cl = dd.clients.find(x => x.id === id); if (!cl) return;
@@ -888,6 +890,7 @@ class Component extends DCLogic {
       cl.setup_fee = setupFee; cl.pay_days = payDays;
       cl.status = status; cl.crm = crm; cl.crmOn = crm !== 'none'; cl.kickoff = kickoff;
       cl.type = type; if (type === 'agency') cl.subclients = subclients;
+      cl.whatsapp_enabled = whatsappEnabled;
     });
     this.setForm('editing', false);
     const ok = await API.updateClient(id, updates);

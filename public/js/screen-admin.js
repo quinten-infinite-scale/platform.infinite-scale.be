@@ -1922,7 +1922,7 @@ const ScreenAdmin = {
     const agencies = d.clients.filter(x => x.type === 'agency');
     const directs = d.clients.filter(x => x.type !== 'agency');
     const directCols = [
-      { label: 'Client', render: x => e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.name) },
+      { label: 'Client', render: x => UI.Row({ gap: 6 }, e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.name), x.whatsapp_enabled ? e('span', { title: 'WhatsApp automations on', style: { fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 20, color: 'var(--up)', border: '1px solid var(--up)', opacity: 0.8 } }, 'WA') : null) },
       { label: 'Status', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); this.cycleClientStatus(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.status || 'inactive')) },
       { label: 'Agents', render: x => d.agents.filter(a => (a.clients || []).includes(x.id)).map(a => this.agentName(a.id, d).split(' ')[0]).join(', ') || '—' },
       { label: 'Vergoeding', align: 'right', render: x => e('span', { style: { fontSize: 12, fontWeight: 600, color: UI.rateStr(x) === '—' ? 'var(--text-dim)' : 'var(--up)' } }, UI.rateStr(x)) },
@@ -3637,10 +3637,11 @@ const ScreenAdmin = {
       e('div', { style: { fontSize: 22, fontWeight: 700, color: color || 'var(--text)' } }, value),
       sub ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, sub) : null);
 
+    const waEnabledClients = (d.clients || []).filter(c => c.whatsapp_enabled);
     const statusRow = e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
-      statCard('Active templates', activeTpls.length, activeTpls.length === 0 ? 'No clients configured' : activeTpls.map(t => clientName(t.client_id)).join(', ').slice(0, 40), activeTpls.length > 0 ? 'var(--up)' : 'var(--down)'),
+      statCard('WA-enabled clients', waEnabledClients.length, waEnabledClients.length === 0 ? 'Enable per client in Client tab' : waEnabledClients.map(c => c.name).join(', ').slice(0, 40), waEnabledClients.length > 0 ? 'var(--up)' : 'var(--down)'),
+      statCard('Active templates', activeTpls.length, activeTpls.length === 0 ? 'No templates configured' : activeTpls.map(t => clientName(t.client_id)).join(', ').slice(0, 40), activeTpls.length > 0 ? 'var(--up)' : 'var(--text-mute)'),
       statCard('Messages today', sentToday, 'sent outbound'),
-      statCard('Total messages', wa.length, 'all time'),
       statCard('Failed', failedTotal, 'all time', failedTotal > 0 ? 'var(--down)' : 'var(--text-mute)'));
 
     // \u2500\u2500 Thread modal \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -3789,7 +3790,8 @@ const ScreenAdmin = {
       else this.toast('Failed', r.reason || r.error || 'Unknown error', 'var(--down)');
     };
 
-    const clientsWithoutTpl = (d.clients || []).filter(c => !tpls.find(t => t.client_id === c.id));
+    const waClients = (d.clients || []).filter(c => c.whatsapp_enabled);
+    const clientsWithoutTpl = waClients.filter(c => !tpls.find(t => t.client_id === c.id));
 
     const templatesTab = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
       // Info banner
@@ -3807,7 +3809,7 @@ const ScreenAdmin = {
               e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Client *'),
               e('select', { value: newTpl.client_id || '', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, client_id: ev.target.value } }), style: inputStyle },
                 e('option', { value: '' }, 'Select client\u2026'),
-                ...(d.clients || []).map(c => e('option', { key: c.id, value: c.id }, c.name)))),
+                ...waClients.map(c => e('option', { key: c.id, value: c.id }, c.name)))),
             e('div', null,
               e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Template name * (exact Meta name)'),
               e('input', { type: 'text', value: newTpl.template_name || '', placeholder: 'e.g. hello_world', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, template_name: ev.target.value } }), style: inputStyle })),

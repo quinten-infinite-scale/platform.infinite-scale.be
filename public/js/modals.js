@@ -528,6 +528,11 @@ const Modals = {
             e('div', { style: { display: 'flex', gap: 10 } },
               e('input', { type: 'date', value: koDate, onChange: ev => this.setForm('editKickoffDate', ev.target.value), style: { flex: 1, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none' } }),
               e('input', { type: 'time', value: koTime, onChange: ev => this.setForm('editKickoffTime', ev.target.value), style: { width: 110, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, outline: 'none' } }))),
+          e('label', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', cursor: 'pointer' } },
+            e('input', { type: 'checkbox', checked: f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false), onChange: ev => this.setForm('editWhatsappEnabled', ev.target.checked), style: { width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' } }),
+            e('div', null,
+              e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, 'WhatsApp automations'),
+              e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 2 } }, 'Enable WhatsApp confirmation & reminder messages for this client'))),
           e('div', { style: { padding: 11, borderRadius: 10, background: 'var(--bg-2)', fontSize: 12.5, color: 'var(--text-mute)' } }, 'Changing the rate affects new billing calculations — existing approved amounts are not retroactively changed.')),
           [UI.Btn('Cancel', () => this.setForm('editing', false), 'soft'), UI.Btn('Save changes', () => this.saveClientEdits(), 'primary')], '560px');
       }
@@ -541,7 +546,7 @@ const Modals = {
         e('span', { style: { fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, color: statusColor[ct.status] || 'var(--text-mute)', border: '1px solid ' + (statusColor[ct.status] || 'var(--border)') } }, (ct.status || 'sent').charAt(0).toUpperCase() + (ct.status || 'sent').slice(1)));
 
       return wrap(c.name, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-        UI.Row({ gap: 8, flexWrap: 'wrap' }, UI.statusPill(c.status || 'inactive'), UI.Pill(c.type === 'agency' ? 'Lead agency' : 'Direct', 'var(--info)', 'oklch(0.30 0.05 240)'), UI.Pill('CRM: ' + (c.crmOn ? c.crm : 'none'), 'var(--text-dim)', 'var(--bg-2)')),
+        UI.Row({ gap: 8, flexWrap: 'wrap' }, UI.statusPill(c.status || 'inactive'), UI.Pill(c.type === 'agency' ? 'Lead agency' : 'Direct', 'var(--info)', 'oklch(0.30 0.05 240)'), UI.Pill('CRM: ' + (c.crmOn ? c.crm : 'none'), 'var(--text-dim)', 'var(--bg-2)'), c.whatsapp_enabled ? UI.Pill('WhatsApp ✓', 'var(--up)', 'oklch(0.20 0.05 145)') : null),
         UI.Grid('1fr 1fr', 12,
           this._kv('Contact', c.contactPerson || '—'),
           this._kv('Email', c.email || '—'),

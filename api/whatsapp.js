@@ -73,12 +73,18 @@ async function handleGet(req, res) {
     return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
-  const tplRows = await sbGet('client_whatsapp_templates?active=eq.true').catch(() => []);
+  const [tplRows, waClients] = await Promise.all([
+    sbGet('client_whatsapp_templates?active=eq.true').catch(() => []),
+    sbGet('clients?whatsapp_enabled=eq.true&select=id').catch(() => []),
+  ]);
   if (!Array.isArray(tplRows) || tplRows.length === 0) {
     return res.status(200).json({ ok: true, sent: 0, reason: 'No active templates configured' });
   }
+  const waEnabledIds = new Set((Array.isArray(waClients) ? waClients : []).map(c => c.id));
   const tplByClient = {};
-  for (const t of tplRows) tplByClient[t.client_id] = t;
+  for (const t of tplRows) {
+    if (waEnabledIds.has(t.client_id)) tplByClient[t.client_id] = t;
+  }
 
   const now = new Date();
   const inSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
