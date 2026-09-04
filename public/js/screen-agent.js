@@ -268,7 +268,7 @@ const ScreenAgent = {
         e('div', { style: { marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 } },
           this._kv('Date logged', this.fmtFull(this.iso(this.today()))),
           this._kv('Call agent', me.name),
-          this._kv('Your payout', isRenocheck ? (f.rnCategory ? this.euro(RN_RATES[f.rnCategory] || 0) : 'Select a category') : (selClient ? this.euro((me.rates || {})[selClient.id] || 0) : '—')),
+          this._kv('Your payout', isRenocheck ? (f.rnCategory ? this.euro(RN_RATES[f.rnCategory] || 0) : 'Select a category') : (selClient ? this.euro((me.rates || {})[selClient.id] || 0) : '—'))),
         e('div', { style: { marginTop: 18, padding: 13, borderRadius: 11, background: 'var(--surface)', border: '1px solid var(--border-soft)', fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.5 } },
           'Once submitted the entry is locked. Need a correction? The admin can override it.')));
   },
