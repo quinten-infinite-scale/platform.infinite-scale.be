@@ -3752,7 +3752,7 @@ const ScreenAdmin = {
       const r = await fetch('/api/db-write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (SB.getSession()?.access_token || '') },
-        body: JSON.stringify({ method: 'post', table: 'client_whatsapp_templates', body: { client_id: newTpl.client_id, template_name: newTpl.template_name.trim(), template_language: newTpl.template_language.trim(), reminder_hours_before: Number(newTpl.reminder_hours_before || 24), active: true } }),
+        body: JSON.stringify({ method: 'post', table: 'client_whatsapp_templates', body: { client_id: newTpl.client_id, template_name: newTpl.template_name.trim(), template_language: newTpl.template_language.trim(), reminder_hours_before: Number(newTpl.reminder_hours_before || 24), active: true, confirmation_enabled: newTpl.confirmation_enabled !== false, reminder_enabled: newTpl.reminder_enabled !== false, callback_phone: newTpl.callback_phone?.trim() || null } }),
       }).then(r => r.json()).catch(() => ({}));
       if (r.ok) {
         const inserted = Array.isArray(r.data) ? r.data[0] : r.data;
@@ -3817,51 +3817,75 @@ const ScreenAdmin = {
               e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Language code *'),
               e('input', { type: 'text', value: newTpl.template_language || '', placeholder: 'e.g. en_US or nl', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, template_language: ev.target.value } }), style: inputStyle })),
             e('div', null,
-              e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Send reminder N hours before appointment'),
+              e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Terugbel nummer (klant)'),
+              e('input', { type: 'text', value: newTpl.callback_phone || '', placeholder: 'e.g. +32499123456', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, callback_phone: ev.target.value } }), style: inputStyle })),
+            e('div', null,
+              e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Herinnering sturen N uur voor afspraak'),
               e('input', { type: 'number', min: 1, max: 168, value: newTpl.reminder_hours_before || 24, onChange: ev => this.setState({ _waNewTpl: { ...newTpl, reminder_hours_before: ev.target.value } }), style: inputStyle }))),
+          e('div', { style: { display: 'flex', gap: 16, marginTop: 4 } },
+            e('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' } },
+              e('input', { type: 'checkbox', checked: newTpl.confirmation_enabled !== false, onChange: ev => this.setState({ _waNewTpl: { ...newTpl, confirmation_enabled: ev.target.checked } }), style: { width: 15, height: 15, accentColor: 'var(--accent)' } }),
+              'Afspraak bevestigingen'),
+            e('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' } },
+              e('input', { type: 'checkbox', checked: newTpl.reminder_enabled !== false, onChange: ev => this.setState({ _waNewTpl: { ...newTpl, reminder_enabled: ev.target.checked } }), style: { width: 15, height: 15, accentColor: 'var(--accent)' } }),
+              'Afspraak herinneringen')),
           e('div', { style: { display: 'flex', gap: 8 } },
             e('button', { onClick: saveNewTpl, style: btnStyle(true) }, 'Save template'),
             e('button', { onClick: () => this.setState({ _waShowAddTpl: false, _waNewTpl: {} }), style: btnStyle(false) }, 'Cancel'))),
       // Templates table
       e('div', { style: { overflowX: 'auto' } },
         e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-          e('thead', null, e('tr', null, ['Client', 'Template name', 'Language', 'Reminder', 'Active', 'Actions'].map(h =>
+          e('thead', null, e('tr', null, ['Client', 'Template', 'Taal', 'Bevestiging', 'Herinnering', 'Terugbelnr', 'Actief', 'Acties'].map(h =>
             e('th', { key: h, style: { textAlign: 'left', padding: '8px 12px', color: 'var(--text-mute)', fontWeight: 600, fontSize: 11, borderBottom: '1px solid var(--border-soft)' } }, h)))),
           e('tbody', null,
             tpls.length === 0
-              ? e('tr', null, e('td', { colSpan: 6, style: { padding: '24px 12px', color: 'var(--text-mute)', textAlign: 'center', fontSize: 13 } }, 'No templates configured. Add one above to enable WhatsApp confirmations.'))
+              ? e('tr', null, e('td', { colSpan: 8, style: { padding: '24px 12px', color: 'var(--text-mute)', textAlign: 'center', fontSize: 13 } }, 'Geen templates ingesteld. Voeg er een toe om WhatsApp berichten in te schakelen.'))
               : tpls.map(t => {
                 const isEditing = s['_waEditTpl_' + t.id];
                 const editHours = s['_waEditHours_' + t.id] ?? t.reminder_hours_before;
                 const editActive = s['_waEditActive_' + t.id] ?? t.active;
                 const editName = s['_waEditName_' + t.id] ?? t.template_name;
                 const editLang = s['_waEditLang_' + t.id] ?? t.template_language;
+                const editConfirm = s['_waEditConfirm_' + t.id] ?? (t.confirmation_enabled !== false);
+                const editReminder = s['_waEditReminder_' + t.id] ?? (t.reminder_enabled !== false);
+                const editCallback = s['_waEditCallback_' + t.id] ?? (t.callback_phone || '');
 
                 const save = async () => {
                   const r = await fetch('/api/db-write', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (SB.getSession()?.access_token || '') },
-                    body: JSON.stringify({ method: 'patch', table: 'client_whatsapp_templates', query: '?id=eq.' + t.id, body: { template_name: editName, template_language: editLang, reminder_hours_before: Number(editHours), active: editActive } }),
+                    body: JSON.stringify({ method: 'patch', table: 'client_whatsapp_templates', query: '?id=eq.' + t.id, body: { template_name: editName, template_language: editLang, reminder_hours_before: Number(editHours), active: editActive, confirmation_enabled: editConfirm, reminder_enabled: editReminder, callback_phone: editCallback?.trim() || null } }),
                   }).then(r => r.json()).catch(() => ({}));
                   if (r.ok) {
-                    this.mutLocal(dd => { const row = (dd.whatsappTemplates || []).find(x => x.id === t.id); if (row) { row.template_name = editName; row.template_language = editLang; row.reminder_hours_before = Number(editHours); row.active = editActive; } });
+                    this.mutLocal(dd => { const row = (dd.whatsappTemplates || []).find(x => x.id === t.id); if (row) { row.template_name = editName; row.template_language = editLang; row.reminder_hours_before = Number(editHours); row.active = editActive; row.confirmation_enabled = editConfirm; row.reminder_enabled = editReminder; row.callback_phone = editCallback?.trim() || null; } });
                     this.setState({ ['_waEditTpl_' + t.id]: false });
                     this.toast('Saved', 'Template updated', 'var(--up)');
                   } else this.toast('Error', 'Save failed', 'var(--down)');
                 };
+
+                const chkCell = (val, key) => isEditing
+                  ? e('td', { style: { padding: '9px 12px' } }, e('input', { type: 'checkbox', checked: val, onChange: ev => this.setState({ [key + t.id]: ev.target.checked }), style: { width: 15, height: 15, accentColor: 'var(--accent)' } }))
+                  : e('td', { style: { padding: '9px 12px', fontSize: 13 } }, val ? '✓' : '—');
 
                 return e('tr', { key: t.id, style: { borderBottom: '1px solid var(--border-soft)' } },
                   e('td', { style: { padding: '9px 12px', color: 'var(--text)' } }, clientName(t.client_id)),
                   e('td', { style: { padding: '9px 12px', fontFamily: 'monospace', fontSize: 12 } },
                     isEditing ? e('input', { type: 'text', value: editName, onChange: ev => this.setState({ ['_waEditName_' + t.id]: ev.target.value }), style: { ...inputStyle, width: 180, fontSize: 12 } }) : t.template_name),
                   e('td', { style: { padding: '9px 12px', color: 'var(--text-mute)' } },
-                    isEditing ? e('input', { type: 'text', value: editLang, onChange: ev => this.setState({ ['_waEditLang_' + t.id]: ev.target.value }), style: { ...inputStyle, width: 80, fontSize: 12 } }) : t.template_language),
-                  e('td', { style: { padding: '9px 12px' } },
-                    isEditing ? e('input', { type: 'number', min: 1, max: 168, value: editHours, onChange: ev => this.setState({ ['_waEditHours_' + t.id]: ev.target.value }), style: { ...inputStyle, width: 70, fontSize: 12 } }) : t.reminder_hours_before + 'h before'),
+                    isEditing ? e('input', { type: 'text', value: editLang, onChange: ev => this.setState({ ['_waEditLang_' + t.id]: ev.target.value }), style: { ...inputStyle, width: 70, fontSize: 12 } }) : t.template_language),
+                  chkCell(editConfirm, '_waEditConfirm_'),
                   e('td', { style: { padding: '9px 12px' } },
                     isEditing
-                      ? e('label', { style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 } }, e('input', { type: 'checkbox', checked: editActive, onChange: ev => this.setState({ ['_waEditActive_' + t.id]: ev.target.checked }) }), editActive ? 'Active' : 'Inactive')
-                      : e('span', { style: { fontSize: 12, fontWeight: 700, color: t.active ? 'var(--up)' : 'var(--text-mute)' } }, t.active ? 'Active' : 'Inactive')),
+                      ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                          e('input', { type: 'checkbox', checked: editReminder, onChange: ev => this.setState({ ['_waEditReminder_' + t.id]: ev.target.checked }), style: { width: 15, height: 15, accentColor: 'var(--accent)' } }),
+                          editReminder ? e('input', { type: 'number', min: 1, max: 168, value: editHours, onChange: ev => this.setState({ ['_waEditHours_' + t.id]: ev.target.value }), style: { ...inputStyle, width: 60, fontSize: 12 } }) : null)
+                      : (t.reminder_enabled !== false ? t.reminder_hours_before + 'u voor' : '—')),
+                  e('td', { style: { padding: '9px 12px', fontSize: 12, color: 'var(--text-mute)' } },
+                    isEditing ? e('input', { type: 'text', value: editCallback, placeholder: '+32499…', onChange: ev => this.setState({ ['_waEditCallback_' + t.id]: ev.target.value }), style: { ...inputStyle, width: 130, fontSize: 12 } }) : (t.callback_phone || '—')),
+                  e('td', { style: { padding: '9px 12px' } },
+                    isEditing
+                      ? e('label', { style: { display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 } }, e('input', { type: 'checkbox', checked: editActive, onChange: ev => this.setState({ ['_waEditActive_' + t.id]: ev.target.checked }) }), editActive ? 'Actief' : 'Inactief')
+                      : e('span', { style: { fontSize: 12, fontWeight: 700, color: t.active ? 'var(--up)' : 'var(--text-mute)' } }, t.active ? 'Actief' : 'Inactief')),
                   e('td', { style: { padding: '9px 12px' } },
                     isEditing
                       ? e('span', { style: { display: 'flex', gap: 6 } },
@@ -3869,7 +3893,7 @@ const ScreenAdmin = {
                           e('button', { onClick: () => this.setState({ ['_waEditTpl_' + t.id]: false }), style: { ...btnStyle(false), padding: '4px 10px', fontSize: 12 } }, 'Cancel'))
                       : e('span', { style: { display: 'flex', gap: 6 } },
                           e('button', { onClick: () => testSend(t), style: { ...btnStyle(false), padding: '4px 10px', fontSize: 12 } }, 'Test'),
-                          e('button', { onClick: () => this.setState({ ['_waEditTpl_' + t.id]: true, ['_waEditHours_' + t.id]: t.reminder_hours_before, ['_waEditActive_' + t.id]: t.active, ['_waEditName_' + t.id]: t.template_name, ['_waEditLang_' + t.id]: t.template_language }), style: { ...btnStyle(false), padding: '4px 10px', fontSize: 12 } }, 'Edit'),
+                          e('button', { onClick: () => this.setState({ ['_waEditTpl_' + t.id]: true, ['_waEditHours_' + t.id]: t.reminder_hours_before, ['_waEditActive_' + t.id]: t.active, ['_waEditName_' + t.id]: t.template_name, ['_waEditLang_' + t.id]: t.template_language, ['_waEditConfirm_' + t.id]: t.confirmation_enabled !== false, ['_waEditReminder_' + t.id]: t.reminder_enabled !== false, ['_waEditCallback_' + t.id]: t.callback_phone || '' }), style: { ...btnStyle(false), padding: '4px 10px', fontSize: 12 } }, 'Edit'),
                           e('button', { onClick: () => deleteTpl(t.id), style: { ...btnStyle(false), padding: '4px 10px', fontSize: 12, color: 'var(--down)' } }, 'Delete'))));
               })
           )

@@ -74,16 +74,17 @@ async function handleGet(req, res) {
   }
 
   const [tplRows, waClients] = await Promise.all([
-    sbGet('client_whatsapp_templates?active=eq.true').catch(() => []),
-    sbGet('clients?whatsapp_enabled=eq.true&select=id').catch(() => []),
+    sbGet('client_whatsapp_templates?active=eq.true&reminder_enabled=eq.true').catch(() => []),
+    sbGet('clients?whatsapp_enabled=eq.true&select=id,name').catch(() => []),
   ]);
   if (!Array.isArray(tplRows) || tplRows.length === 0) {
     return res.status(200).json({ ok: true, sent: 0, reason: 'No active templates configured' });
   }
-  const waEnabledIds = new Set((Array.isArray(waClients) ? waClients : []).map(c => c.id));
+  const waClientMap = {};
+  for (const c of (Array.isArray(waClients) ? waClients : [])) waClientMap[c.id] = c;
   const tplByClient = {};
   for (const t of tplRows) {
-    if (waEnabledIds.has(t.client_id)) tplByClient[t.client_id] = t;
+    if (waClientMap[t.client_id]) tplByClient[t.client_id] = t;
   }
 
   const now = new Date();
@@ -116,7 +117,9 @@ async function handleGet(req, res) {
     if (tpl.template_name !== 'hello_world') {
       const dateStr = appt.date_appt ? appt.date_appt.slice(0, 10) : '';
       const timeStr = appt.date_appt?.includes('T') ? appt.date_appt.slice(11, 16) : '';
-      variables = [appt.lead_name || '', dateStr, timeStr].filter(Boolean).map(v => ({ type: 'text', text: String(v) }));
+      const clientName = waClientMap[appt.client_id]?.name || '';
+      const callbackPhone = tpl.callback_phone || '';
+      variables = [appt.lead_name || '', clientName, dateStr, timeStr, callbackPhone].filter(Boolean).map(v => ({ type: 'text', text: String(v) }));
     }
 
     const { ok, messageId, error, normalizedPhone } = await sendWhatsAppTemplate(appt.phone, tpl.template_name, tpl.template_language, variables);
@@ -234,15 +237,22 @@ async function handlePost(req, res, rawBody) {
   const appt = Array.isArray(apptRows) ? apptRows[0] : null;
   if (appt?.confirmation_sent_at) return res.status(200).json({ ok: false, reason: 'already_sent' });
 
-  const templates = await sbGet(`client_whatsapp_templates?client_id=eq.${clientId}&active=eq.true&limit=1`).catch(() => []);
+  const [templates, clientRows] = await Promise.all([
+    sbGet(`client_whatsapp_templates?client_id=eq.${clientId}&active=eq.true&limit=1`).catch(() => []),
+    sbGet(`clients?id=eq.${clientId}&select=name`).catch(() => []),
+  ]);
   const tpl = Array.isArray(templates) ? templates[0] : null;
   if (!tpl) return res.status(200).json({ ok: false, reason: 'no_template' });
+  if (tpl.confirmation_enabled === false) return res.status(200).json({ ok: false, reason: 'confirmations_disabled' });
+
+  const clientName = Array.isArray(clientRows) && clientRows[0] ? clientRows[0].name : '';
 
   let variables = [];
   if (tpl.template_name !== 'hello_world') {
     const dateStr = dateAppt ? dateAppt.slice(0, 10) : '';
     const timeStr = dateAppt?.includes('T') ? dateAppt.slice(11, 16) : '';
-    variables = [leadName || '', dateStr, timeStr].filter(Boolean).map(v => ({ type: 'text', text: String(v) }));
+    const callbackPhone = tpl.callback_phone || '';
+    variables = [leadName || '', clientName, dateStr, timeStr, callbackPhone].filter(Boolean).map(v => ({ type: 'text', text: String(v) }));
   }
 
   const { ok, messageId, error, normalizedPhone } = await sendWhatsAppTemplate(phone, tpl.template_name, tpl.template_language, variables);
