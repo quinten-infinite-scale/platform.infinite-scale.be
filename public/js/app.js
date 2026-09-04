@@ -575,7 +575,11 @@ class Component extends DCLogic {
     const RN_RATES = { 'Airco': { revenue: 25, payout: 8 }, 'Thuisbatt': { revenue: 40, payout: 12 }, 'Zonnepanelen': { revenue: 50, payout: 15 }, 'Keukens': { revenue: 55, payout: 15 }, 'Badkamers': { revenue: 55, payout: 15 }, 'Ramen en deuren': { revenue: 70, payout: 15 }, 'Crepi': { revenue: 70, payout: 15 }, 'Dak': { revenue: 80, payout: 20 } };
     const dateLogged = this.iso(this.today());
     const leadName = isRenocheck ? rnFullName : f.lead;
-    if (isRenocheck && f.rnCategory && RN_RATES[f.rnCategory]) { amount = RN_RATES[f.rnCategory].payout; }
+    let agentRate = null;
+    if (isRenocheck && f.rnCategory && RN_RATES[f.rnCategory]) {
+      amount = RN_RATES[f.rnCategory].revenue;
+      agentRate = RN_RATES[f.rnCategory].payout;
+    }
 
     let clientFeedback = null;
     if (isRenocheck) {
@@ -660,14 +664,14 @@ class Component extends DCLogic {
       clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', ...(intakeData ? { data: intakeData } : {}) });
     }
 
-    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, f.dateAppt, dateLogged, amount, clientFeedback);
+    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, f.dateAppt, dateLogged, amount, clientFeedback, agentRate);
     if (!result) {
       this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.' } }));
       this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
       return;
     }
     const saved = Array.isArray(result) ? result[0] : result;
-    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, agentRate: agentRate ?? null, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
 
     // Fire-and-forget: WhatsApp confirmation (never blocks the submit flow)
     if (saved?.id && f.client && f.phone) {

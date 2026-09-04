@@ -117,6 +117,7 @@ const ScreenAgent = {
     const selClient = d.clients.find(c => c.id === f.client);
     const isRenocheck = f.client === 'c15';
     const RN_CATS = ['Airco','Thuisbatt','Zonnepanelen','Ramen en deuren','Keukens','Badkamers','Crepi','Dak'];
+    const RN_RATES = { 'Airco': 8, 'Thuisbatt': 12, 'Zonnepanelen': 15, 'Ramen en deuren': 15, 'Keukens': 15, 'Badkamers': 15, 'Crepi': 15, 'Dak': 20 };
     const JaNee = (key) => e('div', { style: { display: 'flex', gap: 6 } },
       ['ja', 'nee'].map(opt => e('button', { key: opt, type: 'button', onClick: () => this.setForm(key, opt),
         style: { padding: '5px 16px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -254,7 +255,7 @@ const ScreenAgent = {
         UI.Hd('Log an appointment'), UI.Sub('Submit and lock. This instantly updates your stats and payments.', { marginBottom: 18, marginTop: 4 }),
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
           UI.Field('Date of appointment', UI.DatePicker(f.dateAppt, v => this.setForm('dateAppt', v))),
-          UI.Field('Client', UI.Select(f.client, v => this.setForm('client', v), [{ v: '', l: 'Select client…' }, ...myClients.map(c => ({ v: c.id, l: c.name }))])),
+          UI.Field('Client', UI.Select(f.client, v => this.setState(s => ({ form: { ...s.form, client: v, rnCategory: '', apptError: null } })), [{ v: '', l: 'Select client…' }, ...myClients.map(c => ({ v: c.id, l: c.name }))])),
           selClient && selClient.type === 'agency' ? UI.Field('Client of lead agency', UI.Select(f.sub, v => this.setForm('sub', v), [{ v: '', l: 'Select…' }, ...(selClient.subclients || []).map(sc => ({ v: sc.id, l: sc.name }))])) : null,
           stdFields,
           rnForm,
@@ -267,7 +268,7 @@ const ScreenAgent = {
         e('div', { style: { marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 } },
           this._kv('Date logged', this.fmtFull(this.iso(this.today()))),
           this._kv('Call agent', me.name),
-          this._kv('Your payout', selClient ? this.euro((me.rates || {})[selClient.id] || 0) : '—')),
+          this._kv('Your payout', isRenocheck ? (f.rnCategory ? this.euro(RN_RATES[f.rnCategory] || 0) : 'Select a category') : (selClient ? this.euro((me.rates || {})[selClient.id] || 0) : '—')),
         e('div', { style: { marginTop: 18, padding: 13, borderRadius: 11, background: 'var(--surface)', border: '1px solid var(--border-soft)', fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.5 } },
           'Once submitted the entry is locked. Need a correction? The admin can override it.')));
   },
