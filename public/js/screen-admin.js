@@ -2226,6 +2226,12 @@ const ScreenAdmin = {
     const pipelines = s._prospectPipelines || (() => {
       const raw = (d.settings || {}).prospect_pipelines;
       if (raw) { try { return JSON.parse(raw); } catch(_) {} }
+      // Auto-save defaults so the modal can read them
+      if (!s._prospectPipelinesDefaultsSaved) {
+        this.setState({ _prospectPipelinesDefaultsSaved: true });
+        this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.prospect_pipelines = JSON.stringify(defaultPipelines); });
+        API.saveSetting('prospect_pipelines', JSON.stringify(defaultPipelines));
+      }
       return defaultPipelines;
     })();
 
