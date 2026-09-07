@@ -2442,7 +2442,7 @@ const ScreenAdmin = {
             key: sg.id,
             onDragOver: ev => { onDragOver(ev, sg.id); onStageDragOver(ev, si); },
             onDrop: ev => { onDrop(ev, sg.id); onStageDrop(ev, si); },
-            style: { borderTop: si > 0 ? `2px solid ${isStageOver ? sg.color : 'var(--border)'}` : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s, border-color .15s' },
+            style: { borderTop: si > 0 ? `2px solid ${isStageOver ? sg.color : 'var(--border)'}` : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s, border-color .15s', paddingTop: si > 0 ? 10 : 0, marginTop: si > 0 ? 4 : 0 },
           },
             e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none', minWidth: totalW + 'px' }, onClick: () => toggleCollapse(sg.id) },
               e('span', { draggable: true, onDragStart: ev => onStageDragStart(ev, si), onDragEnd: onStageDragEnd, onClick: ev => ev.stopPropagation(), style: { fontSize: 12, color: 'var(--text-mute)', width: 16, textAlign: 'center', cursor: 'grab', opacity: 0.5, flexShrink: 0 }, title: 'Drag to reorder' }, '⠿'),
@@ -2633,7 +2633,7 @@ const ScreenAdmin = {
             key: sg.id,
             onDragOver: ev => { onDragOver(ev, sg.id); onStageDragOver(ev, si); },
             onDrop: ev => { onDrop(ev, sg.id); onStageDrop(ev, si); },
-            style: { borderTop: si > 0 ? `2px solid ${isStageOver ? sg.color : 'var(--border)'}` : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s, border-color .15s' },
+            style: { borderTop: si > 0 ? `2px solid ${isStageOver ? sg.color : 'var(--border)'}` : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s, border-color .15s', paddingTop: si > 0 ? 10 : 0, marginTop: si > 0 ? 4 : 0 },
           },
             // Stage header
             e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none', minWidth: totalW + 'px' }, onClick: () => toggleCollapse(sg.id) },
