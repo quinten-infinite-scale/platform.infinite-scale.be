@@ -18,7 +18,7 @@
 <script src="./js/screen-agent.js?v=20260904a"></script>
 <script src="./js/screen-client.js?v=20260902j"></script>
 <script src="./js/screen-subclient.js?v=20260821b"></script>
-<script src="./js/screen-admin.js?v=20260904b"></script>
+<script src="./js/screen-admin.js?v=20260907a"></script>
 <script src="./js/pdf-ttf.js?v=20260815a"></script>
 <script src="./js/modals.js?v=20260904a"></script>
 <script src="./js/app.js?v=20260904a"></script>
@@ -677,22 +677,36 @@ class Component extends DCLogic {
         : c === 'Badkamers' ? { eigenaar: f.rnEigenaar||'', type_project: f.rnTypeProject||'', afmeting: f.rnAfmeting||'', douche: f.rnDouche||'', bad: f.rnBad||'', lavabo: f.rnLavabo||'', toilet: f.rnToilet||'', tegelwerk: f.rnTegelwerk||'', sanitair: f.rnSanitair||'', loodgieterij: f.rnLoodgieterij||'', elektriciteit: f.rnElektriciteit||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
         : c === 'Keukens' ? { eigenaar: f.rnEigenaar||'', type_project: f.rnTypeProject||'', afmeting: f.rnAfmeting||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
         : null;
-      const description = intakeData ? [intakeData.info_project||'', intakeData.timing||''].filter(Boolean).join(' — ') : '';
-      const rnPayload = { category: f.rnCategory, firstname: f.rnFirst||'', lastname: f.rnLast||'', email: f.rnEmail||'', phonenumber: f.phone, street: f.rnStreet||'', number: f.rnNumber||'', zipcode: f.rnPostal||'', city: f.rnCity||'', ...(description ? { description } : {}), ...(intakeData ? { data: intakeData } : {}) };
-      try {
-        const rnRes = await fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
-        if (!rnRes.ok) { const errText = await rnRes.text(); this.toast('Renocheck fout', 'Lead kon niet naar Renocheck gestuurd worden: ' + errText.slice(0, 80), 'var(--down)'); return; }
-      } catch (err) { this.toast('Renocheck fout', 'Kon Renocheck niet bereiken. Probeer opnieuw.', 'var(--down)'); return; }
       const rnRev = (RN_RATES[f.rnCategory] || {}).revenue || 0;
       clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail||'', street: f.rnStreet||'', number: f.rnNumber||'', zipcode: f.rnPostal||'', city: f.rnCity||'', ...(intakeData ? { data: intakeData } : {}) });
+      // Fire Renocheck API in background — appointment is saved regardless of outcome
+      const description = intakeData ? [intakeData.info_project||'', intakeData.timing||''].filter(Boolean).join(' — ') : '';
+      const rnPayload = { category: f.rnCategory, firstname: f.rnFirst||'', lastname: f.rnLast||'', email: f.rnEmail||'', phonenumber: f.phone, street: f.rnStreet||'', number: f.rnNumber||'', zipcode: f.rnPostal||'', city: f.rnCity||'', ...(description ? { description } : {}), ...(intakeData ? { data: intakeData } : {}) };
+      fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) })
+        .then(r => { if (!r.ok) r.text().then(t => this.toast('Renocheck waarschuwing', 'Lead kon niet doorgestuurd worden: ' + t.slice(0, 80), 'var(--warn)')); })
+        .catch(() => this.toast('Renocheck waarschuwing', 'Kon Renocheck niet bereiken. Afspraak wél opgeslagen.', 'var(--warn)'));
     }
-    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, f.dateAppt, dateLogged, amount, clientFeedback);
+    const dateAppt = f.dateAppt + (f.apptTime ? 'T' + f.apptTime : '');
+    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, dateAppt, dateLogged, amount, clientFeedback);
     if (!result) { this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw.' } })); this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen.', 'var(--down)'); return; }
     const saved = Array.isArray(result) ? result[0] : result;
-    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
+    if (saved?.id && f.client && f.phone) {
+      const _waSession = typeof SB !== 'undefined' ? SB.getSession() : null;
+      const _waToken = _waSession?.access_token || '';
+      if (_waToken) {
+        fetch('/api/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _waToken },
+          body: JSON.stringify({ appointmentId: saved.id, clientId: f.client, subId: f.sub || null, leadName, phone: f.phone, dateAppt }),
+        }).then(r => r.json()).then(j => {
+          if (!j.ok) console.warn('[wa-confirm] not sent:', j.reason || j.error);
+        }).catch(err => console.error('[wa-confirm] fetch error:', err));
+      }
+    }
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
     this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + leadName + ' (€' + amount + ')');
     this.closeModal();
-    this.toast('Logged', isRenocheck ? 'Lead verzonden naar Renocheck & afspraak gelogd' : 'Appointment added', 'var(--up)');
+    this.toast('Logged', isRenocheck ? 'Afspraak gelogd & lead verzonden naar Renocheck' : 'Appointment added', 'var(--up)');
   }
 
   async submitEOD() {
@@ -707,7 +721,11 @@ class Component extends DCLogic {
   }
 
   async deleteAppointment(id) {
-    await API.deleteAppointment(id);
+    const result = await API.deleteAppointment(id);
+    if (result === null) {
+      this.toast('Error', 'Could not delete appointment. Check console for details.', 'var(--down)');
+      return;
+    }
     this.mutLocal(d => { d.appointments = d.appointments.filter(a => a.id !== id); });
     this.closeModal();
     this.toast('Deleted', 'Appointment removed', 'var(--down)');
@@ -1104,7 +1122,7 @@ class Component extends DCLogic {
       sub_client_id: f.eApptSub !== undefined ? (f.eApptSub || null) : (ap.sub || null),
       agent_id: f.eApptAgent !== undefined ? f.eApptAgent : ap.agent,
       amount: f.eApptAmount !== undefined ? (parseFloat(f.eApptAmount) || 0) : (ap.amount || 0),
-      date_appt: f.eApptDate !== undefined ? f.eApptDate : ap.dateAppt,
+      date_appt: (() => { const d = f.eApptDate !== undefined ? f.eApptDate : (ap.dateAppt || '').slice(0, 10); const t = f.eApptTime !== undefined ? f.eApptTime : (ap.dateAppt?.includes('T') ? ap.dateAppt.slice(11, 16) : ''); return d + (t ? 'T' + t : ''); })(),
       date_logged: f.eApptDateLog !== undefined ? f.eApptDateLog : ap.dateLog,
       agent_rate: rawAgentRate !== '' ? (parseFloat(rawAgentRate) ?? null) : null,
       deal_commission: rawCommission !== '' ? (parseFloat(rawCommission) || null) : null,
@@ -1121,7 +1139,7 @@ class Component extends DCLogic {
       a.dealAmount = fields.deal_amount;
     });
     const ok = await API.patchAppointment(id, fields);
-    this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
+    this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptTime: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
     if (ok && ok.ok !== false) this.toast('Saved ✓', 'Appointment updated', 'var(--up)');
     else this.toast('Fout', 'Opslaan mislukt', 'var(--down)');
   }
@@ -1159,13 +1177,14 @@ class Component extends DCLogic {
       const entry = { id: 'sc-' + Date.now(), name: f._newScName.trim(), rate: +(String(f._newScRate || '0').replace(/\D/g, '')) || 0 };
       subclients = [...subclients, entry];
     }
-    const updates = { name, contact_person: contact, email, vat, rate, status, crm, crm_on: crm !== 'none', kickoff, type, subclients: type === 'agency' ? subclients : (c.subclients || []) };
+    const waEnabled = f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false);
+    const updates = { name, contact_person: contact, email, rate, status, crm, crm_on: crm !== 'none', kickoff, type, subclients: type === 'agency' ? subclients : (c.subclients || []), whatsapp_enabled: waEnabled };
     this.mutLocal(dd => {
       const cl = dd.clients.find(x => x.id === id); if (!cl) return;
       cl.name = name; cl.contactPerson = contact; cl.email = email;
       cl.phone = phone; cl.vat = vat; cl.rate = rate;
       cl.status = status; cl.crm = crm; cl.crmOn = crm !== 'none'; cl.kickoff = kickoff;
-      cl.type = type; if (type === 'agency') cl.subclients = subclients;
+      cl.type = type; cl.whatsapp_enabled = waEnabled; if (type === 'agency') cl.subclients = subclients;
     });
     this.setForm('editing', false);
     const ok = await API.updateClient(id, updates);

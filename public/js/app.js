@@ -382,7 +382,7 @@ class Component extends DCLogic {
       sub_client_id: f.eApptSub !== undefined ? (f.eApptSub || null) : (ap.sub || null),
       agent_id: f.eApptAgent !== undefined ? f.eApptAgent : ap.agent,
       amount: f.eApptAmount !== undefined ? (parseFloat(f.eApptAmount) || 0) : (ap.amount || 0),
-      date_appt: f.eApptDate !== undefined ? f.eApptDate : ap.dateAppt,
+      date_appt: (() => { const d = f.eApptDate !== undefined ? f.eApptDate : (ap.dateAppt || '').slice(0, 10); const t = f.eApptTime !== undefined ? f.eApptTime : (ap.dateAppt?.includes('T') ? ap.dateAppt.slice(11, 16) : ''); return d + (t ? 'T' + t : ''); })(),
       date_logged: f.eApptDateLog !== undefined ? f.eApptDateLog : ap.dateLog,
       agent_rate: rawAgentRate !== '' ? (parseFloat(rawAgentRate) ?? null) : null,
       deal_commission: rawCommission !== '' ? (parseFloat(rawCommission) || null) : null,
@@ -400,7 +400,7 @@ class Component extends DCLogic {
     });
     console.log('[saveApptEdits] fields:', JSON.stringify({deal_amount: fields.deal_amount, deal_commission: fields.deal_commission, eApptDealAmount: f.eApptDealAmount, eApptCommission: f.eApptCommission}));
     const ok = await API.patchAppointment(id, fields);
-    this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
+    this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptTime: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
     if (ok && ok.ok !== false) this.toast('Saved ✓', 'Appointment updated', 'var(--up)');
     else this.toast('Fout', 'Opslaan mislukt', 'var(--down)');
   }
@@ -495,8 +495,15 @@ class Component extends DCLogic {
 
   async addProspect(f) {
     if (!f.company) { this.toast('Error', 'Add a company', 'var(--down)'); return; }
-    const row = { company: f.company, contact: f.contact || '', phone: f.phone || '', email: f.email || '', assigned: f.assigned || 'Quinten', source: f.source || 'LinkedIn', stage: 'new', next_action: 'Qualify', next_date: this.iso(this.today()), notes: f.notes || '' };
-    this.mutLocal(d => d.prospects.unshift({ id: 'p' + Date.now(), ...row, next: row.next_action, nextDate: row.next_date }));
+    const row = {
+      company: f.company, contact: f.contact || '', phone: f.phone || '', email: f.email || '',
+      assigned: f.assigned || '', source: f.source || 'LinkedIn',
+      stage: f.stage || 'nieuwe_leads', pipeline_id: f.pipelineId || 'manuele',
+      status: f.status || '', notes: f.notes || '', caller_note: f.caller_note || '',
+      call_on: f.call_on || null, revenue: f.revenue || '',
+      next_action: 'Qualify', next_date: this.iso(this.today()),
+    };
+    this.mutLocal(d => d.prospects.unshift({ id: 'p' + Date.now(), ...row }));
     await API.addProspect(row);
     this.closeModal();
     this.toast('Prospect', 'Added to pipeline', 'var(--accent)');
@@ -664,14 +671,15 @@ class Component extends DCLogic {
       clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', ...(intakeData ? { data: intakeData } : {}) });
     }
 
-    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, f.dateAppt, dateLogged, amount, clientFeedback, agentRate);
+    const dateAppt = f.dateAppt + (f.apptTime ? 'T' + f.apptTime : '');
+    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, dateAppt, dateLogged, amount, clientFeedback, agentRate);
     if (!result) {
       this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.' } }));
       this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
       return;
     }
     const saved = Array.isArray(result) ? result[0] : result;
-    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt: f.dateAppt, status: 'open', amount, agentRate: agentRate ?? null, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt, status: 'open', amount, agentRate: agentRate ?? null, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
 
     // Fire-and-forget: WhatsApp confirmation (never blocks the submit flow)
     if (saved?.id && f.client && f.phone) {
@@ -681,7 +689,7 @@ class Component extends DCLogic {
         fetch('/api/whatsapp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + _waToken },
-          body: JSON.stringify({ appointmentId: saved.id, clientId: f.client, leadName, phone: f.phone, dateAppt: f.dateAppt }),
+          body: JSON.stringify({ appointmentId: saved.id, clientId: f.client, subId: f.sub || null, leadName, phone: f.phone, dateAppt }),
         }).then(r => r.json()).then(j => {
           if (!j.ok) console.warn('[wa-confirm] not sent:', j.reason || j.error);
         }).catch(err => console.error('[wa-confirm] fetch error:', err));
@@ -876,7 +884,7 @@ class Component extends DCLogic {
     const subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
     const whatsappEnabled = f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false);
     const updates = {
-      name, contact_person: contact, email, vat, rate,
+      name, contact_person: contact, email, rate,
       per_hour: perHour, monthly_fee: monthly, commission, close_fee: closeFee, setup_fee: setupFee, pay_days: payDays,
       status, crm, crm_on: crm !== 'none', kickoff, type,
       subclients: type === 'agency' ? subclients : (c.subclients || []),

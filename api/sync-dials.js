@@ -1,10 +1,14 @@
 /**
- * CloudTalk → Supabase dials sync (JWT analytics API)
+ * CloudTalk → Supabase dials sync (calls/index.json API, Basic auth)
  *
  * Fetches outbound call counts from CloudTalk per agent per day,
- * then upserts into the `dials` table.
+ * then upserts into the `dials` and `dials_hourly` tables.
  *
- * Cron: runs 4x daily at 08:00, 10:00, 14:00, 18:00 UTC
+ * Auth: HTTP Basic with CLOUDTALK_API_KEY:CLOUDTALK_API_SECRET
+ * Agents: my.cloudtalk.io/api/agents/index.json
+ * Calls:  my.cloudtalk.io/api/calls/index.json?type=outgoing&user_id=…&date_from=…&date_to=…
+ *
+ * Cron: runs multiple times daily
  * Manual: GET /api/sync-dials                              → syncs today
  *         GET /api/sync-dials?date=YYYY-MM-DD             → syncs specific day
  *         GET /api/sync-dials?date_from=…&date_to=…       → syncs date range
@@ -16,97 +20,86 @@ const CT_SECRET = process.env.CLOUDTALK_API_SECRET || '';
 const SB_URL    = 'https://database.infinite-scale.be';
 
 // Map CloudTalk agent email (lowercase) → platform agent ID
+// Updated 2026-09-01: CloudTalk agents were migrated to generic callagent accounts
 const AGENT_MAP = {
-  'senne.db@infinite-scale.be':  'a1',
-  'john.vda@infinite-scale.be':  'a2',
-  'kaiusr@proton.me':            'a3',
-  'sanders.bram2003@gmail.com':  'a4',
-  'ditske@infinite-scale.be':    'a5',
-  'nick@infinite-scale.be':      'a6',
-  'lotte@infinite-scale.be':     'a7',
-  'shalom@infinite-scale.be':    'a8',
-  'lothar_dg@hotmail.com':       'a9',
-  'quinten@infinite-scale.be':   'a11',
+  'senne.db@infinite-scale.be':      'a1',   // Senne De Braekeler (confirmed by call volume)
+  'quinten@infinite-scale.be':       'a11',  // Quinten Eeckhoudt (confirmed)
+  'callagent@infinite-scale.be':     'a4',   // Bram Sanders (confirmed by Aug volume match)
+  'callagent1@infinite-scale.be':    'a9',   // Lothar (confirmed by Aug volume match)
+  'callagent2@infinite-scale.be':    'a12',  // Rick Hoekstra (confirmed by exact match)
+  'callagent4@infinite-scale.be':    'a15',  // Rabih Ibrahim
+  'callagent5@infinite-scale.be':    'a16',  // Romy Zwiers
+  'callagent7@infinite-scale.be':    'a14',  // Jimmy Verschut (confirmed by exact match)
 };
 
-async function getToken() {
-  const auth = Buffer.from(`${CT_KEY}:${CT_SECRET}`).toString('base64');
-  // Try api.cloudtalk.io first (new endpoint), fall back to dashboard
-  for (const url of [
-    'https://api.cloudtalk.io/api/auth/tokens/access',
-    'https://dashboard.cloudtalk.io/api/auth/tokens/access',
-  ]) {
-    const r = await fetch(url, {
-      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
-    });
-    const text = await r.text();
-    if (text.trim().startsWith('<')) continue; // HTML = wrong endpoint
-    const j = JSON.parse(text);
-    const tok = j.accessToken || j.access_token || j.token || j.data?.accessToken;
-    if (tok) return tok;
-    if (!r.ok) throw new Error(`CT token ${r.status}: ${text.slice(0, 100)}`);
-  }
-  throw new Error('Could not obtain CloudTalk access token from any endpoint');
+function basicAuth() {
+  return 'Basic ' + Buffer.from(`${CT_KEY}:${CT_SECRET}`).toString('base64');
 }
 
 // Fetch agent list → [{id, email}]
-async function getCtAgents(token) {
-  const tryFetch = async (authHeader) => {
-    const r = await fetch('https://api.cloudtalk.io/api/agents.json', {
-      headers: { Authorization: authHeader, Accept: 'application/json' },
+async function getCtAgents() {
+  let page = 1;
+  const agents = [];
+  while (true) {
+    const r = await fetch(`https://my.cloudtalk.io/api/agents/index.json?limit=100&page=${page}`, {
+      headers: { Authorization: basicAuth(), Accept: 'application/json' },
     });
-    if (!r.ok) return null;
-    const text = await r.text();
-    if (text.trim().startsWith('<')) return null; // HTML = broken
-    try { return JSON.parse(text); } catch { return null; }
-  };
-
-  let data = await tryFetch(`Bearer ${token}`);
-  if (!data) {
-    const basic = Buffer.from(`${CT_KEY}:${CT_SECRET}`).toString('base64');
-    data = await tryFetch(`Basic ${basic}`);
+    if (!r.ok) throw new Error(`CT agents ${r.status}: ${(await r.text()).slice(0, 100)}`);
+    const j = await r.json();
+    const data = j?.responseData?.data || [];
+    for (const item of data) {
+      const a = item.Agent || item;
+      if (a.id && a.email) agents.push({ id: String(a.id), email: a.email.toLowerCase() });
+    }
+    if (agents.length >= (j?.responseData?.itemsCount || 0) || data.length === 0) break;
+    page++;
   }
-  if (!data) throw new Error('Could not fetch CT agent list');
-
-  // Handle various response shapes
-  const list = data?.responseData?.agents || data?.agents || data?.data || data || [];
-  return Array.isArray(list) ? list : [];
+  return agents;
 }
 
-// Fetch total outbound calls for a specific CT agent ID and date (YYYY-MM-DD)
-// Pass dateFrom/dateTo as datetime strings to get hourly sub-ranges
-async function fetchAgentCallCount(token, ctAgentId, dateFrom, dateTo) {
-  const body = {
-    filter: {
-      datetime: { type: 'absolute', dateFrom, dateTo },
-      groupIds: ['274186'],
-      agentIds: [String(ctAgentId)],
-      voiceAgentIds: [], externalNumber: '',
-      contactNumbers: [], contactNames: [], contactName: '',
-      tagIds: [], callRating: [],
-      callDirection: ['outbound'],
-      countryCodes: [], internalNumberIds: [], callId: '',
-      groupMissedReason: [], agentMissedReason: [], callMissedReason: [],
-      outOfOffice: false, talkingTime: { gte: 0, lte: 0 }, isResolved: null, anonymous: null,
-    },
-  };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  const r = await fetch('https://analytics-api.cloudtalk.io/api/metrics/call-counts/total-calls', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(body),
+// Count outbound calls for a specific CT agent ID in a date-time range
+// date_from / date_to: "YYYY-MM-DD HH:MM:SS"
+async function fetchCallCount(ctAgentId, dateFrom, dateTo) {
+  const params = new URLSearchParams({
+    limit: '1',
+    type: 'outgoing',
+    user_id: ctAgentId,
+    date_from: dateFrom,
+    date_to: dateTo,
   });
-  if (!r.ok) throw new Error(`analytics ${r.status} agent=${ctAgentId} ${dateFrom}`);
+  const r = await fetch(`https://my.cloudtalk.io/api/calls/index.json?${params}`, {
+    headers: { Authorization: basicAuth(), Accept: 'application/json' },
+  });
+  if (r.status === 429) {
+    await sleep(2000);
+    return fetchCallCount(ctAgentId, dateFrom, dateTo); // retry once
+  }
+  if (!r.ok) throw new Error(`CT calls ${r.status} agent=${ctAgentId} ${dateFrom}: ${(await r.text()).slice(0, 100)}`);
   const j = await r.json();
-  return j?.data?.value ?? j?.value ?? j?.total ?? 0;
+  await sleep(300); // respect rate limits
+  return j?.responseData?.itemsCount ?? 0;
 }
 
-async function fetchAgentDayCount(token, ctAgentId, date) {
-  return fetchAgentCallCount(token, ctAgentId, date, date);
+async function fetchAgentDayCount(ctAgentId, date) {
+  return fetchCallCount(ctAgentId, `${date} 00:00:00`, `${date} 23:59:59`);
+}
+
+async function fetchAgentHourCount(ctAgentId, date, utcHour) {
+  const pad = n => String(n).padStart(2, '0');
+  return fetchCallCount(ctAgentId, `${date} ${pad(utcHour)}:00:00`, `${date} ${pad(utcHour)}:59:59`);
+}
+
+function dateRange(from, to) {
+  const dates = [];
+  const d = new Date(from + 'T00:00:00Z');
+  const end = new Date(to + 'T00:00:00Z');
+  while (d <= end) {
+    dates.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return dates;
 }
 
 // Belgian local hour offset (UTC+2 summer, UTC+1 winter)
@@ -149,17 +142,6 @@ async function sbUpsert(serviceKey, rows) {
   }
 }
 
-function dateRange(from, to) {
-  const dates = [];
-  const cur = new Date(from + 'T00:00:00Z');
-  const end = new Date(to + 'T00:00:00Z');
-  while (cur <= end) {
-    dates.push(cur.toISOString().slice(0, 10));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return dates;
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
@@ -173,49 +155,13 @@ export default async function handler(req, res) {
   const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!sbKey) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' });
 
-  if (req.query.auth_test === 'true') {
-    const basicAuth = Buffer.from(`${CT_KEY}:${CT_SECRET}`).toString('base64');
-    const results = { key_len: CT_KEY.length };
-    // agents with Basic
-    const ra = await fetch('https://api.cloudtalk.io/api/agents.json', { headers: { Authorization: `Basic ${basicAuth}`, Accept: 'application/json' } });
-    results.agents_basic = { status: ra.status, body: (await ra.text()).slice(0, 300) };
-    // analytics without groupIds
-    const rb = await fetch('https://analytics-api.cloudtalk.io/api/metrics/call-counts/total-calls', {
-      method: 'POST',
-      headers: { Authorization: `Basic ${basicAuth}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ filter: { datetime: { type: 'absolute', dateFrom: '2026-08-21', dateTo: '2026-08-21' }, callDirection: ['outbound'] } }),
-    });
-    results.analytics_no_group = { status: rb.status, body: (await rb.text()).slice(0, 300) };
-    // Try calls.json
-    const rc = await fetch('https://api.cloudtalk.io/api/calls.json?limit=2', { headers: { Authorization: `Basic ${basicAuth}`, Accept: 'application/json' } });
-    results.calls = { status: rc.status, body: (await rc.text()).slice(0, 300) };
-    // Try analytics with the KEY itself as Bearer (QS token format)
-    const re = await fetch('https://analytics-api.cloudtalk.io/api/metrics/call-counts/total-calls', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${CT_SECRET}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ filter: { datetime: { type: 'absolute', dateFrom: '2026-08-21', dateTo: '2026-08-21' }, callDirection: ['outbound'] } }),
-    });
-    results.analytics_bearer_secret = { status: re.status, body: (await re.text()).slice(0, 300) };
-    // Try QS key as Bearer
-    const rf = await fetch('https://analytics-api.cloudtalk.io/api/metrics/call-counts/total-calls', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${CT_KEY}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ filter: { datetime: { type: 'absolute', dateFrom: '2026-08-21', dateTo: '2026-08-21' }, callDirection: ['outbound'] } }),
-    });
-    results.analytics_bearer_id = { status: rf.status, body: (await rf.text()).slice(0, 300) };
-    return res.status(200).json(results);
-  }
-
   try {
-    const token = await getToken();
-    const ctAgents = await getCtAgents(token);
+    const ctAgents = await getCtAgents();
 
     // Build email → cloudtalk id map
     const emailToCtId = {};
     for (const a of ctAgents) {
-      const email = (a.email || a.username || '').toLowerCase();
-      const id = a.id || a.agentId || a.agent_id;
-      if (email && id) emailToCtId[email] = String(id);
+      emailToCtId[a.email] = a.id;
     }
 
     // Probe mode: show agent list + mapping
@@ -241,6 +187,7 @@ export default async function handler(req, res) {
     const dateTo   = req.query.date_to   || req.query.date || today;
     const dates    = dateRange(dateFrom, dateTo);
 
+    const skipHourly = req.query.no_hourly === 'true';
     const rows = [];
     const hourlyRows = [];
     const now = new Date();
@@ -253,17 +200,16 @@ export default async function handler(req, res) {
       const maxLocalHour = isToday ? Math.min(nowUTCHour + offset, 19) : 19;
 
       for (const { platId, ctId } of agentPairs) {
-        const count = await fetchAgentDayCount(token, ctId, date);
+        const count = await fetchAgentDayCount(ctId, date);
         rows.push({ agent_id: platId, dial_date: date, count });
 
-        // Hourly breakdown (9am–maxLocalHour local time)
-        for (let h = 9; h <= maxLocalHour; h++) {
-          const pad = n => String(n).padStart(2, '0');
-          const utcH = (h - offset + 24) % 24;
-          const dateFrom2 = `${date} ${pad(utcH)}:00:00`;
-          const dateTo2   = `${date} ${pad(utcH)}:59:59`;
-          const hCount = await fetchAgentCallCount(token, ctId, dateFrom2, dateTo2);
-          hourlyRows.push({ agent_id: platId, dial_date: date, hour: h, count: hCount });
+        if (!skipHourly) {
+          // Hourly breakdown (9am–maxLocalHour local time)
+          for (let h = 9; h <= maxLocalHour; h++) {
+            const utcH = (h - offset + 24) % 24;
+            const hCount = await fetchAgentHourCount(ctId, date, utcH);
+            hourlyRows.push({ agent_id: platId, dial_date: date, hour: h, count: hCount });
+          }
         }
       }
     }

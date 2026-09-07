@@ -38,7 +38,13 @@ const API = {
         ? SB.get('invoice_states', `?agent_id=eq.${agentId}`).catch(() => [])
         : SB.get('invoice_states', '').catch(() => []),
       role === 'admin' ? SB.get('whatsapp_messages', '?order=created_at.desc&limit=500').catch(() => []) : Promise.resolve([]),
-      role === 'admin' ? SB.get('client_whatsapp_templates', '?order=created_at.asc').catch(() => []) : Promise.resolve([]),
+      role === 'admin' ? (async () => {
+        const sess = SB.getSession();
+        const tok = sess?.access_token || '';
+        if (!tok) return [];
+        const r = await fetch('/api/db-write?table=client_whatsapp_templates&query=?order=created_at.asc', { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+        return r?.ok ? r.json().catch(() => []) : [];
+      })() : Promise.resolve([]),
     ]);
 
     // Build dials map: { agentId: { date: count } }
@@ -524,11 +530,13 @@ const API = {
   },
 
   async updateContract(id, data) {
+    const sess = SB.getSession();
+    const tok = sess?.access_token || window.SUPABASE_ANON_KEY;
     const r = await fetch(window.SUPABASE_URL + '/rest/v1/contracts?id=eq.' + id, {
       method: 'PATCH',
       headers: {
         'apikey': window.SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + window.SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + tok,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal',
       },

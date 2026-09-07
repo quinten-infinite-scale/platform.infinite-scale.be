@@ -75,7 +75,7 @@ async function handleGet(req, res) {
 
   const [tplRows, waClients] = await Promise.all([
     sbGet('client_whatsapp_templates?active=eq.true&reminder_enabled=eq.true').catch(() => []),
-    sbGet('clients?whatsapp_enabled=eq.true&select=id,name').catch(() => []),
+    sbGet('clients?whatsapp_enabled=eq.true&select=id,name,subclients').catch(() => []),
   ]);
   if (!Array.isArray(tplRows) || tplRows.length === 0) {
     return res.status(200).json({ ok: true, sent: 0, reason: 'No active templates configured' });
@@ -95,7 +95,7 @@ async function handleGet(req, res) {
     `appointments?confirmation_sent_at=not.is.null&reminder_sent_at=is.null` +
     `&date_appt=gt.${nowIso}&date_appt=lt.${inSevenDays}` +
     `&status=not.in.(cancel,no_show)` +
-    `&select=id,client_id,lead_name,phone,date_appt`
+    `&select=id,client_id,sub_client_id,lead_name,phone,date_appt`
   ).catch(() => []);
 
   if (!Array.isArray(apptRows) || apptRows.length === 0) {
@@ -106,6 +106,7 @@ async function handleGet(req, res) {
   for (const appt of apptRows) {
     const tpl = tplByClient[appt.client_id];
     if (!tpl) { results.push({ id: appt.id, skipped: 'no_template' }); continue; }
+    if (tpl.template_name !== 'hello_world' && !tpl.callback_phone) { results.push({ id: appt.id, skipped: 'no_callback_phone' }); continue; }
 
     const hoursUntil = (new Date(appt.date_appt) - now) / (1000 * 60 * 60);
     if (hoursUntil > tpl.reminder_hours_before) continue;
@@ -116,10 +117,18 @@ async function handleGet(req, res) {
     let variables = [];
     if (tpl.template_name !== 'hello_world') {
       const dateStr = appt.date_appt ? appt.date_appt.slice(0, 10) : '';
-      const timeStr = appt.date_appt?.includes('T') ? appt.date_appt.slice(11, 16) : '';
-      const clientName = waClientMap[appt.client_id]?.name || '';
-      const callbackPhone = tpl.callback_phone || '';
-      variables = [appt.lead_name || '', clientName, dateStr, timeStr, callbackPhone].filter(Boolean).map(v => ({ type: 'text', text: String(v) }));
+      const timeStr = appt.date_appt?.includes('T') ? appt.date_appt.slice(11, 16) : 'n.v.t.';
+      const cl = waClientMap[appt.client_id];
+      let clientName = cl?.name || '';
+      let callbackPhone = tpl.callback_phone || '';
+      if (appt.sub_client_id && cl?.subclients) {
+        const sc = cl.subclients.find(s => s.id === appt.sub_client_id || s.name === appt.sub_client_id);
+        if (sc) {
+          clientName = sc.name;
+          if (sc.callback_phone) callbackPhone = sc.callback_phone;
+        }
+      }
+      variables = [appt.lead_name || '', clientName, dateStr, timeStr, callbackPhone].map(v => ({ type: 'text', text: String(v) }));
     }
 
     const { ok, messageId, error, normalizedPhone } = await sendWhatsAppTemplate(appt.phone, tpl.template_name, tpl.template_language, variables);
@@ -230,7 +239,7 @@ async function handlePost(req, res, rawBody) {
     return res.status(200).json({ ok: true, messageId });
   }
 
-  const { appointmentId, clientId, leadName, phone, dateAppt } = body || {};
+  const { appointmentId, clientId, subId, leadName, phone, dateAppt } = body || {};
   if (!appointmentId || !clientId) return res.status(400).json({ ok: false, error: 'appointmentId and clientId required' });
 
   const apptRows = await sbGet(`appointments?id=eq.${appointmentId}&select=id,confirmation_sent_at`).catch(() => []);
@@ -239,30 +248,41 @@ async function handlePost(req, res, rawBody) {
 
   const [templates, clientRows] = await Promise.all([
     sbGet(`client_whatsapp_templates?client_id=eq.${clientId}&active=eq.true&limit=1`).catch(() => []),
-    sbGet(`clients?id=eq.${clientId}&select=name`).catch(() => []),
+    sbGet(`clients?id=eq.${clientId}&select=name,subclients`).catch(() => []),
   ]);
   const tpl = Array.isArray(templates) ? templates[0] : null;
   if (!tpl) return res.status(200).json({ ok: false, reason: 'no_template' });
   if (tpl.confirmation_enabled === false) return res.status(200).json({ ok: false, reason: 'confirmations_disabled' });
+  if (tpl.template_name !== 'hello_world' && !tpl.callback_phone) return res.status(200).json({ ok: false, reason: 'no_callback_phone' });
 
-  const clientName = Array.isArray(clientRows) && clientRows[0] ? clientRows[0].name : '';
+  const clientData = Array.isArray(clientRows) && clientRows[0] ? clientRows[0] : null;
+  let clientName = clientData?.name || '';
+  let callbackPhone = tpl.callback_phone || '';
+  if (subId && clientData?.subclients) {
+    const sc = clientData.subclients.find(s => s.id === subId || s.name === subId);
+    if (sc) {
+      clientName = sc.name;
+      if (sc.callback_phone) callbackPhone = sc.callback_phone;
+    }
+  }
 
   let variables = [];
   if (tpl.template_name !== 'hello_world') {
     const dateStr = dateAppt ? dateAppt.slice(0, 10) : '';
-    const timeStr = dateAppt?.includes('T') ? dateAppt.slice(11, 16) : '';
-    const callbackPhone = tpl.callback_phone || '';
-    variables = [leadName || '', clientName, dateStr, timeStr, callbackPhone].filter(Boolean).map(v => ({ type: 'text', text: String(v) }));
+    const timeStr = dateAppt?.includes('T') ? dateAppt.slice(11, 16) : 'n.v.t.';
+    variables = [leadName || '', clientName, dateStr, timeStr, callbackPhone].map(v => ({ type: 'text', text: String(v) }));
   }
 
   const { ok, messageId, error, normalizedPhone } = await sendWhatsAppTemplate(phone, tpl.template_name, tpl.template_language, variables);
   const now = new Date().toISOString();
 
+  if (!ok) console.error('[wa-confirm] send failed:', error, '| phone:', normalizedPhone, '| template:', tpl.template_name, '| vars:', JSON.stringify(variables));
+
   await sbInsert('whatsapp_messages', {
     appointment_id: appointmentId, client_id: clientId,
     phone: normalizedPhone || phone || '', direction: 'outbound', message_type: 'confirmation',
     template_name: tpl.template_name, whatsapp_message_id: messageId || null,
-    status: ok ? 'sent' : 'failed', status_updated_at: now, content: null, raw_payload: null,
+    status: ok ? 'sent' : 'failed', status_updated_at: now, content: error || null, raw_payload: null,
   }).catch(() => {});
 
   if (!ok) return res.status(200).json({ ok: false, reason: 'send_failed', error });

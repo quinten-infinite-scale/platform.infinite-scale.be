@@ -28,6 +28,55 @@ function _showContractOverlay(html, printAfter) {
   document.body.appendChild(overlay);
 }
 
+function _showContractEditOverlay(html, onSave) {
+  const existing = document.getElementById('__contract-edit-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = '__contract-edit-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;display:flex;flex-direction:column;';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 16px;background:#1a1a2e;color:#fff;flex:none;';
+  const title = document.createElement('span');
+  title.style.cssText = 'font-weight:700;font-size:14px;flex:1;';
+  title.textContent = 'Contract bewerken';
+  bar.appendChild(title);
+  const hint = document.createElement('span');
+  hint.style.cssText = 'font-size:12px;color:#8b9bbf;';
+  hint.textContent = 'Klik in de tekst om te bewerken';
+  bar.appendChild(hint);
+  const saveBtn = document.createElement('button');
+  saveBtn.textContent = '💾 Opslaan';
+  saveBtn.style.cssText = 'padding:6px 14px;background:#00c896;border:none;border-radius:6px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;';
+  saveBtn.onclick = () => {
+    const newHtml = iframe.contentDocument.documentElement.outerHTML;
+    onSave(newHtml);
+    overlay.remove();
+  };
+  bar.appendChild(saveBtn);
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕ Annuleren';
+  closeBtn.style.cssText = 'padding:6px 14px;background:transparent;border:1px solid #555;border-radius:6px;color:#ccc;cursor:pointer;font-size:13px;';
+  closeBtn.onclick = () => { if (confirm('Wijzigingen verwerpen?')) overlay.remove(); };
+  bar.appendChild(closeBtn);
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'flex:1;border:none;width:100%;';
+  iframe.srcdoc = html;
+  iframe.onload = () => {
+    try {
+      iframe.contentDocument.body.contentEditable = 'true';
+      iframe.contentDocument.body.style.outline = 'none';
+      iframe.contentDocument.body.style.cursor = 'text';
+      // Highlight editable areas
+      const style = iframe.contentDocument.createElement('style');
+      style.textContent = 'body:focus-within { outline: 2px solid #00c896; } *:hover { outline: 1px dashed rgba(0,200,150,.25); }';
+      iframe.contentDocument.head.appendChild(style);
+    } catch (err) { console.warn('Could not set contentEditable on iframe', err); }
+  };
+  overlay.appendChild(bar);
+  overlay.appendChild(iframe);
+  document.body.appendChild(overlay);
+}
+
 function _signedContractHtml(c) {
   const html = c.contract_html || '';
   if (c.status !== 'signed' || !c.signer_name) return html;
@@ -181,8 +230,9 @@ const Modals = {
           UI.Grid('1fr 1fr', 10,
             UI.Field('Agent', UI.Select(f.eApptAgent !== undefined ? f.eApptAgent : (ap.agent || ''), v => this.setForm('eApptAgent', v), [{ v: '', l: 'Select…' }, ...d.agents.filter(a => a.active).map(a => ({ v: a.id, l: a.name }))])),
             UI.Field('Amount (€)', UI.Input(String(f.eApptAmount !== undefined ? f.eApptAmount : (ap.amount || 0)), v => this.setForm('eApptAmount', v), '0', 'number'))),
-          UI.Grid('1fr 1fr', 10,
-            UI.Field('Appt date', UI.Input(f.eApptDate !== undefined ? f.eApptDate : (ap.dateAppt || ''), v => this.setForm('eApptDate', v), '', 'date')),
+          UI.Grid('1fr 1fr 1fr', 10,
+            UI.Field('Appt date', UI.Input(f.eApptDate !== undefined ? f.eApptDate : (ap.dateAppt || '').slice(0, 10), v => this.setForm('eApptDate', v), '', 'date')),
+            UI.Field('Tijdstip', UI.TimePicker(f.eApptTime !== undefined ? f.eApptTime : (ap.dateAppt?.includes('T') ? ap.dateAppt.slice(11, 16) : ''), v => this.setForm('eApptTime', v))),
             UI.Field('Date logged', UI.Input(f.eApptDateLog !== undefined ? f.eApptDateLog : (ap.dateLog || ''), v => this.setForm('eApptDateLog', v), '', 'date'))),
           (() => {
             const eAg = d.agents.find(a => a.id === (f.eApptAgent !== undefined ? f.eApptAgent : (ap.agent || '')));
@@ -389,7 +439,9 @@ const Modals = {
         UI.Field('Lead name', UI.Input(f.lead, v => this.setForm('lead', v), 'Full name')),
         UI.Field('Phone number', UI.Input(f.phone, v => this.setForm('phone', v), '+32…', 'text', { autoComplete: 'off' }))) : null;
       return wrap('Log appointment', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
-        UI.Field('Date of appointment', UI.Input(f.dateAppt, v => this.setForm('dateAppt', v), '', 'date')),
+        UI.Grid('3fr 2fr', 10,
+          UI.Field('Datum afspraak', UI.Input(f.dateAppt, v => this.setForm('dateAppt', v), '', 'date')),
+          UI.Field('Tijdstip', UI.TimePicker(f.apptTime || '', v => this.setForm('apptTime', v)))),
         UI.Field('Client', UI.Select(f.client, v => this.setForm('client', v), [{ v: '', l: 'Select client…' }, ...myClients.map(c => ({ v: c.id, l: c.name }))])),
         sel && sel.type === 'agency' ? UI.Field('Client of lead agency', UI.Select(f.sub, v => this.setForm('sub', v), [{ v: '', l: 'Select…' }, ...(sel.subclients || []).map(x => ({ v: x.id, l: x.name }))])) : null,
         stdFields,
@@ -509,19 +561,23 @@ const Modals = {
             return e('div', null,
               UI.Sub('Sub-clients under this agency', { marginBottom: 8 }),
               subs.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 } },
-                subs.map((sc, i) => e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 9, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
-                  e('span', { style: { flex: 1, fontWeight: 600, fontSize: 13 } }, sc.name || sc),
-                  e('input', { type: 'number', value: sc.rate || '', placeholder: '0', onChange: ev => { const updated = subs.map((s, j) => j === i ? { ...s, rate: parseFloat(ev.target.value) || 0 } : s); this.setForm('editSubclients', updated); }, style: { width: 70, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5, textAlign: 'right', outline: 'none' } }),
-                  e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '€/appt'),
-                  e('button', { onClick: () => this.setForm('editSubclients', subs.filter((_, j) => j !== i)), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--down)', fontWeight: 700, fontSize: 14, padding: '0 4px', lineHeight: 1 } }, '×')))) : e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 8 } }, 'No sub-clients yet.'),
-              UI.Grid('1fr 1fr', 8,
+                subs.map((sc, i) => e('div', { key: i, style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 9, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    e('span', { style: { flex: 1, fontWeight: 600, fontSize: 13 } }, sc.name || sc),
+                    e('input', { type: 'number', value: sc.rate || '', placeholder: '0', onChange: ev => { const updated = subs.map((s, j) => j === i ? { ...s, rate: parseFloat(ev.target.value) || 0 } : s); this.setForm('editSubclients', updated); }, style: { width: 70, padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5, textAlign: 'right', outline: 'none' } }),
+                    e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '€/appt'),
+                    e('button', { onClick: () => this.setForm('editSubclients', subs.filter((_, j) => j !== i)), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--down)', fontWeight: 700, fontSize: 14, padding: '0 4px', lineHeight: 1 } }, '×')),
+                  e('input', { type: 'tel', value: sc.callback_phone || '', placeholder: 'Callback phone (e.g. +32479…)', onChange: ev => { const updated = subs.map((s, j) => j === i ? { ...s, callback_phone: ev.target.value } : s); this.setForm('editSubclients', updated); }, style: { padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none', width: '100%' } })
+                ))) : e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginBottom: 8 } }, 'No sub-clients yet.'),
+              UI.Grid('1fr 1fr 1fr', 8,
                 UI.Field('Sub-client name', UI.Input(f._newScName || '', v => this.setForm('_newScName', v), 'e.g. Sjuste')),
-                UI.Field('Rate / appt (€)', UI.Input(f._newScRate || '', v => this.setForm('_newScRate', v), '45', 'number'))),
+                UI.Field('Rate / appt (€)', UI.Input(f._newScRate || '', v => this.setForm('_newScRate', v), '45', 'number')),
+                UI.Field('Callback phone', UI.Input(f._newScPhone || '', v => this.setForm('_newScPhone', v), '+32479…', 'tel'))),
               UI.Btn('+ Add sub-client', () => {
                 if (!f._newScName) return;
-                const entry = { id: 'sc-' + Date.now(), name: f._newScName, rate: +(String(f._newScRate || '0').replace(/\D/g, '')) || 0 };
+                const entry = { id: 'sc-' + Date.now(), name: f._newScName, rate: +(String(f._newScRate || '0').replace(/\D/g, '')) || 0, callback_phone: f._newScPhone || '' };
                 this.setForm('editSubclients', [...subs, entry]);
-                this.setState(st => ({ form: { ...st.form, _newScName: '', _newScRate: '' } }));
+                this.setState(st => ({ form: { ...st.form, _newScName: '', _newScRate: '', _newScPhone: '' } }));
               }, 'ghost', { fontSize: 12, padding: '6px 12px' }));
           })(),
           UI.Field('Kick-off date & time',
@@ -1720,6 +1776,7 @@ const Modals = {
            this.toast('Geannuleerd', 'Contract gemarkeerd als void', 'var(--text-mute)');
          }, 'danger') : null,
          c.contract_html ? UI.Btn('Bekijken', () => { _showContractOverlay(_signedContractHtml(c), false); }, 'soft') : null,
+         c.contract_html ? UI.Btn('✏️ Bewerken', () => { _showContractEditOverlay(c.contract_html, (newHtml) => { this.updateContract(c.id, { contract_html: newHtml }); this.toast('Opgeslagen', 'Contract bijgewerkt', 'var(--up)'); }); }, 'soft') : null,
          c.contract_html ? UI.Btn('PDF downloaden', () => { _showContractOverlay(_signedContractHtml(c), true); }, 'ghost') : null,
          c.status === 'signed' && c.party_type === 'client' && !d.clients.find(cl => cl.name?.toLowerCase() === c.party?.toLowerCase())
            ? UI.Btn('Convert to Client', () => this.convertContractToClient(c), 'primary') : null,
@@ -1761,34 +1818,59 @@ const Modals = {
 
     if (k === 'prospectDetail') {
       const p = f.prospect || {};
-      const stages = [['new', 'New lead'], ['first', 'First contact'], ['meeting', 'Meeting booked'], ['followup', 'Follow-up'], ['closed', 'Closed'], ['lost', 'Lost']];
+      // Load pipeline stages dynamically
+      const pipelineStages = (() => {
+        try {
+          const raw = (this.state?.data?.settings || {}).prospect_pipelines;
+          if (raw) {
+            const pls = JSON.parse(raw);
+            const pl = pls.find(pl2 => pl2.id === (p.pipeline_id || 'manuele'));
+            return pl?.stages || [];
+          }
+        } catch(_) {}
+        return [{ id: 'nieuwe_leads', label: 'Nieuwe leads' }, { id: 'first_call', label: 'First Call' }, { id: 'gewonnen', label: 'Gewonnen' }, { id: 'niet_gewonnen', label: 'Niet gewonnen' }];
+      })();
       const editingP = !!f.editingProspect;
       if (editingP) {
         return wrap('Edit prospect — ' + p.company, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
           UI.Grid('1fr 1fr', 10, UI.Field('Company', UI.Input(f.pCompany !== undefined ? f.pCompany : (p.company || ''), v => this.setForm('pCompany', v))), UI.Field('Contact', UI.Input(f.pContact !== undefined ? f.pContact : (p.contact || ''), v => this.setForm('pContact', v)))),
           UI.Grid('1fr 1fr', 10, UI.Field('Phone', UI.Input(f.pPhone !== undefined ? f.pPhone : (p.phone || ''), v => this.setForm('pPhone', v))), UI.Field('Email', UI.Input(f.pEmail !== undefined ? f.pEmail : (p.email || ''), v => this.setForm('pEmail', v)))),
           UI.Grid('1fr 1fr', 10, UI.Field('Owner', UI.Input(f.pOwner !== undefined ? f.pOwner : (p.assigned || ''), v => this.setForm('pOwner', v))), UI.Field('Source', UI.Select(f.pSource !== undefined ? f.pSource : (p.source || 'LinkedIn'), v => this.setForm('pSource', v), [{ v: 'LinkedIn', l: 'LinkedIn' }, { v: 'Cold email', l: 'Cold email' }, { v: 'Referral', l: 'Referral' }, { v: 'Meta forms', l: 'Meta forms' }, { v: 'Website', l: 'Website' }, { v: 'Cold call', l: 'Cold call' }]))),
-          UI.Grid('1fr 1fr', 10, UI.Field('Meeting / next date', UI.Input(f.pNextDate !== undefined ? f.pNextDate : (p.next_date || ''), v => this.setForm('pNextDate', v), '', 'date')), e('div', null)),
-          UI.Field('Notes', UI.Area(f.pNotes !== undefined ? f.pNotes : (p.notes || ''), v => this.setForm('pNotes', v)))),
+          UI.Grid('1fr 1fr', 10, UI.Field('Bellen op', UI.Input(f.pCallOn !== undefined ? f.pCallOn : (p.call_on || ''), v => this.setForm('pCallOn', v), '', 'date')), UI.Field('Omzet / Revenue', UI.Input(f.pRevenue !== undefined ? f.pRevenue : (p.revenue || ''), v => this.setForm('pRevenue', v)))),
+          UI.Field('Opmerking beller', UI.Input(f.pCallerNote !== undefined ? f.pCallerNote : (p.caller_note || ''), v => this.setForm('pCallerNote', v))),
+          UI.Field('Opmerkingen / notes', UI.Area(f.pNotes !== undefined ? f.pNotes : (p.notes || ''), v => this.setForm('pNotes', v)))),
           [UI.Btn('Cancel', () => this.setForm('editingProspect', false), 'soft'),
            UI.Btn('Save', () => {
-             const updates = { company: f.pCompany !== undefined ? f.pCompany : p.company, contact: f.pContact !== undefined ? f.pContact : (p.contact||''), phone: f.pPhone !== undefined ? f.pPhone : (p.phone||''), email: f.pEmail !== undefined ? f.pEmail : (p.email||''), assigned: f.pOwner !== undefined ? f.pOwner : (p.assigned||''), source: f.pSource !== undefined ? f.pSource : (p.source||''), next_date: f.pNextDate !== undefined ? f.pNextDate : (p.next_date||''), notes: f.pNotes !== undefined ? f.pNotes : (p.notes||'') };
+             const updates = {
+               company: f.pCompany !== undefined ? f.pCompany : p.company,
+               contact: f.pContact !== undefined ? f.pContact : (p.contact||''),
+               phone: f.pPhone !== undefined ? f.pPhone : (p.phone||''),
+               email: f.pEmail !== undefined ? f.pEmail : (p.email||''),
+               assigned: f.pOwner !== undefined ? f.pOwner : (p.assigned||''),
+               source: f.pSource !== undefined ? f.pSource : (p.source||''),
+               call_on: f.pCallOn !== undefined ? f.pCallOn : (p.call_on||null),
+               revenue: f.pRevenue !== undefined ? f.pRevenue : (p.revenue||''),
+               caller_note: f.pCallerNote !== undefined ? f.pCallerNote : (p.caller_note||''),
+               notes: f.pNotes !== undefined ? f.pNotes : (p.notes||''),
+             };
              this.updateProspectDetail(p.id, updates);
              this.setState(st => ({ form: { ...st.form, editingProspect: false, prospect: { ...p, ...updates } } }));
-           }, 'primary')], '560px');
+           }, 'primary')], '580px');
       }
       const kv = (label, val) => val ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, label + ': '), e('span', { style: { color: 'var(--text)', fontSize: 13.5 } }, val)) : null;
       return wrap(p.company || 'Prospect', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-        e('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-          stages.map(([sv, sl]) => e('button', { key: sv, onClick: () => { this.moveProspect(p.id, sv); this.setForm('prospect', { ...p, stage: sv }); },
-            style: { padding: '6px 14px', borderRadius: 20, border: '2px solid ' + (p.stage === sv ? 'var(--accent)' : 'var(--border)'), background: p.stage === sv ? 'oklch(0.20 0.10 194 / .5)' : 'transparent', color: p.stage === sv ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, sl))),
+        // Stage pills
+        e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+          pipelineStages.map(sg => e('button', { key: sg.id, onClick: () => { this.moveProspect(p.id, sg.id); this.setForm('prospect', { ...p, stage: sg.id }); },
+            style: { padding: '5px 12px', borderRadius: 20, border: '2px solid ' + (p.stage === sg.id ? (sg.color || 'var(--accent)') : 'var(--border)'), background: p.stage === sg.id ? (sg.color || 'var(--accent)') + '33' : 'transparent', color: p.stage === sg.id ? (sg.color || 'var(--accent)') : 'var(--text-mute)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' } }, sg.label))),
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, background: 'var(--bg-2)' } },
           kv('Contact', p.contact), kv('Phone', p.phone), kv('Email', p.email), kv('Owner', p.assigned), kv('Source', p.source),
-          kv('Next action', p.next_action), kv('Next date', p.next_date), kv('Last follow-up', p.last_followup),
+          kv('Bellen op', p.call_on), kv('Revenue', p.revenue), kv('Last follow-up', p.last_followup),
+          p.caller_note ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Opmerking beller: '), e('span', { style: { color: 'var(--text-dim)', fontSize: 13 } }, p.caller_note)) : null,
           p.notes ? e('div', { style: { marginTop: 6, padding: 10, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, p.notes) : null)),
         [UI.Btn('Edit', () => this.setForm('editingProspect', true), 'soft'),
          UI.Btn('Follow-up', () => { this.closeModal(); this.openModal('prospectFollowup', { prospect: p }); }, 'ghost'),
-         UI.Btn('Create contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, partyType: 'client', company: p.company, contact: p.contact, email: p.email || '' }); }, 'primary')], '560px');
+         UI.Btn('Create contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, partyType: 'client', company: p.company, contact: p.contact, email: p.email || '' }); }, 'primary')], '580px');
     }
 
     if (k === 'prospectFollowup') {
@@ -1829,12 +1911,28 @@ const Modals = {
     }
 
     if (k === 'prospectAdd') {
+      // Load pipeline stages for the stage dropdown
+      const pipelineStages = (() => {
+        try {
+          const raw = (this.state?.data?.settings || {}).prospect_pipelines;
+          if (raw) {
+            const pls = JSON.parse(raw);
+            const pl = pls.find(p => p.id === (f.pipelineId || 'manuele'));
+            return pl?.stages || [];
+          }
+        } catch(_) {}
+        return [{ id: 'nieuwe_leads', label: 'Nieuwe leads' }, { id: 'first_call', label: 'First Call' }];
+      })();
+      const stageOpts = pipelineStages.map(sg => ({ v: sg.id, l: sg.label }));
       return wrap('Add prospect', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
         UI.Grid('1fr 1fr', 10, UI.Field('Company', UI.Input(f.company, v => this.setForm('company', v))), UI.Field('Contact', UI.Input(f.contact, v => this.setForm('contact', v)))),
         UI.Grid('1fr 1fr', 10, UI.Field('Phone', UI.Input(f.phone, v => this.setForm('phone', v))), UI.Field('Email', UI.Input(f.email, v => this.setForm('email', v)))),
-        UI.Grid('1fr 1fr', 10, UI.Field('Owner', UI.Input(f.assigned || '', v => this.setForm('assigned', v), 'Your name')), UI.Field('Source', UI.Select(f.source || 'LinkedIn', v => this.setForm('source', v), [{ v: 'LinkedIn', l: 'LinkedIn' }, { v: 'Cold email', l: 'Cold email' }, { v: 'Referral', l: 'Referral' }, { v: 'Meta forms', l: 'Meta forms' }, { v: 'Website', l: 'Website' }, { v: 'Cold call', l: 'Cold call' }]))),
-        UI.Grid('1fr 1fr', 10, UI.Field('Meeting / next date', UI.Input(f.next_date || '', v => this.setForm('next_date', v), '', 'date')), e('div', null)),
-        UI.Field('Notes', UI.Area(f.notes, v => this.setForm('notes', v)))),
+        UI.Grid('1fr 1fr', 10,
+          UI.Field('Stage', UI.Select(f.stage || f.defaultStage || (stageOpts[0]?.v || 'nieuwe_leads'), v => this.setForm('stage', v), stageOpts)),
+          UI.Field('Source', UI.Select(f.source || 'LinkedIn', v => this.setForm('source', v), [{ v: 'LinkedIn', l: 'LinkedIn' }, { v: 'Cold email', l: 'Cold email' }, { v: 'Referral', l: 'Referral' }, { v: 'Meta forms', l: 'Meta forms' }, { v: 'Website', l: 'Website' }, { v: 'Cold call', l: 'Cold call' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Owner', UI.Input(f.assigned || '', v => this.setForm('assigned', v), 'Your name')), UI.Field('Bellen op', UI.Input(f.call_on || '', v => this.setForm('call_on', v), '', 'date'))),
+        UI.Field('Opmerking beller', UI.Input(f.caller_note || '', v => this.setForm('caller_note', v), 'e.g. Geinteresseerd maar wil meer info')),
+        UI.Field('Opmerkingen / notes', UI.Area(f.notes, v => this.setForm('notes', v)))),
         [UI.Btn('Cancel', () => this.closeModal(), 'soft'), UI.Btn('Add prospect', () => { if (!f.company) { this.toast('Error', 'Add a company', 'var(--down)'); return; } this.addProspect(f); }, 'primary')], '560px');
     }
 

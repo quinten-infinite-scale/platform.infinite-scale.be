@@ -2172,27 +2172,288 @@ const ScreenAdmin = {
 
   _admProspects(d, s) {
     const e = React.createElement;
-    const stageColors = { new: 'var(--text-mute)', first: 'var(--info)', meeting: 'var(--warn)', followup: 'var(--accent)', closed: 'var(--up)', lost: 'var(--down)' };
-    const stageLabel = { new: 'New lead', first: 'First contact', meeting: 'Meeting booked', followup: 'Follow-up', closed: 'Closed', lost: 'Lost' };
-    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
-      UI.Row({ justifyContent: 'space-between' }, UI.Hd('Prospect CRM — acquisition'), UI.Btn('+ Add prospect', () => this.openModal('prospectAdd'), 'primary')),
-      UI.C({ padding: 0, overflow: 'hidden' }, UI.Table([
-        { label: 'Company', render: x => e('div', null,
-            e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.company),
-            x.last_followup ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 2 } }, 'Last FU: ' + x.last_followup) : null) },
-        { label: 'Contact', render: x => e('div', null, e('div', { style: { color: 'var(--text-dim)' } }, x.contact || '—'), x.email ? UI.Mono(x.email, { fontSize: 11, color: 'var(--text-mute)' }) : UI.Mono(x.phone || '', { fontSize: 11, color: 'var(--text-mute)' })) },
-        { label: 'Owner', render: x => e('span', { style: { color: 'var(--text-dim)' } }, x.assigned || '—') },
-        { label: 'Source', render: x => UI.Pill(x.source, 'var(--text-dim)', 'var(--bg-2)') },
-        { label: 'Stage', render: x => e('span', { style: { fontWeight: 700, fontSize: 12.5, color: stageColors[x.stage] || 'var(--text-mute)' } }, stageLabel[x.stage] || x.stage) },
-        { label: 'Next', render: x => e('div', { onClick: ev => ev.stopPropagation(), style: { position: 'relative' } },
-            e('input', { type: 'date', value: x.next_date || '', onChange: ev => { ev.stopPropagation(); this.updateProspectDetail(x.id, { next_date: ev.target.value }); },
-              style: { position: 'absolute', opacity: 0, inset: 0, width: '100%', cursor: 'pointer' } }),
-            x.next_date ? e('span', { style: { fontSize: 12, color: new Date(x.next_date) < new Date() ? 'var(--down)' : 'var(--accent)', fontFamily: "'JetBrains Mono'", pointerEvents: 'none' } }, x.next_date)
-                        : e('span', { style: { color: 'var(--text-mute)', fontSize: 12, pointerEvents: 'none' } }, 'Set date')) },
-        { label: '', align: 'right', render: x => e('div', { onClick: ev => ev.stopPropagation(), style: { display: 'flex', gap: 6 } },
-            UI.Btn('Follow-up', () => this.openModal('prospectFollowup', { prospect: x }), 'soft', { padding: '4px 10px', fontSize: 11.5 }),
-            UI.Btn('Contract', () => this.openModal('wizard', { step: 0, partyType: 'client', company: x.company, contact: x.contact, email: x.email || '', phone: x.phone || '' }), 'ghost', { padding: '4px 10px', fontSize: 11.5 })) },
-      ], d.prospects.map(x => ({ ...x, _onClick: () => this.openModal('prospectDetail', { prospect: x }) })), { min: 860 })));
+
+    // ── Default pipeline configs ──────────────────────────────────────────────
+    const defaultPipelines = [
+      { id: 'manuele', name: 'Manuele acquisitie', stages: [
+          { id: 'nieuwe_leads', label: 'Nieuwe leads', color: '#38bdf8' },
+          { id: 'lange_termijn', label: 'Lange Termijns Follow Ups', color: '#a78bfa' },
+          { id: 'first_call', label: 'First Call', color: '#fb923c' },
+          { id: 'second_call', label: 'Second Call', color: '#f97316' },
+          { id: 'follow_up_call', label: 'Follow up na Call', color: '#facc15' },
+          { id: 'herplan_call', label: 'Herplan Call', color: '#f472b6' },
+          { id: 'gewonnen', label: 'gewonnen', color: '#4ade80' },
+          { id: 'niet_gekwalificeerd', label: 'niet gekwalificeerd', color: '#fbbf24' },
+          { id: 'niet_gewonnen', label: 'niet gewonnen na call', color: '#f87171' },
+          { id: 'follow_ups_oud', label: 'Follow ups (oude leads)', color: '#94a3b8' },
+        ], statuses: [
+          { id: 'niet_gecontacteerd', label: 'Niet gecontacteerd', color: '#38bdf8' },
+          { id: 'first_call', label: 'First Call', color: '#fb923c' },
+          { id: 'second_call', label: 'Second Call', color: '#f97316' },
+          { id: 'follow_up', label: 'Follow up na call', color: '#facc15' },
+          { id: 'long_term', label: 'Long term follow up', color: '#a78bfa' },
+          { id: 'herplan', label: 'Herplan Call', color: '#f472b6' },
+          { id: 'niet_bereikbaar', label: 'Niet bereikbaar', color: '#94a3b8' },
+          { id: 'dubbel', label: 'Dubbel', color: '#6366f1' },
+          { id: 'gewonnen', label: 'Gewonnen', color: '#4ade80' },
+          { id: 'niet_gewonnen', label: 'Niet gewonnen', color: '#f87171' },
+          { id: 'niet_gekwalificeerd', label: 'Niet gekwalificeerd', color: '#fbbf24' },
+        ],
+      },
+      { id: 'meta_ads', name: 'Meta Ads b2b acquisition', stages: [
+          { id: 'new_lead', label: 'New lead', color: '#38bdf8' },
+          { id: 'first_call', label: 'First Call', color: '#fb923c' },
+          { id: 'second_call', label: 'Second Call', color: '#f97316' },
+          { id: 'follow_up', label: 'Follow up', color: '#facc15' },
+          { id: 'meeting', label: 'Meeting booked', color: '#a78bfa' },
+          { id: 'gewonnen', label: 'Gewonnen', color: '#4ade80' },
+          { id: 'niet_gewonnen', label: 'Niet gewonnen', color: '#f87171' },
+        ], statuses: [
+          { id: 'new', label: 'Nieuw', color: '#38bdf8' },
+          { id: 'contacted', label: 'Gecontacteerd', color: '#fb923c' },
+          { id: 'interested', label: 'Geinteresseerd', color: '#4ade80' },
+          { id: 'not_interested', label: 'Niet geinteresseerd', color: '#f87171' },
+        ],
+      },
+    ];
+
+    // ── Pipeline state ────────────────────────────────────────────────────────
+    const savePipelines = (next) => {
+      this.setState({ _prospectPipelines: next });
+      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.prospect_pipelines = JSON.stringify(next); });
+      API.saveSetting('prospect_pipelines', JSON.stringify(next));
+    };
+    const pipelines = s._prospectPipelines || (() => {
+      const raw = (d.settings || {}).prospect_pipelines;
+      if (raw) { try { return JSON.parse(raw); } catch(_) {} }
+      return defaultPipelines;
+    })();
+
+    const activePipelineId = s._activePipeline || pipelines[0]?.id || 'manuele';
+    const pipeline = pipelines.find(p => p.id === activePipelineId) || pipelines[0] || defaultPipelines[0];
+    const stages = pipeline?.stages || [];
+    const statuses = pipeline?.statuses || [];
+
+    const saveStages = (next) => savePipelines(pipelines.map(p => p.id === pipeline.id ? { ...p, stages: next } : p));
+    const saveStatuses = (next) => savePipelines(pipelines.map(p => p.id === pipeline.id ? { ...p, statuses: next } : p));
+
+    // ── Prospects for this pipeline ───────────────────────────────────────────
+    const pipelineProspects = (d.prospects || []).filter(p =>
+      activePipelineId === 'manuele'
+        ? (!p.pipeline_id || p.pipeline_id === 'manuele')
+        : p.pipeline_id === activePipelineId
+    );
+
+    // ── Drag-drop rows ────────────────────────────────────────────────────────
+    const dragOver = s._prospectDragOver || null;
+    const onDragStart = id => { this._prospectDragId = id; this._prospectStageDragIdx = null; };
+    const onDragOver = (ev, stageId) => { ev.preventDefault(); if (dragOver !== stageId) this.setState({ _prospectDragOver: stageId }); };
+    const onDrop = (ev, stageId) => {
+      ev.preventDefault();
+      const id = this._prospectDragId;
+      this._prospectDragId = null;
+      this.setState({ _prospectDragOver: null });
+      if (!id) return;
+      this.moveProspect(id, stageId);
+    };
+    const onDragEnd = () => { this._prospectDragId = null; this.setState({ _prospectDragOver: null }); };
+
+    // ── Drag-drop stages ──────────────────────────────────────────────────────
+    const stageDragOverIdx = s._prospectStageDragOverIdx != null ? s._prospectStageDragOverIdx : null;
+    const onStageDragStart = (ev, idx) => { ev.stopPropagation(); this._prospectStageDragIdx = idx; this._prospectDragId = null; ev.dataTransfer.effectAllowed = 'move'; };
+    const onStageDragOver = (ev, idx) => { ev.preventDefault(); ev.stopPropagation(); if (stageDragOverIdx !== idx) this.setState({ _prospectStageDragOverIdx: idx }); };
+    const onStageDrop = (ev, idx) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const from = this._prospectStageDragIdx;
+      this._prospectStageDragIdx = null;
+      this.setState({ _prospectStageDragOverIdx: null });
+      if (from == null || from === idx) return;
+      const next = [...stages];
+      const [moved] = next.splice(from, 1);
+      next.splice(idx, 0, moved);
+      saveStages(next);
+    };
+    const onStageDragEnd = () => { this._prospectStageDragIdx = null; this.setState({ _prospectStageDragOverIdx: null }); };
+
+    const addStage = () => saveStages([...stages, { id: 'stage_' + Date.now(), label: 'New stage', color: '#6366f1' }]);
+    const removeStage = id => saveStages(stages.filter(sg => sg.id !== id));
+    const renameStage = (id, lbl) => saveStages(stages.map(sg => sg.id === id ? { ...sg, label: lbl } : sg));
+    const recolorStage = (id, color) => saveStages(stages.map(sg => sg.id === id ? { ...sg, color } : sg));
+
+    const collapsed = s._prospectCollapsed || {};
+    const toggleCollapse = id => this.setState(st => { const c = { ...(st._prospectCollapsed || {}) }; c[id] = !c[id]; return { _prospectCollapsed: c }; });
+
+    // ── Columns ───────────────────────────────────────────────────────────────
+    const baseCols = [
+      { label: 'Bedrijf', key: 'company', w: 155, bold: true },
+      { label: 'Status', key: 'status', w: 155, statusCol: true },
+      { label: 'Laatste contact', key: 'last_followup', w: 100, date: true },
+      { label: 'Opmerking beller', key: 'caller_note', w: 185 },
+      { label: 'E-mail', key: 'email', w: 175, mono: true },
+      { label: 'Telefoon', key: 'phone', w: 115, mono: true },
+      { label: 'Datum', key: 'created_at', w: 88, date: true },
+      { label: 'Bron', key: 'source', w: 95, pill: true },
+      { label: 'Omzet', key: 'revenue', w: 80 },
+      { label: 'Sales pers.', key: 'assigned', w: 105 },
+      { label: 'Bellen op', key: 'call_on', w: 100, datePick: true },
+      { label: 'Opmerkingen', key: 'notes', w: 200 },
+    ];
+    const metaCols = activePipelineId === 'meta_ads' ? [
+      { label: 'AD Name', key: 'ad_name', w: 140 },
+      { label: 'Lead ID', key: 'lead_id', w: 120, mono: true },
+    ] : [];
+    const cols = [...baseCols, ...metaCols];
+
+    const totalW = 28 + cols.reduce((acc, c) => acc + c.w, 0);
+    const cellSt = c => ({ width: c.w + 'px', minWidth: c.w + 'px', maxWidth: c.w + 'px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11.5, padding: '0 8px', boxSizing: 'border-box', flexShrink: 0 });
+
+    // ── Status helpers ────────────────────────────────────────────────────────
+    const setStatus = (pid, statusId) => {
+      this.mutLocal(dd => { const p = dd.prospects.find(x => x.id === pid); if (p) p.status = statusId; });
+      API.updateProspect(pid, { status: statusId });
+    };
+
+    // ── Header row ────────────────────────────────────────────────────────────
+    const headerRow = e('div', {
+      style: { display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--border)', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 2, minWidth: totalW + 'px' },
+    },
+      e('div', { style: { width: 28, flexShrink: 0 } }),
+      cols.map(col => e('div', { key: col.key, style: { ...cellSt(col), fontSize: 10, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', padding: '5px 8px' } }, col.label)));
+
+    // ── Prospect row ──────────────────────────────────────────────────────────
+    const prospectRow = (it, stageColor) => {
+      const curStatus = statuses.find(st => st.id === it.status);
+      return e('div', {
+        key: it.id,
+        draggable: true,
+        onDragStart: () => onDragStart(it.id),
+        onDragEnd,
+        onClick: () => this.openModal('prospectDetail', { prospect: it }),
+        style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'grab', minHeight: 28, transition: 'background .1s', minWidth: totalW + 'px' },
+        onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; },
+        onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; },
+      },
+        e('div', { style: { width: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+          e('span', { style: { width: 3, height: 14, borderRadius: 2, background: stageColor, display: 'inline-block', opacity: 0.7 } })),
+        cols.map(col => {
+          if (col.statusCol) {
+            const bg = curStatus ? curStatus.color + '28' : 'var(--bg-2)';
+            const fg = curStatus ? curStatus.color : 'var(--text-mute)';
+            const border = curStatus ? curStatus.color + '55' : 'var(--border-soft)';
+            return e('div', { key: col.key, style: { ...cellSt(col), display: 'flex', alignItems: 'center' }, onClick: ev => ev.stopPropagation() },
+              e('select', {
+                value: it.status || '',
+                onChange: ev => { ev.stopPropagation(); setStatus(it.id, ev.target.value); },
+                style: { fontSize: 10.5, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: bg, color: fg, border: '1px solid ' + border, cursor: 'pointer', width: '100%', outline: 'none', appearance: 'none', WebkitAppearance: 'none' },
+              },
+                e('option', { value: '' }, '—'),
+                statuses.map(st => e('option', { key: st.id, value: st.id }, st.label))
+              )
+            );
+          }
+          if (col.datePick) {
+            const val = it[col.key] || '';
+            const isOverdue = val && new Date(val) < new Date();
+            return e('div', { key: col.key, style: { ...cellSt(col), position: 'relative' }, onClick: ev => ev.stopPropagation() },
+              e('input', {
+                type: 'date', value: val,
+                onChange: ev => { ev.stopPropagation(); const v = ev.target.value; this.mutLocal(dd => { const p = dd.prospects.find(x => x.id === it.id); if (p) p[col.key] = v; }); API.updateProspect(it.id, { [col.key]: v }); },
+                style: { position: 'absolute', opacity: 0, inset: 0, width: '100%', cursor: 'pointer', zIndex: 1 },
+              }),
+              val
+                ? e('span', { style: { fontSize: 11.5, color: isOverdue ? 'var(--down)' : 'var(--accent)', fontFamily: "'JetBrains Mono'", pointerEvents: 'none' } }, val)
+                : e('span', { style: { color: 'var(--border-soft)', fontSize: 11, pointerEvents: 'none' } }, 'Set date')
+            );
+          }
+          let val = it[col.key];
+          if (col.date && val) val = val.slice(0, 10);
+          val = val || '';
+          if (col.pill && val) {
+            return e('div', { key: col.key, style: { ...cellSt(col), display: 'flex', alignItems: 'center' } },
+              e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px' } }, val));
+          }
+          const st = { ...cellSt(col), color: col.bold ? 'var(--text)' : 'var(--text-dim)', fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined };
+          return e('div', { key: col.key, style: st }, val || e('span', { style: { color: 'var(--border-soft)' } }, '—'));
+        })
+      );
+    };
+
+    // ── Status manager panel ──────────────────────────────────────────────────
+    const showStatusMgr = s._prospectStatusMgr === activePipelineId;
+    const statusMgr = showStatusMgr ? e('div', {
+      style: { padding: '12px 16px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 },
+    },
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 } },
+        e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, 'Statuses'),
+        e('button', { onClick: () => this.setState({ _prospectStatusMgr: null }), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 16, lineHeight: 1 } }, '×')),
+      statuses.map((st, i) => e('div', { key: st.id, style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        e('label', { style: { width: 14, height: 14, borderRadius: 3, background: st.color, display: 'inline-block', cursor: 'pointer', position: 'relative', overflow: 'hidden', flexShrink: 0 } },
+          e('input', { type: 'color', value: st.color.startsWith('#') ? st.color : '#6366f1', onChange: ev => saveStatuses(statuses.map((s2, j) => j === i ? { ...s2, color: ev.target.value } : s2)), style: { position: 'absolute', opacity: 0, inset: 0, cursor: 'pointer', padding: 0, border: 'none' } })),
+        e('input', { value: st.label, onChange: ev => saveStatuses(statuses.map((s2, j) => j === i ? { ...s2, label: ev.target.value } : s2)), style: { fontSize: 12, fontWeight: 500, color: 'var(--text)', background: 'transparent', border: 'none', outline: 'none', flex: 1, padding: 0 } }),
+        e('button', { onClick: () => saveStatuses(statuses.filter((_, j) => j !== i)), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, opacity: 0.5 } }, '×')
+      )),
+      e('button', { onClick: () => saveStatuses([...statuses, { id: 'status_' + Date.now(), label: 'New status', color: '#6366f1' }]), style: { fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', textAlign: 'left' } }, '+ Add status')
+    ) : null;
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+      // Top bar
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+        e('div', null, UI.Hd('Prospect CRM'), UI.Sub('B2B acquisition pipeline — drag rows between stages', { marginTop: 3 })),
+        e('div', { style: { display: 'flex', gap: 8 } },
+          UI.Btn('Statuses', () => this.setState({ _prospectStatusMgr: showStatusMgr ? null : activePipelineId }), 'ghost'),
+          UI.Btn('+ Add prospect', () => this.openModal('prospectAdd', { pipelineId: activePipelineId, defaultStage: stages[0]?.id || 'nieuwe_leads' }), 'primary'))),
+
+      // Pipeline tabs
+      e('div', { style: { display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', overflowX: 'auto', marginBottom: 10 } },
+        pipelines.map(p => e('button', { key: p.id, onClick: () => this.setState({ _activePipeline: p.id }),
+          style: { background: 'none', border: 'none', borderBottom: activePipelineId === p.id ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -2, padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontWeight: activePipelineId === p.id ? 700 : 400, color: activePipelineId === p.id ? 'var(--text)' : 'var(--text-mute)', whiteSpace: 'nowrap' },
+        }, p.name)),
+        e('button', {
+          onClick: () => {
+            const name = prompt('Pipeline name:');
+            if (!name) return;
+            const id = 'pl_' + Date.now();
+            savePipelines([...pipelines, { id, name, stages: [{ id: 'new_lead', label: 'New lead', color: '#38bdf8' }], statuses: [] }]);
+            this.setState({ _activePipeline: id });
+          },
+          style: { background: 'none', border: 'none', borderBottom: '2px solid transparent', marginBottom: -2, padding: '7px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--text-mute)' },
+        }, '+ New pipeline')),
+
+      // Status manager
+      statusMgr,
+
+      // Board
+      e('div', { style: { border: '1px solid var(--border)', borderRadius: 8, overflowX: 'auto' } },
+        headerRow,
+        stages.map((sg, si) => {
+          const items = pipelineProspects.filter(p => p.stage === sg.id);
+          const isOver = dragOver === sg.id;
+          const isStageOver = stageDragOverIdx === si;
+          const isCollapsed = collapsed[sg.id];
+          return e('div', {
+            key: sg.id,
+            onDragOver: ev => { onDragOver(ev, sg.id); onStageDragOver(ev, si); },
+            onDrop: ev => { onDrop(ev, sg.id); onStageDrop(ev, si); },
+            style: { borderTop: si > 0 ? `2px solid ${isStageOver ? sg.color : 'var(--border)'}` : 'none', background: isOver ? 'oklch(0.18 0.04 256 / .4)' : 'transparent', transition: 'background .15s, border-color .15s' },
+          },
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px 4px 4px', background: 'var(--surface)', cursor: 'pointer', userSelect: 'none', minWidth: totalW + 'px' }, onClick: () => toggleCollapse(sg.id) },
+              e('span', { draggable: true, onDragStart: ev => onStageDragStart(ev, si), onDragEnd: onStageDragEnd, onClick: ev => ev.stopPropagation(), style: { fontSize: 12, color: 'var(--text-mute)', width: 16, textAlign: 'center', cursor: 'grab', opacity: 0.5, flexShrink: 0 }, title: 'Drag to reorder' }, '⠿'),
+              e('span', { style: { fontSize: 10, color: 'var(--text-mute)', width: 16, textAlign: 'center', transition: 'transform .15s', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'none' } }, '▾'),
+              e('label', { style: { width: 12, height: 12, borderRadius: '50%', background: sg.color, display: 'inline-block', flexShrink: 0, cursor: 'pointer', position: 'relative', overflow: 'hidden' }, onClick: ev => ev.stopPropagation() },
+                e('input', { type: 'color', value: sg.color.startsWith('#') ? sg.color : '#6366f1', onChange: ev => { ev.stopPropagation(); recolorStage(sg.id, ev.target.value); }, onClick: ev => ev.stopPropagation(), style: { position: 'absolute', opacity: 0, width: '100%', height: '100%', top: 0, left: 0, cursor: 'pointer', padding: 0, border: 'none' } })),
+              e('input', { value: sg.label, onChange: ev => { ev.stopPropagation(); renameStage(sg.id, ev.target.value); }, onClick: ev => ev.stopPropagation(), style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text)', background: 'transparent', border: 'none', outline: 'none', cursor: 'text', padding: 0, width: Math.max(60, sg.label.length * 7) + 'px' } }),
+              e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, items.length),
+              e('button', { onClick: ev => { ev.stopPropagation(); removeStage(sg.id); }, style: { marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: '0 4px', opacity: 0.4 }, title: 'Remove stage' }, '×')),
+            isCollapsed ? null : e('div', null,
+              items.map(it => prospectRow(it, sg.color)),
+              items.length === 0 ? e('div', { style: { padding: '6px 32px', fontSize: 11, color: 'var(--border)', fontStyle: 'italic' } }, 'Drop here') : null)
+          );
+        }),
+        e('div', { style: { borderTop: '2px solid var(--border)', padding: '5px 8px' } },
+          e('button', { onClick: addStage, style: { fontSize: 11.5, color: 'var(--text-mute)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4 } }, '+ Add stage'))
+      )
+    );
   },
 
   _admRecruit(d, s) {
@@ -3749,6 +4010,9 @@ const ScreenAdmin = {
       if (!newTpl.client_id || !newTpl.template_name || !newTpl.template_language) {
         this.toast('Error', 'Fill in all required fields', 'var(--down)'); return;
       }
+      if (newTpl.template_name.trim() !== 'hello_world' && !newTpl.callback_phone?.trim()) {
+        this.toast('Error', 'Terugbel nummer is verplicht', 'var(--down)'); return;
+      }
       const r = await fetch('/api/db-write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (SB.getSession()?.access_token || '') },
@@ -3851,6 +4115,9 @@ const ScreenAdmin = {
                 const editCallback = s['_waEditCallback_' + t.id] ?? (t.callback_phone || '');
 
                 const save = async () => {
+                  if (editName !== 'hello_world' && !editCallback?.trim()) {
+                    this.toast('Error', 'Terugbel nummer is verplicht', 'var(--down)'); return;
+                  }
                   const r = await fetch('/api/db-write', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (SB.getSession()?.access_token || '') },

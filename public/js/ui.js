@@ -119,6 +119,33 @@ const UI = {
       style: { padding: '10px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14, outline: 'none', width: '100%', cursor: 'pointer' }
     }, opts.map(o => React.createElement('option', { key: o.v, value: o.v, disabled: !!o.disabled }, o.l)));
   },
+  TimePicker(value, onChange) {
+    const e = React.createElement;
+    const times = [];
+    for (let h = 7; h <= 21; h++) {
+      times.push((h < 10 ? '0' : '') + h + ':00');
+      if (h < 21) times.push((h < 10 ? '0' : '') + h + ':30');
+    }
+    const isManual = value && !times.includes(value);
+    const selectVal = isManual ? '__manual' : (value || '');
+    const inputStyle = { padding: '10px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 14, outline: 'none', width: '100%' };
+    return e('div', { style: { display: 'flex', gap: 6 } },
+      e('select', {
+        value: selectVal,
+        onChange: ev => { if (ev.target.value !== '__manual') onChange(ev.target.value); else onChange(value && !times.includes(value) ? value : ''); },
+        style: { ...inputStyle, cursor: 'pointer', flex: isManual ? '0 0 auto' : '1' },
+      },
+        e('option', { value: '' }, '— Tijd —'),
+        times.map(t => e('option', { key: t, value: t }, t)),
+        e('option', { value: '__manual' }, 'Zelf invullen…')
+      ),
+      isManual ? e('input', {
+        type: 'text', value: value || '', placeholder: '09:30',
+        onChange: ev => onChange(ev.target.value),
+        style: { ...inputStyle, width: 80, flex: '0 0 80px' },
+      }) : null
+    );
+  },
   Area(value, onChange, ph) {
     return React.createElement('textarea', {
       value: value || '', placeholder: ph || '', onChange: e => onChange(e.target.value), rows: 3,

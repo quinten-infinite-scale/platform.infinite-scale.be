@@ -35,6 +35,22 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-file-path');
   res.setHeader('Vary', 'Origin');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // GET: read a table using service key (bypasses RLS) — ?table=xxx&query=yyy
+  if (req.method === 'GET') {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const user = await verifyToken(token);
+    if (!user || !user.id) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    const { table: tbl, query: q } = req.query || {};
+    if (!tbl || !ALLOWED_TABLES.has(tbl)) return res.status(400).json({ ok: false, error: 'table not allowed' });
+    const r = await fetch(`${SB_URL}/rest/v1/${tbl}${q || ''}`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+    });
+    const data = await r.json().catch(() => []);
+    return res.status(r.status).json(data);
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'POST only' });
 
   // Verify caller is a logged-in platform user
