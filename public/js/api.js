@@ -410,6 +410,10 @@ const API = {
     return Array.isArray(result) ? result[0] : result;
   },
 
+  async deleteProspect(id) {
+    return SB.del('prospects', '?id=eq.' + id);
+  },
+
   async advanceRecruit(id, stage) {
     const defaultStages = ['new', 'qualified', 'interview', 'hired', 'not_qualified'];
     if (defaultStages.includes(stage)) {

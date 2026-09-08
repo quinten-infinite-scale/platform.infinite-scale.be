@@ -74,6 +74,7 @@ const ScreenAdmin = {
     if (r === 'activity') return this._admActivity(d, s);
     if (r === 'todos') return this._admTodos(d, s);
     if (r === 'whatsapp') return this._admWhatsApp(d, s);
+    if (r === 'roadmap') return ScreenRoadmap.render.call(this, d, s);
     if (r === 'settings') { const session = typeof SB !== 'undefined' ? SB.getSession() : null; return this._settings(d, s, { name: (session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Admin'), email: session?.user?.email || 'quinten@infinite-scale.be' }); }
     return e('div', null, '');
   },
@@ -2292,18 +2293,18 @@ const ScreenAdmin = {
 
     // ── Columns ───────────────────────────────────────────────────────────────
     const baseCols = [
-      { label: 'Bedrijf', key: 'company', w: 155, bold: true },
+      { label: 'Bedrijf', key: 'company', w: 155, bold: true, editable: true },
       { label: 'Status', key: 'status', w: 155, statusCol: true },
       { label: 'Laatste contact', key: 'last_followup', w: 100, date: true },
-      { label: 'Opmerking beller', key: 'caller_note', w: 185 },
-      { label: 'E-mail', key: 'email', w: 175, mono: true },
-      { label: 'Telefoon', key: 'phone', w: 115, mono: true },
+      { label: 'Opmerking beller', key: 'caller_note', w: 185, editable: true },
+      { label: 'E-mail', key: 'email', w: 175, mono: true, editable: true },
+      { label: 'Telefoon', key: 'phone', w: 115, mono: true, editable: true },
       { label: 'Datum', key: 'created_at', w: 88, date: true },
-      { label: 'Bron', key: 'source', w: 95, pill: true },
-      { label: 'Omzet', key: 'revenue', w: 80 },
-      { label: 'Sales pers.', key: 'assigned', w: 105 },
+      { label: 'Bron', key: 'source', w: 95, pill: true, editable: true, editSelect: ['LinkedIn', 'Cold email', 'Referral', 'Meta forms', 'Website', 'Cold call'] },
+      { label: 'Omzet', key: 'revenue', w: 80, editable: true },
+      { label: 'Sales pers.', key: 'assigned', w: 105, editable: true },
       { label: 'Bellen op', key: 'call_on', w: 100, datePick: true },
-      { label: 'Opmerkingen', key: 'notes', w: 200 },
+      { label: 'Opmerkingen', key: 'notes', w: 200, editable: true },
     ];
     const metaCols = activePipelineId === 'meta_ads' ? [
       { label: 'AD Name', key: 'ad_name', w: 140 },
@@ -2328,6 +2329,17 @@ const ScreenAdmin = {
       cols.map(col => e('div', { key: col.key, style: { ...cellSt(col), fontSize: 10, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', padding: '5px 8px' } }, col.label)));
 
     // ── Prospect row ──────────────────────────────────────────────────────────
+    const editCell = s._prospectEditCell || {};
+    const saveCell = (id, key, val) => {
+      this.mutLocal(dd => { const p = dd.prospects.find(x => x.id === id); if (p) p[key] = val; });
+      API.updateProspect(id, { [key]: val });
+      this.setState({ _prospectEditCell: null });
+    };
+    const deleteProspect = (id) => {
+      if (!confirm('Prospect verwijderen?')) return;
+      this.mutLocal(dd => { dd.prospects = dd.prospects.filter(p => p.id !== id); });
+      API.deleteProspect(id);
+    };
     const prospectRow = (it, stageColor) => {
       const curStatus = statuses.find(st => st.id === it.status);
       return e('div', {
@@ -2335,13 +2347,15 @@ const ScreenAdmin = {
         draggable: true,
         onDragStart: () => onDragStart(it.id),
         onDragEnd,
-        onClick: () => this.openModal('prospectDetail', { prospect: it }),
-        style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'grab', minHeight: 28, transition: 'background .1s', minWidth: totalW + 'px' },
-        onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; },
-        onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; },
+        style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'grab', minHeight: 28, transition: 'background .1s', minWidth: totalW + 'px', position: 'relative' },
+        onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; const btn = ev.currentTarget.querySelector('.__del-btn'); if (btn) btn.style.opacity = '1'; },
+        onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; const btn = ev.currentTarget.querySelector('.__del-btn'); if (btn) btn.style.opacity = '0'; },
       },
-        e('div', { style: { width: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-          e('span', { style: { width: 3, height: 14, borderRadius: 2, background: stageColor, display: 'inline-block', opacity: 0.7 } })),
+        e('div', { style: { width: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' } },
+          e('span', { style: { width: 3, height: 14, borderRadius: 2, background: stageColor, display: 'inline-block', opacity: 0.7 } }),
+          e('button', { className: '__del-btn', onClick: ev => { ev.stopPropagation(); deleteProspect(it.id); },
+            style: { position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--down, #ef4444)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px', opacity: 0, transition: 'opacity .1s' },
+            title: 'Verwijder prospect' }, '×')),
         cols.map(col => {
           if (col.statusCol) {
             const bg = curStatus ? curStatus.color + '28' : 'var(--bg-2)';
@@ -2375,11 +2389,51 @@ const ScreenAdmin = {
           let val = it[col.key];
           if (col.date && val) val = val.slice(0, 10);
           val = val || '';
+
+          // Inline editable cell
+          if (col.editable) {
+            const isActive = editCell.id === it.id && editCell.key === col.key;
+            if (isActive) {
+              if (col.editSelect) {
+                return e('div', { key: col.key, style: { ...cellSt(col), padding: 0, display: 'flex', alignItems: 'center' }, onClick: ev => ev.stopPropagation() },
+                  e('select', { autoFocus: true, value: val, onBlur: ev => saveCell(it.id, col.key, ev.target.value), onChange: ev => saveCell(it.id, col.key, ev.target.value),
+                    style: { width: '100%', height: '100%', border: 'none', outline: '2px solid var(--accent)', borderRadius: 3, padding: '0 6px', background: 'var(--bg-2)', fontSize: 11.5, cursor: 'pointer' } },
+                    col.editSelect.map(o => e('option', { key: o, value: o }, o))
+                  )
+                );
+              }
+              return e('div', { key: col.key, style: { ...cellSt(col), padding: 0 }, onClick: ev => ev.stopPropagation() },
+                e('input', { autoFocus: true, defaultValue: val,
+                  onBlur: ev => saveCell(it.id, col.key, ev.target.value),
+                  onKeyDown: ev => { if (ev.key === 'Enter') ev.target.blur(); if (ev.key === 'Escape') { this.setState({ _prospectEditCell: null }); } },
+                  style: { width: '100%', height: '100%', border: 'none', outline: '2px solid var(--accent)', borderRadius: 3, padding: '0 7px', background: 'var(--bg-2)', fontSize: 11.5, fontFamily: col.mono ? "'JetBrains Mono', monospace" : 'inherit', boxSizing: 'border-box' }
+                })
+              );
+            }
+            const cellColor = col.bold ? 'var(--text)' : 'var(--text-dim)';
+            return e('div', { key: col.key,
+              onClick: ev => { ev.stopPropagation(); this.setState({ _prospectEditCell: { id: it.id, key: col.key } }); },
+              style: { ...cellSt(col), color: cellColor, fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined, cursor: 'text', display: 'flex', alignItems: 'center', gap: 4 },
+              title: 'Click to edit' },
+              e('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                val
+                  ? (col.pill ? e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px' } }, val) : val)
+                  : e('span', { style: { color: 'var(--border-soft)' } }, '—')
+              ),
+              col.bold ? e('span', { title: 'Open detail', onClick: ev => { ev.stopPropagation(); this.openModal('prospectDetail', { prospect: it }); },
+                style: { fontSize: 10, color: 'var(--text-mute)', opacity: 0, flexShrink: 0, cursor: 'pointer', lineHeight: 1, padding: '1px 2px', borderRadius: 2 },
+                onMouseEnter: ev => { ev.currentTarget.style.opacity = '1'; ev.currentTarget.parentElement.style.background = ''; },
+                onMouseLeave: ev => { ev.currentTarget.style.opacity = '0'; },
+              }, '↗') : null
+            );
+          }
+
+
           if (col.pill && val) {
             return e('div', { key: col.key, style: { ...cellSt(col), display: 'flex', alignItems: 'center' } },
               e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px' } }, val));
           }
-          const st = { ...cellSt(col), color: col.bold ? 'var(--text)' : 'var(--text-dim)', fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined };
+          const st = { ...cellSt(col), color: 'var(--text-dim)', fontWeight: 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined };
           return e('div', { key: col.key, style: st }, val || e('span', { style: { color: 'var(--border-soft)' } }, '—'));
         })
       );
@@ -2454,7 +2508,37 @@ const ScreenAdmin = {
               e('button', { onClick: ev => { ev.stopPropagation(); removeStage(sg.id); }, style: { marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: '0 4px', opacity: 0.4 }, title: 'Remove stage' }, '×')),
             isCollapsed ? null : e('div', null,
               items.map(it => prospectRow(it, sg.color)),
-              items.length === 0 ? e('div', { style: { padding: '6px 32px', fontSize: 11, color: 'var(--border)', fontStyle: 'italic' } }, 'Drop here') : null)
+              items.length === 0 ? e('div', { style: { padding: '6px 32px', fontSize: 11, color: 'var(--border)', fontStyle: 'italic' } }, 'Drop here') : null,
+              (() => {
+                const qa = s._prospectQuickAdd;
+                if (qa && qa.stageId === sg.id) {
+                  return e('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 4px 28px', minWidth: totalW + 'px' } },
+                    e('input', { autoFocus: true, placeholder: 'Naam bedrijf…', value: qa.name || '',
+                      onChange: ev => this.setState({ _prospectQuickAdd: { stageId: sg.id, name: ev.target.value } }),
+                      onKeyDown: ev => {
+                        if (ev.key === 'Enter' && (qa.name || '').trim()) {
+                          const name = qa.name.trim();
+                          const tempId = 'p' + Date.now();
+                          const optimistic = { id: tempId, company: name, stage: sg.id, pipeline_id: activePipelineId, created_at: new Date().toISOString() };
+                          this.setState({ _prospectQuickAdd: null });
+                          this.mutLocal(dd => { dd.prospects = [optimistic, ...(dd.prospects || [])]; });
+                          API.addProspect({ company: name, stage: sg.id, pipeline_id: activePipelineId }).then(np => {
+                            if (np) this.mutLocal(dd => { const i = dd.prospects.findIndex(p => p.id === tempId); if (i >= 0) dd.prospects[i] = np; });
+                          });
+                        }
+                        if (ev.key === 'Escape') this.setState({ _prospectQuickAdd: null });
+                      },
+                      onBlur: () => { if (!(qa.name || '').trim()) this.setState({ _prospectQuickAdd: null }); },
+                      style: { flex: 1, fontSize: 12, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--accent)', outline: 'none', background: 'var(--bg-2)', color: 'var(--text)', maxWidth: 240 }
+                    }),
+                    e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, 'Enter to save · Esc to cancel')
+                  );
+                }
+                return e('div', { style: { padding: '3px 8px 3px 28px', minWidth: totalW + 'px' } },
+                  e('button', { onClick: () => this.setState({ _prospectQuickAdd: { stageId: sg.id, name: '' } }),
+                    style: { fontSize: 11.5, color: 'var(--text-mute)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, opacity: 0.6 } }, '+ Add naam'));
+              })()
+            )
           );
         }),
         e('div', { style: { borderTop: '2px solid var(--border)', padding: '5px 8px' } },
