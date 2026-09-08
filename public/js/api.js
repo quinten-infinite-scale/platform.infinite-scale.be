@@ -406,7 +406,8 @@ const API = {
   },
 
   async addProspect(data) {
-    return SB.post('prospects', { id: 'p' + Date.now(), ...data });
+    const result = await SB.post('prospects', { id: 'p' + Date.now(), ...data });
+    return Array.isArray(result) ? result[0] : result;
   },
 
   async advanceRecruit(id, stage) {
