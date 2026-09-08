@@ -1145,6 +1145,7 @@ class Component extends DCLogic {
       const active = s.route === key;
       return { label, icon, badge: (badges[s.role] && badges[s.role][key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') };
     });
+    console.log('[NAV]', s.role, out.nav.map(n=>n.label));
 
     // Notifications
     const myNotifs = d.notifs[s.role] || [];
