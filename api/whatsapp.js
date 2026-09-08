@@ -52,6 +52,80 @@ function verifyMetaSignature(rawBody, signatureHeader) {
   try { return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader)); } catch { return false; }
 }
 
+// ─── Meta Leads handler ───────────────────────────────────────────────────────
+// Route: POST /api/whatsapp?source=meta  (Meta Lead Ads webhook)
+// Route: GET  /api/whatsapp?source=meta  (Meta webhook verification)
+
+function fieldVal(fieldData, ...names) {
+  for (const name of names) {
+    const f = (fieldData || []).find(x => x.field_name === name || x.field_name === name.toLowerCase());
+    if (f?.values?.[0]) return f.values[0];
+  }
+  return '';
+}
+
+async function handleMetaLeads(req, res, rawBody) {
+  // GET: webhook verification
+  if (req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    if (mode === 'subscribe' && token === process.env.META_LEADS_VERIFY_TOKEN) {
+      console.log('[meta-leads] Webhook verified');
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).json({ error: 'Verification failed' });
+  }
+
+  // POST: incoming lead
+  const sig = req.headers['x-hub-signature-256'] || '';
+  if (!verifyMetaSignature(rawBody, sig)) {
+    console.warn('[meta-leads] Signature verification failed');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  let payload;
+  try { payload = JSON.parse(rawBody); } catch { return res.status(400).json({ error: 'Invalid JSON' }); }
+
+  for (const entry of (payload?.entry || [])) {
+    for (const change of (entry?.changes || [])) {
+      if (change?.field !== 'leadgen') continue;
+      const val = change?.value || {};
+      const leadId = val.leadgen_id;
+      const adName = val.ad_name || '';
+      const adId = String(val.ad_id || '');
+      const formId = String(val.form_id || '');
+
+      let fieldData = val.field_data || [];
+      if (!fieldData.length && leadId) {
+        try {
+          const gr = await fetch(`https://graph.facebook.com/v19.0/${leadId}?access_token=${process.env.WHATSAPP_ACCESS_TOKEN}&fields=field_data`);
+          const gd = await gr.json();
+          fieldData = gd?.field_data || [];
+        } catch(err) { console.error('[meta-leads] Graph fetch failed:', err.message); }
+      }
+
+      const company = fieldVal(fieldData, 'company_name', 'bedrijfsnaam', 'company') || '';
+      const contact = fieldVal(fieldData, 'full_name', 'naam', 'name') || (fieldVal(fieldData, 'first_name') + ' ' + fieldVal(fieldData, 'last_name')).trim();
+      const email   = fieldVal(fieldData, 'email', 'work_email');
+      const phone   = fieldVal(fieldData, 'phone_number', 'telefoonnummer', 'phone');
+
+      if (!company && !contact && !email) { console.warn('[meta-leads] No usable data, skipping'); continue; }
+
+      const row = {
+        id: 'p' + Date.now() + Math.floor(Math.random() * 1000),
+        pipeline_id: 'meta_ads', stage: 'new_lead', source: 'Meta forms',
+        company: company || contact || 'Unknown', contact, email, phone,
+        ad_name: adName, lead_id: String(leadId || ''), ad_id: adId, form_id: formId,
+        assigned: '', status: 'new', notes: '', caller_note: '',
+      };
+      await sbInsert('prospects', row);
+      console.log('[meta-leads] Inserted:', row.company);
+    }
+  }
+  return res.status(200).json({ ok: true });
+}
+
 // ─── GET handler ─────────────────────────────────────────────────────────────
 
 async function handleGet(req, res) {
@@ -293,8 +367,46 @@ async function handlePost(req, res, rawBody) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
+// ─── Meta Page Subscription setup (one-time) ─────────────────────────────────
+// GET /api/whatsapp?source=meta-setup&token=is-meta-setup-2026
+// Lists pages accessible by system user token, then subscribes each to leadgen.
+async function handleMetaSetup(req, res) {
+  if (req.query.token !== 'is-meta-setup-2026') return res.status(403).json({ error: 'forbidden' });
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!accessToken) return res.status(500).json({ error: 'no token' });
+
+  // 1. List pages the system user can access
+  const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?access_token=${accessToken}&fields=id,name,access_token`);
+  const pagesData = await pagesRes.json();
+
+  if (!pagesRes.ok || pagesData.error) {
+    // Try business pages endpoint
+    const bizRes = await fetch(`https://graph.facebook.com/v20.0/me?access_token=${accessToken}&fields=id,name`);
+    const bizData = await bizRes.json();
+    return res.status(200).json({ pagesData, me: bizData });
+  }
+
+  const pages = pagesData.data || [];
+  const results = [];
+
+  for (const page of pages) {
+    const pageToken = page.access_token || accessToken;
+    const subRes = await fetch(`https://graph.facebook.com/v20.0/${page.id}/subscribed_apps`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscribed_fields: 'leadgen', access_token: pageToken }),
+    });
+    const subData = await subRes.json();
+    results.push({ pageId: page.id, pageName: page.name, subscribeResult: subData });
+  }
+
+  return res.status(200).json({ pages: pages.map(p => ({ id: p.id, name: p.name })), results });
+}
+
 export default async function handler(req, res) {
   const rawBody = await getRawBody(req);
+  if (req.query.source === 'meta-setup') return handleMetaSetup(req, res);
+  if (req.query.source === 'meta') return handleMetaLeads(req, res, rawBody);
   if (req.method === 'GET') return handleGet(req, res);
   if (req.method === 'POST') return handlePost(req, res, rawBody);
   return res.status(405).end();
