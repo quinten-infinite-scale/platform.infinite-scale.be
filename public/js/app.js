@@ -1305,6 +1305,25 @@ class Component extends DCLogic {
   _agentRooster(...a) { return ScreenAgent._agentRooster.call(this, ...a); }
   _admRooster(...a) { return ScreenAdmin._admRooster.call(this, ...a); }
   _admActivity(...a) { return ScreenAdmin._admActivity.call(this, ...a); }
+  _admTodos(...a) { return ScreenAdmin._admTodos.call(this, ...a); }
+  get _M() { return ScreenRoadmap._M; }
+  _defaultTargets(...a) { return ScreenRoadmap._defaultTargets.call(this, ...a); }
+  _getTargets(...a) { return ScreenRoadmap._getTargets.call(this, ...a); }
+  _card(...a) { return ScreenRoadmap._card.call(this, ...a); }
+  _tip(...a) { return ScreenRoadmap._tip.call(this, ...a); }
+  _statusDot(...a) { return ScreenRoadmap._statusDot.call(this, ...a); }
+  _section(...a) { return ScreenRoadmap._section.call(this, ...a); }
+  _tabCommand(...a) { return ScreenRoadmap._tabCommand.call(this, ...a); }
+  _detectBottleneck(...a) { return ScreenRoadmap._detectBottleneck.call(this, ...a); }
+  _tabAcquisition(...a) { return ScreenRoadmap._tabAcquisition.call(this, ...a); }
+  _tabSales(...a) { return ScreenRoadmap._tabSales.call(this, ...a); }
+  _tabFulfillment(...a) { return ScreenRoadmap._tabFulfillment.call(this, ...a); }
+  _agentBreakdownTable(...a) { return ScreenRoadmap._agentBreakdownTable.call(this, ...a); }
+  _tabClients(...a) { return ScreenRoadmap._tabClients.call(this, ...a); }
+  _tabAgents(...a) { return ScreenRoadmap._tabAgents.call(this, ...a); }
+  _tabFinance(...a) { return ScreenRoadmap._tabFinance.call(this, ...a); }
+  _tabRoadmap(...a) { return ScreenRoadmap._tabRoadmap.call(this, ...a); }
+  _tabHealth(...a) { return ScreenRoadmap._tabHealth.call(this, ...a); }
   _weekStart(dateStr) {
     const d = new Date((dateStr || new Date().toISOString().slice(0,10)) + 'T12:00:00');
     const day = d.getDay();
