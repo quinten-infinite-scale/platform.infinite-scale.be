@@ -91,22 +91,31 @@ class Component extends DCLogic {
     }
 
     // No cache or fresh login — full blocking load
+    // On fresh login, try to reuse cached role/agentId to skip sequential RPCs
     await this._doFullLoad(uid, freshLogin);
   }
 
   async _doFullLoad(uid, freshLogin) {
     const _dbg = (msg) => { try { localStorage.setItem('is_dbg', (localStorage.getItem('is_dbg')||'') + '\n' + Date.now() + ' ' + msg); } catch(e) {} };
     _dbg('_doFullLoad start uid=' + uid);
-    const role = await SB.rpc('get_user_role', { uid });
-    _dbg('role=' + role);
+    // Try cached profile first to skip sequential RPCs (safe: stale profile triggers re-login anyway)
+    let role, agentId = null, clientId = null;
+    try {
+      const prof = JSON.parse(localStorage.getItem('is_profile_' + uid) || 'null');
+      if (prof) { role = prof.role; agentId = prof.agentId || null; clientId = prof.clientId || null; }
+    } catch(e) {}
+    if (!role) {
+      role = await SB.rpc('get_user_role', { uid });
+      _dbg('role rpc=' + role);
+    } else { _dbg('role cached=' + role); }
     if (!role) {
       await SB.signOut();
       this.setState({ loading: false, loginError: 'Geen account gevonden. Neem contact op met Infinite Scale.' });
       return;
     }
-    let agentId = null, clientId = null, subClientId = null;
-    if (role === 'agent') agentId = await SB.rpc('get_agent_id', { uid });
-    if (role === 'client' || role === 'agency') clientId = await SB.rpc('get_client_id', { uid });
+    let subClientId = null;
+    if (!agentId && role === 'agent') agentId = await SB.rpc('get_agent_id', { uid });
+    if (!clientId && (role === 'client' || role === 'agency')) clientId = await SB.rpc('get_client_id', { uid });
     if (role === 'subclient') {
       // Find which subclient this user is by scanning client.subclients for user_id match
       const allClients = await SB.get('clients', '?select=id,subclients');
@@ -137,6 +146,7 @@ class Component extends DCLogic {
     this._startPolling();
     // Persist to cache for instant loads next time (exclude heavy/transient fields)
     try {
+      localStorage.setItem('is_profile_' + uid, JSON.stringify({ role, agentId, clientId }));
       const cacheData = { ...data, activityLog: [], presence: [] };
       const serialized = JSON.stringify({ data: cacheData, role, agentId, clientId });
       localStorage.setItem('is_cache_' + uid, serialized);
@@ -210,11 +220,13 @@ class Component extends DCLogic {
 
       if (role !== 'admin') return;
 
+      // Only fetch recent appointments (last 15 min) to detect new ones — not the full table
+      const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       const [rawAppts, rawAgents, rawPresence, rawRecruits] = await Promise.all([
-        SB.get('appointments', '?order=date_logged.desc'),
-        SB.get('agents', '?order=name'),
+        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,invoiced,paid`),
+        SB.get('agents', '?order=name&select=id,name,working,work_since'),
         SB.get('presence', '').catch(() => []),
-        SB.get('recruits', '?order=created_at.desc'),
+        SB.get('recruits', `?created_at=gt.${since}&order=created_at.desc`),
       ]);
 
       // Detect new appointments
@@ -231,14 +243,6 @@ class Component extends DCLogic {
           this.mutLocal(dd => dd.appointments.unshift(appt));
           this._pushAdminNotif(`${agentName} booked ${appt.lead} for ${clientName}`, 'appt', { route: 'apptadmin', modal: 'appointmentDetail', modalForm: { id: appt.id } });
           this.toast('New appointment', `${agentName} · ${appt.lead} · ${clientName}`, 'var(--info)');
-        }
-      }
-
-      // Sync appointment status/amount changes from other sessions
-      for (const rec of (rawAppts || [])) {
-        const cur = d.appointments.find(a => a.id === rec.id);
-        if (cur && (cur.status !== rec.status || cur.amount !== (rec.amount || 0) || cur.invoiced !== (rec.invoiced || false) || cur.paid !== (rec.paid || false))) {
-          this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === rec.id); if (a) { a.status = rec.status; a.amount = rec.amount || 0; a.invoiced = rec.invoiced || false; a.paid = rec.paid || false; } });
         }
       }
 
@@ -277,16 +281,13 @@ class Component extends DCLogic {
         }
       }
 
-      // Sync recruits (new candidates + stage changes from other sessions)
+      // Detect new recruits only (recent window)
       if (rawRecruits) {
-        const recruitsNorm = rawRecruits.map(r => ({ id: r.id, name: r.name, email: r.email || '', phone: r.phone || '', position: r.position || '', country: r.country || '', lang: r.lang || '', source: r.source || '', stage: r.stage || 'new', notes: r.notes || '', created_at: r.created_at }));
-        for (const rec of recruitsNorm) {
-          const cur = d.recruits.find(x => x.id === rec.id);
-          if (!cur) {
+        for (const r of rawRecruits) {
+          if (!d.recruits.find(x => x.id === r.id)) {
+            const rec = { id: r.id, name: r.name, email: r.email || '', phone: r.phone || '', position: r.position || '', country: r.country || '', lang: r.lang || '', source: r.source || '', stage: r.stage || 'new', notes: r.notes || '', created_at: r.created_at };
             this.mutLocal(dd => dd.recruits.unshift(rec));
             this._pushAdminNotif('New recruit application: ' + rec.name, 'recruit', { route: 'recruitment' });
-          } else if (cur.stage !== rec.stage && !(this._pendingRecruitStages && this._pendingRecruitStages[rec.id])) {
-            this.mutLocal(dd => { const r = dd.recruits.find(x => x.id === rec.id); if (r) r.stage = rec.stage; });
           }
         }
       }
@@ -325,7 +326,7 @@ class Component extends DCLogic {
     if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
     if (this._heartbeatTimer) { clearInterval(this._heartbeatTimer); this._heartbeatTimer = null; }
     API.clearPresence(this._getPresenceId());
-    try { const uid = SB.getSession()?.user?.id; if (uid) localStorage.removeItem('is_cache_' + uid); } catch(e) {}
+    try { const uid = SB.getSession()?.user?.id; if (uid) { localStorage.removeItem('is_cache_' + uid); localStorage.removeItem('is_profile_' + uid); } } catch(e) {}
     await SB.signOut();
     this.myAgentId = null;
     this.myClientId = null;
