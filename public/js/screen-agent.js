@@ -138,7 +138,7 @@ const ScreenAgent = {
               color: on ? '#fff' : 'var(--text)' } }, opt);
         }));
     };
-    const TimingSelect = () => UI.Select(f.rnTiming || '', v => this.setForm('rnTiming', v), [{ v: '', l: 'Selecteer timing…' }, { v: 'Zo snel mogelijk', l: 'Zo snel mogelijk' }, { v: '1-3 maanden', l: '1-3 maanden' }, { v: '3-6 maanden', l: '3-6 maanden' }, { v: '6-12 maanden', l: '6-12 maanden' }, { v: '1 jaar of later', l: '1 jaar of later' }]);
+    const TimingSelect = () => UI.Select(f.rnTiming || '', v => this.setForm('rnTiming', v), [{ v: '', l: 'Selecteer timing…' }, { v: 'Zo snel mogelijk', l: 'Zo snel mogelijk' }, { v: '1-3 maanden', l: '1-3 maanden' }, { v: '3-6 maanden', l: '3-6 maanden' }, { v: '6-12 maanden', l: '6-12 maanden' }]);
     const SH = (label) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', paddingTop: 8, borderTop: '1px solid var(--border-soft)', marginTop: 4 } }, label);
     const cat = f.rnCategory;
     const intakeSection = isRenocheck && cat ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },

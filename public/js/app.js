@@ -572,6 +572,7 @@ class Component extends DCLogic {
     if (!f.client || !f.dateAppt) apptError = 'Vul client en datum in.';
     else if (isRenocheck && !f.rnFirst) apptError = 'Voornaam is verplicht.';
     else if (isRenocheck && !f.rnCategory) apptError = 'Selecteer een Renocheck categorie.';
+    else if (isRenocheck && f.rnEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.rnEmail)) apptError = 'Ongeldig e-mailadres.';
     else if (!isRenocheck && !f.lead) apptError = 'Lead naam is verplicht.';
     else if (!String(f.phone || '').trim()) apptError = 'Telefoonnummer is verplicht.';
     if (apptError) { this.setState(s => ({ form: { ...s.form, apptError, apptSubmitting: false } })); this.toast('Fout', apptError, 'var(--down)'); return; }
