@@ -83,15 +83,22 @@ const SB = (() => {
   }
 
   async function _serverWrite(payload) {
+    await _refreshIfNeeded();
     if (!_session?.access_token) return null;
-    const r = await fetch('/api/db-write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _session.access_token },
-      body: JSON.stringify(payload),
-    });
-    const j = await r.json();
-    if (!j.ok) console.error('db-write error:', j.error, payload);
-    return j.ok ? j.data : null;
+    try {
+      const r = await fetch('/api/db-write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _session.access_token },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) { console.error('db-write HTTP error:', r.status, payload); return null; }
+      const j = await r.json();
+      if (!j.ok) console.error('db-write error:', j.error, payload);
+      return j.ok ? j.data : null;
+    } catch (err) {
+      console.error('db-write fetch failed:', err, payload);
+      return null;
+    }
   }
 
   async function post(table, body) {

@@ -562,6 +562,9 @@ class Component extends DCLogic {
 
   async logAppointment() {
     const f = this.state.form;
+    if (f.apptSubmitting) return;
+    this.setState(s => ({ form: { ...s.form, apptSubmitting: true } }));
+    try {
     const isRenocheck = f.client === 'c15';
     const rnFullName = isRenocheck ? ((f.rnFirst || '') + ' ' + (f.rnLast || '')).trim() : f.lead;
     const rnPhone = isRenocheck ? f.phone : f.phone;
@@ -571,7 +574,7 @@ class Component extends DCLogic {
     else if (isRenocheck && !f.rnCategory) apptError = 'Selecteer een Renocheck categorie.';
     else if (!isRenocheck && !f.lead) apptError = 'Lead naam is verplicht.';
     else if (!String(f.phone || '').trim()) apptError = 'Telefoonnummer is verplicht.';
-    if (apptError) { this.setState(s => ({ form: { ...s.form, apptError } })); this.toast('Fout', apptError, 'var(--down)'); return; }
+    if (apptError) { this.setState(s => ({ form: { ...s.form, apptError, apptSubmitting: false } })); this.toast('Fout', apptError, 'var(--down)'); return; }
     this.setState(s => ({ form: { ...s.form, apptError: null } }));
     const c = this.state.data.clients.find(x => x.id === f.client);
     let amount = c ? c.rate : 0;
@@ -659,11 +662,13 @@ class Component extends DCLogic {
         if (!rnRes.ok) {
           const errText = await rnRes.text();
           console.error('Renocheck API error:', errText);
+          this.setState(s => ({ form: { ...s.form, apptSubmitting: false } }));
           this.toast('Renocheck fout', 'Lead kon niet naar Renocheck gestuurd worden: ' + errText.slice(0, 80), 'var(--down)');
           return;
         }
       } catch (err) {
         console.error('Renocheck fetch failed:', err);
+        this.setState(s => ({ form: { ...s.form, apptSubmitting: false } }));
         this.toast('Renocheck fout', 'Kon Renocheck niet bereiken. Probeer opnieuw.', 'var(--down)');
         return;
       }
@@ -674,7 +679,7 @@ class Component extends DCLogic {
     const dateAppt = f.dateAppt + (f.apptTime ? 'T' + f.apptTime : '');
     const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, dateAppt, dateLogged, amount, clientFeedback, agentRate);
     if (!result) {
-      this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.' } }));
+      this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.', apptSubmitting: false } }));
       this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
       return;
     }
@@ -698,6 +703,11 @@ class Component extends DCLogic {
     this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + leadName + ' (€' + amount + ')');
     this.closeModal();
     this.toast('Logged', isRenocheck ? 'Lead verzonden naar Renocheck & afspraak gelogd' : 'Appointment added', 'var(--up)');
+    } catch (err) {
+      console.error('logAppointment error:', err);
+      this.setState(s => ({ form: { ...s.form, apptError: 'Er is een fout opgetreden. Probeer opnieuw.', apptSubmitting: false } }));
+      this.toast('Fout', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
+    }
   }
 
   async submitEOD() {

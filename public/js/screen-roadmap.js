@@ -21,14 +21,20 @@ const ScreenRoadmap = {
     clientRate(a, clients) {
       try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch(_) {}
       const cl = clients.find(c => c.id === a.client);
+      if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0;
       if (a.sub && cl) { const sc = (cl.subclients||[]).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; }
       return (cl && cl.rate) || 0;
     },
 
     /* agent cost per appointment — mirrors existing aRate logic */
-    agentCost(a, agents) {
+    agentCost(a, agents, clients) {
       const ag = agents.find(g => g.id === a.agent);
-      return (ag && ((ag.rates||{})[a.sub] || (ag.rates||{})[a.client])) || 0;
+      if (!ag) return 0;
+      if (clients) {
+        const cl = clients.find(c => c.id === a.client);
+        if (cl && cl.closeFee) return a.quoteApproved ? ((ag.rates||{})[a.sub] || (ag.rates||{})[a.client] || 0) : 0;
+      }
+      return (ag.rates||{})[a.sub] || (ag.rates||{})[a.client] || 0;
     },
 
     /* date helpers */
@@ -138,7 +144,7 @@ const ScreenRoadmap = {
     const { appointments: appts, agents, clients, dials: dialsMap, prospects } = d;
 
     const cRate = a => M.clientRate(a, clients);
-    const aRate = a => M.agentCost(a, agents);
+    const aRate = a => M.agentCost(a, agents, clients);
 
     const apptsMTD      = (appts||[]).filter(a => M.ym(a.dateLog)===ym);
     const billableMTD   = apptsMTD.filter(M.isBillable);

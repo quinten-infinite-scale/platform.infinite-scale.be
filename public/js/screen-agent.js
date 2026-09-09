@@ -18,7 +18,7 @@ const ScreenAgent = {
     const dialsT = agDials[today] || 0, dialsY = agDials[yest] || 1;
     const apT = d.appointments.filter(a => a.agent === me.id && a.dateLog === today);
     const apY = d.appointments.filter(a => a.agent === me.id && a.dateLog === yest);
-    const agentPay = a => a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0));
+    const agentPay = a => { const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? (a.agentRate != null ? a.agentRate : ((me.rates||{})[a.sub]||(me.rates||{})[a.client]||0)) : 0; return a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0)); };
     const moneyT = apT.reduce((x, a) => x + agentPay(a), 0);
     const moneyY = apY.reduce((x, a) => x + agentPay(a), 0) || 1;
     const pct = (a, b) => Math.round(((a - b) / (b || 1)) * 100);
@@ -47,7 +47,7 @@ const ScreenAgent = {
       { label: 'Lead', key: 'lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
-      { label: 'Payout', align: 'right', render: r => { const pay = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])); return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : '—', { color: pay ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700 }), r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
+      { label: 'Payout', align: 'right', render: r => { const cl = d.clients.find(c => c.id === r.client); const isCloseFee = cl && cl.closeFee; const earned = isCloseFee ? r.quoteApproved : r.status === 'show'; const pay = earned ? (r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]))) : null; const pendingLabel = isCloseFee ? 'On close' : 'Pending'; return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : (r.status !== 'cancel' ? pendingLabel : '—'), { color: pay ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700 }), earned && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
     ], recent.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 680 });
 
     const period = d.leaderPeriod || 'daily';
@@ -262,7 +262,7 @@ const ScreenAgent = {
           stdFields,
           rnForm,
           e('div', { style: { display: 'flex', gap: 10, marginTop: 6 } },
-            UI.Btn('Submit & lock', () => this.logAppointment(), 'primary'),
+            UI.Btn(f.apptSubmitting ? 'Saving…' : 'Submit & lock', f.apptSubmitting ? null : () => this.logAppointment(), f.apptSubmitting ? 'soft' : 'primary'),
             UI.Btn('Clear', () => this.setState({ form: {} }), 'soft')),
           f.apptError ? e('div', { style: { marginTop: 10, padding: '10px 14px', borderRadius: 9, background: 'rgba(220,50,50,0.08)', border: '1px solid rgba(220,50,50,0.3)', color: 'var(--down)', fontWeight: 600, fontSize: 13.5 } }, '⚠ ', f.apptError) : null)),
       UI.C({ background: 'var(--bg-2)' },
@@ -287,7 +287,7 @@ const ScreenAgent = {
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
-      { label: 'Payout', align: 'right', render: r => { const pay = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])); return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : '—', { fontWeight: 700, color: pay ? 'var(--up)' : 'var(--text-mute)' }), r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
+      { label: 'Payout', align: 'right', render: r => { const cl = d.clients.find(c => c.id === r.client); const isCloseFee = cl && cl.closeFee; const earned = isCloseFee ? r.quoteApproved : r.status === 'show'; const pay = earned ? (r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]))) : null; const pendingLabel = isCloseFee ? 'On close' : 'Pending'; return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : (r.status !== 'cancel' ? pendingLabel : '—'), { fontWeight: 700, color: pay ? 'var(--up)' : 'var(--text-mute)' }), earned && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
     ];
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
       this._apptToolbar(d, s),
@@ -408,10 +408,10 @@ const ScreenAgent = {
         UI.Bars(payLabels.map((l, i) => ({ label: l, value: payAppts[i] })), 'var(--info)')));
 
     const apptThisMonth = a => a.agent === me.id && (a.dateLog || '').startsWith(currentYM);
-    const agentRate = a => ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0) + (a.dealCommission || 0);
-    const running = d.appointments.filter(a => apptThisMonth(a) && a.status !== 'cancel').reduce((x, a) => x + agentRate(a), 0);
-    const confirmed = d.appointments.filter(a => apptThisMonth(a) && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
-    const allTimeRunning = d.appointments.filter(a => a.agent === me.id && a.status !== 'cancel').reduce((x, a) => x + agentRate(a), 0);
+    const agentRate = a => { const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return (a.quoteApproved ? ((me.rates||{})[a.sub]||(me.rates||{})[a.client]||0) : 0) + (a.dealCommission||0); return ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0) + (a.dealCommission || 0); };
+    const running = d.appointments.filter(a => apptThisMonth(a) && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
+    const confirmed = running;
+    const allTimeRunning = d.appointments.filter(a => a.agent === me.id && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
     const months = [];
     for (let i = 0; i < 12; i++) {
       const m = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
