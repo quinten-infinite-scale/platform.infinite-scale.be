@@ -2304,6 +2304,7 @@ const ScreenAdmin = {
       { label: 'Omzet', key: 'revenue', w: 80, editable: true },
       { label: 'Sales pers.', key: 'assigned', w: 105, editable: true },
       { label: 'Bellen op', key: 'call_on', w: 100, datePick: true },
+      { label: 'Meeting Outcome', key: 'meeting_outcome', w: 130, meetingOutcomeCol: true },
       { label: 'Opmerkingen', key: 'notes', w: 200, editable: true },
     ];
     const metaCols = activePipelineId === 'meta_ads' ? [
@@ -2357,6 +2358,33 @@ const ScreenAdmin = {
             style: { position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--down, #ef4444)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px', opacity: 0, transition: 'opacity .1s' },
             title: 'Verwijder prospect' }, '×')),
         cols.map(col => {
+          if (col.meetingOutcomeCol) {
+            const outcomes = [
+              { id:'held',        label:'Held',        color:'#4ade80' },
+              { id:'no_show',     label:'No-show',     color:'#f87171' },
+              { id:'cancelled',   label:'Cancelled',   color:'#fb923c' },
+              { id:'rescheduled', label:'Rescheduled', color:'#60a5fa' },
+            ];
+            const cur = outcomes.find(o=>o.id===it.meeting_outcome);
+            const bg = cur ? cur.color+'28' : 'transparent';
+            const fg = cur ? cur.color : 'var(--text-mute)';
+            const border = cur ? cur.color+'55' : 'var(--border-soft)';
+            return e('div', { key: col.key, style: { ...cellSt(col), display: 'flex', alignItems: 'center' }, onClick: ev => ev.stopPropagation() },
+              e('select', {
+                value: it.meeting_outcome || '',
+                onChange: ev => {
+                  ev.stopPropagation();
+                  const v = ev.target.value;
+                  this.mutLocal(dd => { const p = dd.prospects.find(x=>x.id===it.id); if(p) p.meeting_outcome=v; });
+                  API.updateProspect(it.id, { meeting_outcome: v });
+                },
+                style: { fontSize: 10.5, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: bg, color: fg, border: '1px solid ' + border, cursor: 'pointer', width: '100%', outline: 'none', appearance: 'none', WebkitAppearance: 'none' },
+              },
+                e('option', { value: '' }, '—'),
+                outcomes.map(o => e('option', { key: o.id, value: o.id }, o.label))
+              )
+            );
+          }
           if (col.statusCol) {
             const bg = curStatus ? curStatus.color + '28' : 'var(--bg-2)';
             const fg = curStatus ? curStatus.color : 'var(--text-mute)';

@@ -286,7 +286,7 @@ const ScreenRoadmap = {
             e('span', { style:{fontSize:36,fontWeight:900,color:'var(--text)',letterSpacing:'-.03em'} }, euro(forecastEOM)),
             e('span', { style:{fontSize:18,color:'var(--text-mute)'} }, '/ ' + euro(T.monthlyRevTarget)),
           ),
-          e('div', { style:{fontSize:12,color:'var(--text-mute)',marginTop:2} }, euro(billableRevMTD) + ' billable MTD · ' + pct(pctOfTarget) + ' of target')
+          e('div', { style:{fontSize:12,color:'var(--text-mute)',marginTop:2} }, euro(billableRevMTD) + ' billable MTD · ' + pct(pctOfTarget) + ' of target · day ' + wdElapsed + ' of ' + wdTotal + ' working days')
         ),
         e('div', { style:{textAlign:'right'} },
           e('div', { style:{fontSize:11,fontWeight:700,color:'var(--text-mute)',letterSpacing:'.05em',marginBottom:4} }, 'STATUS'),
@@ -415,91 +415,126 @@ const ScreenRoadmap = {
     const e = React.createElement;
     const allProspects = (prospects||[]);
 
-    /* stage funnel — using the platform's pipeline stages as a proxy */
-    const stageOrder = ['nieuwe_leads','first_call','follow_up_call','herplan_call','meeting_geboekt','gewonnen','niet_gewonnen'];
-    const stageLabels = {
-      nieuwe_leads: 'New Lead', first_call: 'First Call', follow_up_call: 'Follow-up',
-      herplan_call: 'Reschedule', meeting_geboekt: 'Meeting Booked', gewonnen: 'Closed Won', niet_gewonnen: 'Closed Lost',
-    };
-
-    /* counts per stage across all pipelines except meta_ads */
-    const byStagePipeline = (pid) => {
-      const pp = allProspects.filter(p => pid==='all' ? p.pipeline_id !== 'meta_ads' : p.pipeline_id === pid);
-      const result = {};
-      for (const st of stageOrder) result[st] = pp.filter(p=>p.stage===st).length;
-      return result;
-    };
-    const stageCounts = byStagePipeline('all');
-
-    /* totals */
-    const total = allProspects.filter(p=>p.pipeline_id!=='meta_ads').length;
-    const metaLeads = allProspects.filter(p=>p.pipeline_id==='meta_ads').length;
-    const contacted = stageOrder.slice(1).reduce((s,st)=>s+(stageCounts[st]||0),0);
-    const meetingBooked = stageCounts['meeting_geboekt']||0;
-    const closedWon = stageCounts['gewonnen']||0;
-    const closedLost = stageCounts['niet_gewonnen']||0;
-
-    const prospectToMeeting = total > 0 ? meetingBooked/total*100 : null;
-    const prospectToClose   = total > 0 ? closedWon/(closedWon+closedLost+0.001)*100 : null;
-
-    /* funnel bars */
-    const funnelStages = [
-      { label:'Total Prospects', count:total, color:'var(--accent)' },
-      { label:'Contacted',       count:contacted, color:'var(--info)' },
-      { label:'Meeting Booked',  count:meetingBooked, color:'var(--warn)' },
-      { label:'Closed Won',      count:closedWon, color:'var(--up)' },
+    /* ── Stage funnel (manuele pipeline) ─────────────────────────────────── */
+    /* These stages map to the real IDs used in the "manuele" pipeline */
+    const funnelOrder = [
+      { id:'nieuwe_leads',    label:'New Leads' },
+      { id:'first_call',      label:'First Call' },
+      { id:'second_call',     label:'Second Call' },
+      { id:'follow_up_call',  label:'Follow-up' },
+      { id:'long_term',       label:'Long-term Follow-up' },
+      { id:'herplan_call',    label:'Reschedule' },
+      { id:'meeting',         label:'Meeting Booked' },
+      { id:'gewonnen',        label:'Closed Won' },
+      { id:'niet_gewonnen',   label:'Closed Lost' },
     ];
-    const maxCount = Math.max(1, ...funnelStages.map(f=>f.count));
 
-    const funnel = e('div', { style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'18px 20px',marginBottom:20} },
-      e('div', { style:{fontSize:12,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:14} }, 'IS Sales Funnel (all pipelines excl. Meta)'),
-      funnelStages.map((f,i) => e('div', { key:i, style:{marginBottom:10} },
+    const manuele = allProspects.filter(p => !p.pipeline_id || p.pipeline_id === 'manuele');
+    const metaLeads = allProspects.filter(p => p.pipeline_id === 'meta_ads').length;
+
+    /* count per stage */
+    const byStage = {};
+    for (const {id} of funnelOrder) byStage[id] = manuele.filter(p=>p.stage===id).length;
+
+    const total = manuele.length;
+
+    /* meeting outcomes from meeting_outcome field */
+    const withOutcome = manuele.filter(p=>p.meeting_outcome);
+    const noShows     = manuele.filter(p=>p.meeting_outcome==='no_show').length;
+    const held        = manuele.filter(p=>p.meeting_outcome==='held').length;
+    const cancelled   = manuele.filter(p=>p.meeting_outcome==='cancelled').length;
+    const rescheduled = manuele.filter(p=>p.meeting_outcome==='rescheduled').length;
+    const noShowRate  = withOutcome.length > 0 ? noShows / withOutcome.length * 100 : null;
+
+    const closedWon  = byStage['gewonnen']||0;
+    const closedLost = byStage['niet_gewonnen']||0;
+    const totalDecided = closedWon + closedLost;
+    const closeRate = totalDecided > 0 ? closedWon/totalDecided*100 : null;
+
+    /* ── Funnel with stage-to-stage conversion ───────────────────────────── */
+    const funnelDisplay = [
+      { label:'New Leads',     count:total,                   color:'var(--accent)' },
+      { label:'Contacted',     count:total-(byStage['nieuwe_leads']||0), color:'var(--info)' },
+      { label:'Meeting Booked',count:closedWon+closedLost+(byStage['meeting']||0), color:'var(--warn)' },
+      { label:'Closed Won',    count:closedWon,               color:'var(--up)' },
+    ];
+    const maxCount = Math.max(1, ...funnelDisplay.map(f=>f.count));
+
+    const funnel = e('div', { style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'18px 20px',marginBottom:16} },
+      e('div', { style:{fontSize:12,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:14} }, 'Acquisition Funnel — Manuele Pipeline'),
+      funnelDisplay.map((f,i) => e('div', { key:i, style:{marginBottom:10} },
         e('div', { style:{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4} },
           e('span', { style:{color:'var(--text)',fontWeight:600} }, f.label),
-          e('span', { style:{color:'var(--text-mute)',fontFamily:"'JetBrains Mono'"} }, num(f.count))
+          e('div', { style:{display:'flex',gap:12,alignItems:'center'} },
+            e('span', { style:{color:'var(--text-mute)',fontSize:11} }, total>0?pct(f.count/total*100)+' of total':'—'),
+            e('span', { style:{color:'var(--text)',fontFamily:"'JetBrains Mono'",fontWeight:700} }, num(f.count))
+          )
         ),
         e('div', { style:{height:8,borderRadius:4,background:'var(--bg-2)'} },
           e('div', { style:{height:'100%',borderRadius:4,background:f.color,width:(f.count/maxCount*100)+'%',transition:'width .4s'} })
         ),
-        i < funnelStages.length-1 ? e('div', { style:{fontSize:10.5,color:'var(--text-mute)',marginTop:2} }, '↓ ' + pct(funnelStages[i+1].count/Math.max(1,f.count)*100) + ' conversion') : null
+        i < funnelDisplay.length-1 && funnelDisplay[i+1].count > 0
+          ? e('div', { style:{fontSize:10.5,color:'var(--text-mute)',marginTop:3} }, '↓ ' + pct(funnelDisplay[i+1].count/Math.max(1,f.count)*100,1) + ' conversion to next stage')
+          : null
       ))
     );
 
-    /* stage breakdown table */
-    const stageTable = e('div', { style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'18px 20px',marginBottom:20} },
-      e('div', { style:{fontSize:12,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:12} }, 'Prospects by Stage'),
+    /* ── Stage breakdown with stage-to-stage conversion ─────────────────── */
+    const activeStages = funnelOrder.filter(({id}) => byStage[id] > 0 || id==='gewonnen' || id==='niet_gewonnen');
+    const stageTable = e('div', { style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'18px 20px',marginBottom:16} },
+      e('div', { style:{fontSize:12,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:12} }, 'Stage Breakdown'),
       e('table', { style:{width:'100%',borderCollapse:'collapse',fontSize:12.5} },
         e('thead', null,
           e('tr', null,
-            ['Stage','Count','% of Total'].map(h=>e('th',{key:h,style:{textAlign:'left',padding:'4px 8px',color:'var(--text-mute)',fontSize:10.5,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',borderBottom:'1px solid var(--border)'}},h))
+            ['Stage','In Stage','% of Total','→ Next Stage'].map(h=>e('th',{key:h,style:{textAlign:'left',padding:'4px 8px',color:'var(--text-mute)',fontSize:10.5,fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em',borderBottom:'1px solid var(--border)'}},h))
           )
         ),
         e('tbody', null,
-          stageOrder.filter(st=>st!=='niet_gewonnen').map(st=>
-            e('tr', { key:st, style:{borderBottom:'1px solid var(--border-soft)'} },
-              e('td',{style:{padding:'6px 8px',color:'var(--text)',fontWeight:st==='gewonnen'?700:400}}, stageLabels[st]||st),
-              e('td',{style:{padding:'6px 8px',fontFamily:"'JetBrains Mono'",color:'var(--text)'}}, stageCounts[st]||0),
-              e('td',{style:{padding:'6px 8px',color:'var(--text-mute)'}}, total>0?pct((stageCounts[st]||0)/total*100):'—')
-            )
-          )
+          funnelOrder.map(({id,label},i) => {
+            const cnt = byStage[id]||0;
+            const nextStage = funnelOrder[i+1];
+            const nextCnt = nextStage ? (byStage[nextStage.id]||0) : null;
+            /* conversion: how many moved forward vs stayed/stalled — approximation by count ratio */
+            const conv = nextCnt!=null && cnt>0 ? pct(nextCnt/cnt*100,1) : '—';
+            const rowColor = id==='gewonnen'?'var(--up)':id==='niet_gewonnen'?'var(--down)':'var(--text)';
+            return e('tr', { key:id, style:{borderBottom:'1px solid var(--border-soft)'} },
+              e('td',{style:{padding:'6px 8px',color:rowColor,fontWeight:id==='gewonnen'||id==='niet_gewonnen'?700:400}}, label),
+              e('td',{style:{padding:'6px 8px',fontFamily:"'JetBrains Mono'",color:'var(--text)'}}, cnt),
+              e('td',{style:{padding:'6px 8px',color:'var(--text-mute)'}}, total>0?pct(cnt/total*100,1):'—'),
+              e('td',{style:{padding:'6px 8px',color:'var(--text-mute)',fontSize:11}}, nextStage ? conv : '—')
+            );
+          })
         )
       ),
       metaLeads > 0 ? e('div', { style:{marginTop:10,fontSize:11,color:'var(--text-mute)'} }, '+ ' + num(metaLeads) + ' Meta Ads leads (separate pipeline)') : null
     );
 
-    /* conversion metrics */
-    const convCards = e('div', { style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:10,marginBottom:20} },
-      this._card('Total Prospects', num(total), 'excl. Meta Ads', 'var(--text)'),
-      this._card('Meeting Booked', num(meetingBooked), 'stage = meeting_geboekt', 'var(--info)'),
+    /* ── Meeting outcomes ────────────────────────────────────────────────── */
+    const outcomeCard = e('div', { style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'18px 20px',marginBottom:16} },
+      e('div', { style:{fontSize:12,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:12} }, 'Meeting Outcomes (from Prospect CRM)'),
+      withOutcome.length === 0
+        ? e('div', { style:{fontSize:12,color:'var(--text-mute)',fontStyle:'italic'} }, 'No meeting outcomes recorded yet. Set outcomes in the Prospect CRM for prospects that had a meeting.')
+        : e('div', { style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:10} },
+            this._card('Held', String(held), 'meeting happened', 'var(--up)'),
+            this._card('No-show', String(noShows), noShowRate!=null?pct(noShowRate)+' of meetings':'of meetings', 'var(--down)'),
+            this._card('Cancelled', String(cancelled), 'prospect cancelled', 'var(--warn)'),
+            this._card('Rescheduled', String(rescheduled), 'moved to new date', 'var(--info)'),
+          )
+    );
+
+    /* ── Summary cards ───────────────────────────────────────────────────── */
+    const convCards = e('div', { style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:10,marginBottom:16} },
+      this._card('Total Prospects', num(total), 'manuele pipeline', 'var(--text)'),
+      this._card('Contacted', num(total-(byStage['nieuwe_leads']||0)), 'reached beyond new lead', 'var(--info)'),
       this._card('Closed Won', num(closedWon), 'became clients', 'var(--up)'),
-      this._card('Prospect → Meeting', prospectToMeeting!=null?pct(prospectToMeeting):'—', 'conversion rate', 'var(--text-mute)'),
-      this._card('Close Rate', prospectToClose!=null?pct(prospectToClose):'—', 'won/decided', 'var(--text-mute)'),
+      this._card('Close Rate', closeRate!=null?pct(closeRate):'—', 'won / (won+lost)', 'var(--text-mute)'),
+      this._card('No-show Rate', noShowRate!=null?pct(noShowRate):'—', withOutcome.length + ' meetings tracked', noShowRate!=null&&noShowRate>30?'var(--down)':'var(--text-mute)'),
       this._card('Meta Leads', num(metaLeads), 'Meta Ads pipeline', 'var(--text-mute)'),
     );
 
     return e('div', null,
-      e('div',{style:{fontSize:11.5,color:'var(--text-mute)',marginBottom:16}}, 'Data source: Prospect CRM. Manage prospects in the Prospect CRM tab. Stage names map to the "manuele" pipeline stages.'),
-      convCards, funnel, stageTable
+      e('div',{style:{fontSize:11.5,color:'var(--text-mute)',marginBottom:16}}, 'Data source: Prospect CRM → Acquisition tab. Set meeting outcomes in the Prospect CRM (Meeting Outcome column) after each meeting.'),
+      convCards, funnel, stageTable, outcomeCard
     );
   },
 
