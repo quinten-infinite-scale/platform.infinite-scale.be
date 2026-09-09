@@ -3,7 +3,7 @@
 <head>
 <script>!function(){var MOON='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><\/svg>';var SUN='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"\/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"\/><\/svg>';window.ispApplyTheme=function(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('isp-theme',theme);var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=theme==='light'?SUN:MOON;};var t=localStorage.getItem('isp-theme');if(t)document.documentElement.setAttribute('data-theme',t);document.addEventListener('click',function(e){if(e.target.closest('#isp-theme-btn')){var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';window.ispApplyTheme(next);}});document.addEventListener('DOMContentLoaded',function(){var cur=document.documentElement.getAttribute('data-theme')||'dark';var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=cur==='light'?SUN:MOON;});}();</script>
 <script>!function(){try{var h=new URLSearchParams(location.hash.slice(1));var at=h.get('access_token'),rt=h.get('refresh_token'),ei=parseInt(h.get('expires_in')||'3600'),ea=h.get('expires_at');if(at){var payload=JSON.parse(atob(at.split('.')[1]));var user={id:payload.sub,email:payload.email,role:payload.role,app_metadata:payload.app_metadata||{},user_metadata:payload.user_metadata||{}};localStorage.setItem('is_session',JSON.stringify({access_token:at,refresh_token:rt,expires_in:ei,expires_at:ea?parseInt(ea):Math.floor(Date.now()/1000)+ei,user:user}));history.replaceState(null,'',location.pathname+location.search);}}catch(e){}}();</script>
-<script>!function(){var V='20260908i';if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);if(window.performance&&window.performance.navigation&&window.performance.navigation.type!==1)window.location.reload(true);}}();</script>
+<script>!function(){var V='20260909a';if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);if(window.performance&&window.performance.navigation&&window.performance.navigation.type!==1)window.location.reload(true);}}();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -18,11 +18,11 @@
 <script src="./js/screen-agent.js?v=20260904a"></script>
 <script src="./js/screen-client.js?v=20260902j"></script>
 <script src="./js/screen-subclient.js?v=20260821b"></script>
-<script src="./js/screen-roadmap.js?v=20260908b"></script>
+<script src="./js/screen-roadmap.js?v=20260909a"></script>
 <script src="./js/screen-admin.js?v=20260908c"></script>
 <script src="./js/pdf-ttf.js?v=20260815a"></script>
 <script src="./js/modals.js?v=20260904a"></script>
-<script src="./js/app.js?v=20260908i"></script>
+<script src="./js/app.js?v=20260909a"></script>
 <script src="./js/api.js?v=20260902k"></script>
 </head>
 <body>
@@ -372,7 +372,8 @@ class Component extends DCLogic {
           if (cached.role === 'subclient') { this.scClientId = cached.clientId; this.scSubId = cached.subClientId; this.scClientName = cached.scClientName || ''; this.scSubName = cached.scSubName || ''; }
           this._sessionId = 'ses_' + Date.now() + Math.random().toString(36).slice(2, 6);
           const { invApproved: cachedApproved, invoiceStatus: cachedStatus } = this._deriveInvState(cached.data);
-          this.setState({ role: cached.role, loading: false, data: cached.data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved: cachedApproved, invoiceStatus: cachedStatus });
+          const _savedRoute = (() => { try { return localStorage.getItem('_isroute') || 'dashboard'; } catch(e) { return 'dashboard'; } })();
+          this.setState({ role: cached.role, loading: false, data: cached.data, route: cached.role === 'admin' ? _savedRoute : 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved: cachedApproved, invoiceStatus: cachedStatus });
           this._updatePresence('dashboard');
           if (cached.role === 'client' || cached.role === 'agency' || cached.role === 'agent') this._startClickTracking();
           this._refreshCache(uid, cached.role, cached.agentId, cached.clientId, cached.subClientId);
@@ -435,7 +436,8 @@ class Component extends DCLogic {
     const tourStep = (freshLogin && !tourSeen && (role === 'agent' || role === 'client' || role === 'agency')) ? 0 : null;
     this._sessionId = 'ses_' + Date.now() + Math.random().toString(36).slice(2, 6);
     const { invApproved, invoiceStatus } = this._deriveInvState(data);
-    this.setState({ role, loading: false, data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus });
+    const _savedRoute2 = (() => { try { return localStorage.getItem('_isroute') || 'dashboard'; } catch(e) { return 'dashboard'; } })();
+    this.setState({ role, loading: false, data, route: role === 'admin' ? _savedRoute2 : 'dashboard', notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus });
     this._updatePresence('dashboard');
     if (freshLogin) this._logActivity('login', 'Logged in as ' + role);
     if (role === 'client' || role === 'agency' || role === 'agent') this._startClickTracking();
@@ -466,6 +468,7 @@ class Component extends DCLogic {
   // ---- Navigation ----
   go(route) {
     this._updatePresence(route);
+    try { localStorage.setItem('_isroute', route); } catch(e) {}
     this.setState({ route, notifOpen: false, sidebarOpen: false });
     const s = this.state;
     if (s.role === 'client' || s.role === 'agency') {
@@ -848,7 +851,7 @@ class Component extends DCLogic {
       client: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
       agency: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
       subclient: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z']],
-      admin: [['roadmap', '€100K Roadmap', 'M3 17l4-8 4 4 4-6 4 10M3 3h18v18H3z'], ['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['whatsapp', 'WhatsApp', 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      admin: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['whatsapp', 'WhatsApp', 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['roadmap', '€100K Roadmap', 'M3 17l4-8 4 4 4-6 4 10M3 3h18v18H3z'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
     };
     const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
     out.nav = (navDefs[s.role] || []).map(([key, label, icon]) => {

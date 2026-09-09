@@ -91,14 +91,15 @@ const ScreenRoadmap = {
   /* default strategic targets — overridden by platform_settings */
   _defaultTargets() {
     return {
-      monthlyRevTarget:   100000,
-      targetDate:         '2026-12-01',
-      avgPricePerAppt:    125,
-      salesMeetingsWeek:  40,
-      minCloseRate:       15,
-      minMarginPct:       50,
-      capacityWarnPct:    85,
-      capacityCritPct:    95,
+      monthlyRevTarget:      100000,
+      targetDate:            '2026-12-01',
+      avgPricePerAppt:       125,
+      salesMeetingsWeek:     40,
+      minCloseRate:          15,
+      minMarginPct:          50,
+      capacityWarnPct:       85,
+      capacityCritPct:       95,
+      revenuePerAgentTarget: 12500, /* target monthly revenue per call agent */
     };
   },
 
@@ -198,7 +199,7 @@ const ScreenRoadmap = {
           e('h1', { style:{fontSize:20,fontWeight:800,color:'var(--text)',margin:0,letterSpacing:'-.02em'} }, '€100K Roadmap'),
           e('span', { style:{fontSize:12,color:'var(--text-mute)',fontWeight:500} }, 'Infinite Scale Launch 2.0')
         ),
-        e('p', { style:{fontSize:12,color:'var(--text-mute)',margin:'4px 0 0'} }, 'Target: ' + T.monthlyRevTarget.toLocaleString('nl-BE') + ' monthly billable revenue by ' + T.targetDate)
+        e('p', { style:{fontSize:12,color:'var(--text-mute)',margin:'4px 0 0'} }, '€' + T.monthlyRevTarget.toLocaleString('nl-BE') + ' MRR by ' + T.targetDate + ' · target avg €' + T.avgPricePerAppt + '/appt · €' + T.revenuePerAgentTarget.toLocaleString('nl-BE') + '/agent/mo')
       ),
       tabNav,
       content
@@ -280,7 +281,7 @@ const ScreenRoadmap = {
     const progressBar = e('div', { style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:'20px 24px',marginBottom:20} },
       e('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:10} },
         e('div', null,
-          e('div', { style:{fontSize:11,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:4} }, 'Monthly Billable Revenue — Target Month Forecast'),
+          e('div', { style:{fontSize:11,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:4} }, 'MRR Pace — EOM Forecast (if current pace continues)'),
           e('div', { style:{display:'flex',alignItems:'baseline',gap:8} },
             e('span', { style:{fontSize:36,fontWeight:900,color:'var(--text)',letterSpacing:'-.03em'} }, euro(forecastEOM)),
             e('span', { style:{fontSize:18,color:'var(--text-mute)'} }, '/ ' + euro(T.monthlyRevTarget)),
@@ -609,7 +610,13 @@ const ScreenRoadmap = {
     const cancels  = periodAppts.filter(M.isCancelled);
     const booked   = periodAppts.filter(M.isBooked);
 
-    const dialsPeriod = M.totalDials(dialsMap, filter==='month' ? dt=>dt&&dt.startsWith(ym) : filter==='today' ? dt=>dt===today : dt=>true);
+    const weekStartStr = (() => { const ws=new Date(now); ws.setDate(now.getDate()-(now.getDay()||7)+1); ws.setHours(0,0,0,0); return ws.toISOString().slice(0,10); })();
+    const dialsPeriod = M.totalDials(dialsMap,
+      filter==='month' ? dt=>dt&&dt.startsWith(ym) :
+      filter==='today' ? dt=>dt===today :
+      filter==='week'  ? dt=>!!dt&&dt>=weekStartStr :
+      dt=>true
+    );
 
     const showRate    = held.length+noShows.length > 0 ? held.length/(held.length+noShows.length)*100 : null;
     const dialToBook  = dialsPeriod > 0 ? booked.length/dialsPeriod*100 : null;
@@ -794,8 +801,9 @@ const ScreenRoadmap = {
     const wdTotal = M.workingDaysInMonth(ym);
     const forecastMo = M.forecastEOM(billableRevMTD, daysElapsed, wdTotal);
     const revPerAgent = allAgents.length > 0 ? forecastMo / allAgents.length : 0;
-    const agentsNeeded100k = revPerAgent > 0 ? Math.ceil(T.monthlyRevTarget / revPerAgent) : null;
-    const capacityGap = agentsNeeded100k ? Math.max(0, agentsNeeded100k - allAgents.length) : null;
+    /* Agents needed = target revenue / target revenue-per-agent (not extrapolated from early-month data) */
+    const agentsNeeded100k = Math.ceil(T.monthlyRevTarget / T.revenuePerAgentTarget);
+    const capacityGap = Math.max(0, agentsNeeded100k - allAgents.length);
 
     return e('div', null,
       /* capacity summary */
