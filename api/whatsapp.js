@@ -198,6 +198,7 @@ async function handleGet(req, res) {
       if (appt.sub_client_id && cl?.subclients) {
         const sc = cl.subclients.find(s => s.id === appt.sub_client_id || s.name === appt.sub_client_id);
         if (sc) {
+          if (sc.whatsapp_enabled === false) { results.push({ id: appt.id, skipped: 'subclient_disabled' }); continue; }
           clientName = sc.name;
           if (sc.callback_phone) callbackPhone = sc.callback_phone;
         }
@@ -335,6 +336,7 @@ async function handlePost(req, res, rawBody) {
   if (subId && clientData?.subclients) {
     const sc = clientData.subclients.find(s => s.id === subId || s.name === subId);
     if (sc) {
+      if (sc.whatsapp_enabled === false) return res.status(200).json({ ok: false, reason: 'subclient_disabled' });
       clientName = sc.name;
       if (sc.callback_phone) callbackPhone = sc.callback_phone;
     }
