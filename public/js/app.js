@@ -2,7 +2,7 @@
 (function() {
   const CURRENT_V = '20260911c';
   setTimeout(function() {
-    fetch('/api/version?_=' + Date.now())
+    fetch('/version.json?_=' + Date.now())
       .then(function(r) { return r.json(); })
       .then(function(d) { if (d && d.v && d.v !== CURRENT_V) { window.location.href = location.pathname + '?_r=' + Date.now(); } })
       .catch(function() {});
