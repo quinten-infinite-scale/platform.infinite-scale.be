@@ -117,7 +117,7 @@ const ScreenAgent = {
     const selClient = d.clients.find(c => c.id === f.client);
     const isRenocheck = f.client === 'c15';
     const RN_CATS = ['Airco','Thuisbatt','Zonnepanelen','Ramen en deuren','Keukens','Badkamers','Crepi','Dak','Chapewerken'];
-    const RN_RATES = { 'Airco': 8, 'Thuisbatt': 12, 'Zonnepanelen': 15, 'Ramen en deuren': 15, 'Keukens': 15, 'Badkamers': 15, 'Crepi': 15, 'Dak': 20, 'Chapewerken': 15 };
+    const RN_RATES = { 'Airco': 8, 'Thuisbatt': 12, 'Zonnepanelen': 15, 'Ramen en deuren': 15, 'Keukens': 15, 'Badkamers': 15, 'Crepi': 15, 'Dak': 20, 'Chapewerken': 12 };
     const JaNee = (key) => e('div', { style: { display: 'flex', gap: 6 } },
       ['ja', 'nee'].map(opt => e('button', { key: opt, type: 'button', onClick: () => this.setForm(key, opt),
         style: { padding: '5px 16px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
