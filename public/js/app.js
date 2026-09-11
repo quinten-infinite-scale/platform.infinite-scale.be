@@ -584,7 +584,7 @@ class Component extends DCLogic {
       const sc = c.subclients.find(s => s.id === f.sub);
       if (sc) amount = sc.rate || amount;
     }
-    const RN_RATES = { 'Airco': { revenue: 25, payout: 8 }, 'Thuisbatt': { revenue: 40, payout: 12 }, 'Zonnepanelen': { revenue: 50, payout: 15 }, 'Keukens': { revenue: 55, payout: 15 }, 'Badkamers': { revenue: 55, payout: 15 }, 'Ramen en deuren': { revenue: 70, payout: 15 }, 'Crepi': { revenue: 70, payout: 15 }, 'Dak': { revenue: 80, payout: 20 } };
+    const RN_RATES = { 'Airco': { revenue: 25, payout: 8 }, 'Thuisbatt': { revenue: 40, payout: 12 }, 'Zonnepanelen': { revenue: 50, payout: 15 }, 'Keukens': { revenue: 55, payout: 15 }, 'Badkamers': { revenue: 55, payout: 15 }, 'Ramen en deuren': { revenue: 70, payout: 15 }, 'Crepi': { revenue: 70, payout: 15 }, 'Dak': { revenue: 80, payout: 20 }, 'Chapewerken': { revenue: 55, payout: 15 } };
     const dateLogged = this.iso(this.today());
     const leadName = isRenocheck ? rnFullName : f.lead;
     let agentRate = null;
@@ -643,6 +643,12 @@ class Component extends DCLogic {
       } : c === 'Keukens' ? {
         eigenaar: f.rnEigenaar || '', type_project: f.rnTypeProject || '', afmeting: f.rnAfmeting || '',
         financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Chapewerken' ? {
+        eigenaar: f.rnEigenaar || '', type_chape: f.rnTypeChape || '', oppervlakte: f.rnOppervlakte || '',
+        dikte_chape: f.rnDikteChape || '', vloerverwarming: f.rnVloerverwarming || '',
+        isolatie_nodig: f.rnIsolatieNodig || '', dikte_isolatie: f.rnDikteIsolatie || '',
+        polijsten: f.rnPolijsten || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
         premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
       } : null;
       const description = intakeData ? [intakeData.info_project || '', intakeData.timing || ''].filter(Boolean).join(' — ') : '';
