@@ -1,10 +1,10 @@
-// Runtime version check — forces hard reload if JS is stale regardless of browser cache
+// Runtime version check — forces cache-busting redirect if JS is stale (bypasses Vercel CDN)
 (function() {
-  const CURRENT_V = '20260911b';
+  const CURRENT_V = '20260911c';
   setTimeout(function() {
-    fetch('/version.json?_=' + Date.now())
+    fetch('/api/version?_=' + Date.now())
       .then(function(r) { return r.json(); })
-      .then(function(d) { if (d && d.v && d.v !== CURRENT_V) { window.location.reload(true); } })
+      .then(function(d) { if (d && d.v && d.v !== CURRENT_V) { window.location.href = location.pathname + '?_r=' + Date.now(); } })
       .catch(function() {});
   }, 2000);
 })();
