@@ -116,8 +116,8 @@ const ScreenAgent = {
     const myClients = d.clients.filter(c => me.clients.includes(c.id));
     const selClient = d.clients.find(c => c.id === f.client);
     const isRenocheck = f.client === 'c15';
-    const RN_CATS = ['Airco','Thuisbatt','Zonnepanelen','Ramen en deuren','Keukens','Badkamers','Crepi','Dak'];
-    const RN_RATES = { 'Airco': 8, 'Thuisbatt': 12, 'Zonnepanelen': 15, 'Ramen en deuren': 15, 'Keukens': 15, 'Badkamers': 15, 'Crepi': 15, 'Dak': 20 };
+    const RN_CATS = ['Airco','Thuisbatt','Zonnepanelen','Ramen en deuren','Keukens','Badkamers','Crepi','Dak','Chapewerken'];
+    const RN_RATES = { 'Airco': 8, 'Thuisbatt': 12, 'Zonnepanelen': 15, 'Ramen en deuren': 15, 'Keukens': 15, 'Badkamers': 15, 'Crepi': 15, 'Dak': 20, 'Chapewerken': 15 };
     const JaNee = (key) => e('div', { style: { display: 'flex', gap: 6 } },
       ['ja', 'nee'].map(opt => e('button', { key: opt, type: 'button', onClick: () => this.setForm(key, opt),
         style: { padding: '5px 16px', borderRadius: 7, border: '1px solid', fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -228,6 +228,17 @@ const ScreenAgent = {
         UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil keuken renoveren…')),
         UI.Field('Timing', TimingSelect()),
         UI.Grid('1fr 1fr', 10, UI.Field('Financiering?', JaNee('rnFinanciering')), UI.Field('Premie aanvraag?', JaNee('rnPremie'))),
+        UI.Field('Voorkeur belmoment', BelMoment()),
+      ] : cat === 'Chapewerken' ? [
+        SH('Chapewerken'),
+        UI.Grid('1fr 1fr', 10, UI.Field('Eigenaar?', JaNee('rnEigenaar')), UI.Field('Type chape', UI.Select(f.rnTypeChape || '', v => this.setForm('rnTypeChape', v), [{ v: '', l: 'Selecteer…' }, { v: 'Traditioneel (zand-cement)', l: 'Traditioneel (zand-cement)' }, { v: 'Anhydriet', l: 'Anhydriet' }, { v: 'Andere', l: 'Andere' }]))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Oppervlakte (m²)', UI.Input(f.rnOppervlakte || '', v => this.setForm('rnOppervlakte', v), '40')), UI.Field('Gewenste dikte chape (cm)', UI.Input(f.rnDikteChape || '', v => this.setForm('rnDikteChape', v), '5'))),
+        UI.Grid('1fr 1fr', 10, UI.Field('Vloerverwarming aanwezig?', JaNee('rnVloerverwarming')), UI.Field('Isolatie meenemen?', JaNee('rnIsolatieNodig'))),
+        f.rnIsolatieNodig === 'ja' ? UI.Field('Gewenste dikte isolatie', UI.Input(f.rnDikteIsolatie || '', v => this.setForm('rnDikteIsolatie', v), 'bv. 5 cm')) : null,
+        UI.Field('Polijsten gewenst?', JaNee('rnPolijsten')),
+        UI.Field('Info project', UI.Area(f.rnInfoProject || '', v => this.setForm('rnInfoProject', v), 'Klant wil chape laten plaatsen…')),
+        UI.Field('Timing', TimingSelect()),
+        UI.Grid('1fr 1fr', 10, UI.Field('Premie aanvraag?', JaNee('rnPremie')), e('div', null)),
         UI.Field('Voorkeur belmoment', BelMoment()),
       ] : null
     ) : null;
