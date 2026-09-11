@@ -1,3 +1,14 @@
+// Runtime version check — forces hard reload if JS is stale regardless of browser cache
+(function() {
+  const CURRENT_V = '20260911b';
+  setTimeout(function() {
+    fetch('/version.json?_=' + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d && d.v && d.v !== CURRENT_V) { window.location.reload(true); } })
+      .catch(function() {});
+  }, 2000);
+})();
+
 // Main application controller — thin delegation layer over modules
 class Component extends DCLogic {
   constructor(props) {
