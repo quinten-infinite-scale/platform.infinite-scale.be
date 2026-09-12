@@ -1,4 +1,4 @@
-// Dual-purpose: enhance-contract (contract AI suggestions) + claude-task (Platform todo SSE streaming)
+// Triple-purpose: enhance-contract + claude-task (Platform todo SSE) + closer-analysis (CLOSER framework scoring)
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -6,6 +6,56 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set' });
 
   const body = req.body || {};
+
+  // ── CLOSER Analysis ────────────────────────────────────────────────────────
+  if (body.transcript && !body.ctype && !body.title) {
+    const { transcript } = body;
+    const closerPrompt = `Je bent een sales coach die verkoopgesprekken analyseert met het CLOSER-framework van Alex Hormozi.
+
+Analyseer het volgende transcript en geef een gedetailleerde analyse in het Nederlands (Vlaams).
+
+CLOSER FRAMEWORK:
+C - Clarify: Werd de reden van het gesprek helder gesteld? Werden de doelen van de prospect verduidelijkt?
+L - Label: Werd het probleem van de prospect gelabeld/benoemd? Voelde de prospect zich begrepen?
+O - Overview/Consequence: Werden de gevolgen van niet-handelen duidelijk gemaakt? Werd urgentie gecreeerd?
+S - Sell the vacation: Werd de gewenste toekomststaat verkocht (niet het product)? Werd de droom van de prospect aangesproken?
+E - Explain away objections: Werden bezwaren proactief weggenomen? Werd de methode van consequence-selling gebruikt?
+R - Reinforce: Werd de beslissing van de prospect versterkt? Werden next steps duidelijk afgesproken?
+
+Voor elke sectie geef: wat_er_gebeurde, wat_beter_kon, score /10.
+Wees direct en kritisch.
+
+Eindig met: biggest_growth_point (1 zin), score_total (gemiddelde), deal_facts: {prospect, pricing, terms, next_steps}.
+
+Geef ALLEEN geldig JSON terug zonder markdown:
+{"c":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":7},"l":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":6},"o":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":5},"s":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":7},"e":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":6},"r":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":8},"biggest_growth_point":"...","score_total":6.5,"deal_facts":{"prospect":"...","pricing":"...","terms":"...","next_steps":"..."}}
+
+TRANSCRIPT:
+${transcript}`;
+
+    try {
+      const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 4096, messages: [{ role: 'user', content: closerPrompt }] }),
+      });
+      const aiData = await aiResp.json();
+      if (!aiResp.ok) return res.status(aiResp.status).json({ error: aiData });
+      const raw = (aiData.content && aiData.content[0] && aiData.content[0].text) || '';
+      let analysis = {};
+      try {
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+          // Claude sometimes returns literal newlines inside string values; sanitize before parsing
+          const cleaned = m[0].replace(/[\x00-\x1F\x7F]/g, c => c === '\n' || c === '\r' || c === '\t' ? ' ' : '');
+          analysis = JSON.parse(cleaned);
+        }
+      } catch (_) { analysis = { error: 'parse_failed', raw: raw.slice(0, 500) }; }
+      return res.status(200).json({ ok: true, analysis });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
 
   // ── Claude Task (Platform todo streaming) ──────────────────────────────────
   if (body.title && !body.ctype) {

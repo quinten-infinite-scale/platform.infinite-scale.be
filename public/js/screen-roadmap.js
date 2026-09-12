@@ -424,15 +424,16 @@ const ScreenRoadmap = {
     /* ── Stage funnel (manuele pipeline) ─────────────────────────────────── */
     /* These stages map to the real IDs used in the "manuele" pipeline */
     const funnelOrder = [
-      { id:'nieuwe_leads',    label:'New Leads' },
-      { id:'first_call',      label:'First Call' },
-      { id:'second_call',     label:'Second Call' },
-      { id:'follow_up_call',  label:'Follow-up' },
-      { id:'long_term',       label:'Long-term Follow-up' },
-      { id:'herplan_call',    label:'Reschedule' },
-      { id:'meeting',         label:'Meeting Booked' },
-      { id:'gewonnen',        label:'Closed Won' },
-      { id:'niet_gewonnen',   label:'Closed Lost' },
+      { id:'nieuwe_leads',       label:'New Leads' },
+      { id:'first_call',         label:'First Call' },
+      { id:'second_call',        label:'Second Call' },
+      { id:'follow_up_call',     label:'Follow-up' },
+      { id:'lange_termijn',      label:'Long-term Follow-up' },
+      { id:'follow_ups_oud',     label:'Follow-up (old leads)' },
+      { id:'herplan_call',       label:'Reschedule' },
+      { id:'gewonnen',           label:'Closed Won' },
+      { id:'niet_gekwalificeerd',label:'Not Qualified' },
+      { id:'niet_gewonnen',      label:'Closed Lost' },
     ];
 
     const manuele = allProspects.filter(p => !p.pipeline_id || p.pipeline_id === 'manuele');
@@ -452,16 +453,17 @@ const ScreenRoadmap = {
     const rescheduled = manuele.filter(p=>p.meeting_outcome==='rescheduled').length;
     const noShowRate  = withOutcome.length > 0 ? noShows / withOutcome.length * 100 : null;
 
-    const closedWon  = byStage['gewonnen']||0;
-    const closedLost = byStage['niet_gewonnen']||0;
-    const totalDecided = closedWon + closedLost;
-    const closeRate = totalDecided > 0 ? closedWon/totalDecided*100 : null;
+    const closedWon     = byStage['gewonnen']||0;
+    const closedLost    = byStage['niet_gewonnen']||0;
+    const notQualified  = byStage['niet_gekwalificeerd']||0;
+    const totalDecided  = closedWon + closedLost + notQualified;
+    const closeRate     = totalDecided > 0 ? closedWon/totalDecided*100 : null;
 
     /* ── Funnel with stage-to-stage conversion ───────────────────────────── */
     const funnelDisplay = [
       { label:'New Leads',     count:total,                   color:'var(--accent)' },
       { label:'Contacted',     count:total-(byStage['nieuwe_leads']||0), color:'var(--info)' },
-      { label:'Meeting Booked',count:closedWon+closedLost+(byStage['meeting']||0), color:'var(--warn)' },
+      { label:'Decided',       count:closedWon+(byStage['niet_gekwalificeerd']||0)+closedLost, color:'var(--warn)' },
       { label:'Closed Won',    count:closedWon,               color:'var(--up)' },
     ];
     const maxCount = Math.max(1, ...funnelDisplay.map(f=>f.count));
@@ -533,7 +535,8 @@ const ScreenRoadmap = {
       this._card('Total Prospects', num(total), 'manuele pipeline', 'var(--text)'),
       this._card('Contacted', num(total-(byStage['nieuwe_leads']||0)), 'reached beyond new lead', 'var(--info)'),
       this._card('Closed Won', num(closedWon), 'became clients', 'var(--up)'),
-      this._card('Close Rate', closeRate!=null?pct(closeRate):'—', 'won / (won+lost)', 'var(--text-mute)'),
+      this._card('Not Qualified', num(notQualified), 'disqualified', 'var(--warn)'),
+      this._card('Close Rate', closeRate!=null?pct(closeRate):'—', 'won / decided', 'var(--text-mute)'),
       this._card('No-show Rate', noShowRate!=null?pct(noShowRate):'—', withOutcome.length + ' meetings tracked', noShowRate!=null&&noShowRate>30?'var(--down)':'var(--text-mute)'),
       this._card('Meta Leads', num(metaLeads), 'Meta Ads pipeline', 'var(--text-mute)'),
     );
@@ -550,7 +553,7 @@ const ScreenRoadmap = {
   _tabSales(d, s, {prospects, appts, clients, euro, pct, num, T, ym, today, cRate}) {
     const e = React.createElement;
 
-    const meetingProspects = (prospects||[]).filter(p=>p.stage==='meeting_geboekt'||p.stage==='herplan_call');
+    const meetingProspects = (prospects||[]).filter(p=>p.stage==='herplan_call'||p.stage==='second_call'||p.stage==='follow_up_call');
     const wonProspects = (prospects||[]).filter(p=>p.stage==='gewonnen');
     const lostProspects = (prospects||[]).filter(p=>p.stage==='niet_gewonnen');
     const totalDecided = wonProspects.length + lostProspects.length;
