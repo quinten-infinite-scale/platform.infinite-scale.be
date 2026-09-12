@@ -140,7 +140,19 @@ const Modals = {
                 ['Straat', rnData.street ? rnData.street + (rnData.number ? ' ' + rnData.number : '') : null],
                 ['Postcode', rnData.zipcode],
                 ['Gemeente', rnData.city],
-                ...(rnData.data ? [
+                ...(rnData.data ? (rnData.category === 'Chapewerken' ? [
+                  ['Eigenaar', rnData.data.eigenaar],
+                  ['Type chape', rnData.data.type_chape],
+                  ['Oppervlakte (m²)', rnData.data.oppervlakte],
+                  ['Dikte chape (cm)', rnData.data.dikte_chape],
+                  ['Vloerverwarming', rnData.data.vloerverwarming],
+                  ['Isolatie nodig', rnData.data.isolatie_nodig],
+                  ['Dikte isolatie', rnData.data.dikte_isolatie],
+                  ['Polijsten', rnData.data.polijsten],
+                  ['Timing', rnData.data.timing],
+                  ['Premie aanvraag', rnData.data.premie_aanvraag],
+                  ['Voorkeur belmoment', Array.isArray(rnData.data.voorkeur_belmoment) ? rnData.data.voorkeur_belmoment.join(', ') : rnData.data.voorkeur_belmoment],
+                ] : [
                   ['Eigenaar', rnData.data.eigenaar],
                   ['Type dak', rnData.data.type_dak],
                   ['Grootte dak', rnData.data.groote_dak],
@@ -155,7 +167,7 @@ const Modals = {
                   ['Financiering', rnData.data.financiering],
                   ['Premie aanvraag', rnData.data.premie_aanvraag],
                   ['Voorkeur belmoment', Array.isArray(rnData.data.voorkeur_belmoment) ? rnData.data.voorkeur_belmoment.join(', ') : rnData.data.voorkeur_belmoment],
-                ] : []),
+                ]) : []),
               ].filter(([,v]) => v).map(([k, v]) =>
                 e('div', { key: k },
                   e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, k),
@@ -1881,13 +1893,58 @@ const Modals = {
           pipelineStages.map(sg => e('button', { key: sg.id, onClick: () => { this.moveProspect(p.id, sg.id); this.setForm('prospect', { ...p, stage: sg.id }); },
             style: { padding: '5px 12px', borderRadius: 20, border: '2px solid ' + (p.stage === sg.id ? (sg.color || 'var(--accent)') : 'var(--border)'), background: p.stage === sg.id ? (sg.color || 'var(--accent)') + '33' : 'transparent', color: p.stage === sg.id ? (sg.color || 'var(--accent)') : 'var(--text-mute)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' } }, sg.label))),
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, background: 'var(--bg-2)' } },
-          kv('Contact', p.contact), kv('Phone', p.phone), kv('Email', p.email), kv('Owner', p.assigned), kv('Source', p.source),
-          kv('Bellen op', p.call_on), kv('Revenue', p.revenue), kv('Last follow-up', p.last_followup),
+          kv('Contact', p.contact), kv('Phone', p.phone), kv('Email', p.email), kv('Owner', p.assigned), kv('Lead Source', p.lead_source), kv('Source', p.source),
+          kv('Afspraak datum', p.appointment_date), kv('Bellen op', p.call_on), kv('Revenue', p.revenue), kv('Last follow-up', p.last_followup),
           p.caller_note ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Opmerking beller: '), e('span', { style: { color: 'var(--text-dim)', fontSize: 13 } }, p.caller_note)) : null,
           p.notes ? e('div', { style: { marginTop: 6, padding: 10, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, p.notes) : null)),
         [UI.Btn('Edit', () => this.setForm('editingProspect', true), 'soft'),
          UI.Btn('Follow-up', () => { this.closeModal(); this.openModal('prospectFollowup', { prospect: p }); }, 'ghost'),
          UI.Btn('Create contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, partyType: 'client', company: p.company, contact: p.contact, email: p.email || '' }); }, 'primary')], '580px');
+    }
+
+    if (k === 'closerAnalysis') {
+      const p = f.prospect || {};
+      const a = p.closer_analysis || {};
+      const sections = [
+        { key: 'c', label: 'C — Clarify' },
+        { key: 'l', label: 'L — Label' },
+        { key: 'o', label: 'O — Overview / Consequence' },
+        { key: 's', label: 'S — Sell the vacation' },
+        { key: 'e', label: 'E — Explain away objections' },
+        { key: 'r', label: 'R — Reinforce' },
+      ];
+      const scoreColor = sc => sc >= 8 ? '#4ade80' : sc >= 6 ? '#facc15' : sc >= 4 ? '#fb923c' : '#f87171';
+      return wrap('CLOSER Analyse — ' + (p.company || 'Prospect'), e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+        // Score header
+        a.score_total != null ? e('div', { style: { display: 'flex', gap: 12, alignItems: 'center', padding: '14px 18px', borderRadius: 12, background: 'var(--bg-2)', border: '1px solid var(--border)' } },
+          e('div', { style: { fontSize: 28, fontWeight: 900, color: scoreColor(a.score_total), fontFamily: "'JetBrains Mono'" } }, a.score_total.toFixed(1) + '/10'),
+          e('div', { style: { flex: 1 } },
+            e('div', { style: { fontWeight: 700, fontSize: 14, color: 'var(--text)' } }, 'Totaalscore'),
+            a.biggest_growth_point ? e('div', { style: { fontSize: 12.5, color: 'var(--text-dim)', marginTop: 4, lineHeight: 1.5 } }, '⚡ Grootste werkpunt: ' + a.biggest_growth_point) : null)) : null,
+        // Per-section scores
+        sections.map(sec => {
+          const sd = a[sec.key] || {};
+          const sc = sd.score;
+          if (!sd.wat_er_gebeurde && sc == null) return null;
+          return e('div', { key: sec.key, style: { padding: '12px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 } },
+              e('span', { style: { fontWeight: 700, fontSize: 13, color: 'var(--text)' } }, sec.label),
+              sc != null ? e('span', { style: { fontWeight: 700, fontSize: 13, color: scoreColor(sc), background: scoreColor(sc) + '22', border: '1px solid ' + scoreColor(sc) + '55', borderRadius: 6, padding: '2px 8px' } }, sc + '/10') : null),
+            sd.wat_er_gebeurde ? e('div', { style: { marginBottom: 6 } },
+              e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 } }, 'Wat er gebeurde'),
+              e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, sd.wat_er_gebeurde)) : null,
+            sd.wat_beter_kon ? e('div', null,
+              e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 } }, 'Wat beter kon'),
+              e('div', { style: { fontSize: 13, color: 'var(--accent)', lineHeight: 1.6 } }, sd.wat_beter_kon)) : null
+          );
+        }).filter(Boolean),
+        // Deal facts
+        a.deal_facts ? e('div', { style: { padding: '12px 14px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border-soft)' } },
+          e('div', { style: { fontWeight: 700, fontSize: 12, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 } }, 'Deal facts'),
+          Object.entries(a.deal_facts).map(([k2, v]) => e('div', { key: k2, style: { fontSize: 13, color: 'var(--text-dim)', marginBottom: 4 } },
+            e('span', { style: { fontWeight: 700, color: 'var(--text)' } }, k2 + ': '), v))) : null,
+        a.call_date ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', textAlign: 'right' } }, 'Analyse van ' + new Date(a.call_date).toLocaleDateString('nl-BE')) : null
+      ), [UI.Btn('Sluiten', () => this.closeModal(), 'soft')], '680px');
     }
 
     if (k === 'prospectFollowup') {

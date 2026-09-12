@@ -2295,6 +2295,10 @@ const ScreenAdmin = {
     const baseCols = [
       { label: 'Bedrijf', key: 'company', w: 155, bold: true, editable: true },
       { label: 'Status', key: 'status', w: 155, statusCol: true },
+      { label: 'Lead Source', key: 'lead_source', w: 120, pill: true, editable: true, editSelect: ['Cold Calling', 'Cold Email', 'Meta Ads', 'Website', 'Direct Inbound', 'Referral'] },
+      { label: 'Afspraak datum', key: 'appointment_date', w: 110, datePick: true },
+      { label: 'Meeting Outcome', key: 'meeting_outcome', w: 130, meetingOutcomeCol: true },
+      { label: 'CLOSER Score', key: 'closer_score_total', w: 95, closerScoreCol: true },
       { label: 'Laatste contact', key: 'last_followup', w: 100, date: true },
       { label: 'Opmerking beller', key: 'caller_note', w: 185, editable: true },
       { label: 'E-mail', key: 'email', w: 175, mono: true, editable: true },
@@ -2304,7 +2308,6 @@ const ScreenAdmin = {
       { label: 'Omzet', key: 'revenue', w: 80, editable: true },
       { label: 'Sales pers.', key: 'assigned', w: 105, editable: true },
       { label: 'Bellen op', key: 'call_on', w: 100, datePick: true },
-      { label: 'Meeting Outcome', key: 'meeting_outcome', w: 130, meetingOutcomeCol: true },
       { label: 'Opmerkingen', key: 'notes', w: 200, editable: true },
     ];
     const metaCols = activePipelineId === 'meta_ads' ? [
@@ -2358,6 +2361,21 @@ const ScreenAdmin = {
             style: { position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--down, #ef4444)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '0 2px', opacity: 0, transition: 'opacity .1s' },
             title: 'Verwijder prospect' }, '×')),
         cols.map(col => {
+          if (col.closerScoreCol) {
+            const score = it.closer_score_total;
+            const hasAnalysis = it.closer_analysis;
+            const scoreColor = score >= 8 ? '#4ade80' : score >= 6 ? '#facc15' : score >= 4 ? '#fb923c' : '#f87171';
+            return e('div', { key: col.key, style: { ...cellSt(col), display: 'flex', alignItems: 'center', gap: 4 }, onClick: ev => ev.stopPropagation() },
+              score != null
+                ? e('span', { style: { fontSize: 11, fontWeight: 700, color: scoreColor, background: scoreColor + '22', border: '1px solid ' + scoreColor + '55', borderRadius: 4, padding: '1px 6px' } }, score.toFixed(1) + '/10')
+                : e('span', { style: { color: 'var(--border-soft)', fontSize: 11 } }, '—'),
+              hasAnalysis
+                ? e('button', { onClick: ev => { ev.stopPropagation(); this.openModal('closerAnalysis', { prospect: it }); },
+                    style: { fontSize: 9, fontWeight: 700, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', marginLeft: 2 },
+                    title: 'Bekijk CLOSER analyse' }, 'ANALYSE')
+                : null
+            );
+          }
           if (col.meetingOutcomeCol) {
             const outcomes = [
               { id:'held',        label:'Held',        color:'#4ade80' },
