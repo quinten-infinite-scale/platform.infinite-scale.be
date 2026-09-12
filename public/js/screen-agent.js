@@ -1,7 +1,14 @@
 // Agent screens: dashboard, log, appointments, eod, payments, clients, stats, settings
 const RN_AGENT_RATE = {25:8, 40:12, 50:15, 55:15, 70:15, 80:20};
+const RN_CAT_RATE = {'Airco':8,'Thuisbatt':12,'Zonnepanelen':15,'Ramen en deuren':15,'Keukens':15,'Badkamers':15,'Crepi':15,'Dak':20,'Chapewerken':12};
 function rnAgentPay(r) {
-  try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return RN_AGENT_RATE[fb.revenue] ?? null; } catch {}
+  try {
+    const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null;
+    if (fb && fb._rn) {
+      if (fb.category && RN_CAT_RATE[fb.category] != null) return RN_CAT_RATE[fb.category];
+      if (fb.revenue != null) return RN_AGENT_RATE[fb.revenue] ?? null;
+    }
+  } catch {}
   return null;
 }
 const ScreenAgent = {
