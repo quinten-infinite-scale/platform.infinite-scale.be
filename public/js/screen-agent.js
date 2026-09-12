@@ -299,20 +299,85 @@ const ScreenAgent = {
 
   _agentAppointments(d, s, me) {
     const e = React.createElement;
+    const now = new Date();
+    const isoDate = d2 => { const y = d2.getFullYear(), m = String(d2.getMonth()+1).padStart(2,'0'), day = String(d2.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; };
+    const startOfWeek = () => { const d2 = new Date(now); const dow = d2.getDay() || 7; d2.setDate(d2.getDate() - (dow - 1)); return isoDate(d2); };
+    const endOfWeek = () => { const d2 = new Date(now); const dow = d2.getDay() || 7; d2.setDate(d2.getDate() - (dow - 1) + 6); return isoDate(d2); };
+    const startOfMonth = () => { const d2 = new Date(now); d2.setDate(1); return isoDate(d2); };
+    const quickRanges = [
+      { l: 'Today', from: isoDate(now), to: isoDate(now) },
+      { l: 'This week', from: startOfWeek(), to: endOfWeek() },
+      { l: 'This month', from: startOfMonth(), to: isoDate(now) },
+      { l: 'Last month', from: (() => { const d2 = new Date(now); d2.setDate(1); d2.setMonth(d2.getMonth() - 1); return isoDate(d2); })(), to: (() => { const d2 = new Date(now); d2.setDate(0); return isoDate(d2); })() },
+      { l: 'All time', from: '', to: '' },
+    ];
+    const fDateFrom = s.fDateFrom !== undefined ? s.fDateFrom : '';
+    const fDateTo = s.fDateTo !== undefined ? s.fDateTo : '';
+    const fclient = s.fclient || 'all';
+    const fstatus = s.fstatus || 'all';
+    const activeQuick = quickRanges.find(qr => qr.from === fDateFrom && qr.to === fDateTo);
+    const myClients = d.clients.filter(c => (me.clients || []).includes(c.id));
+
     let list = d.appointments.filter(a => a.agent === me.id);
-    list = this._filterAppts(list, s);
+    if (fclient !== 'all') list = list.filter(a => a.client === fclient);
+    if (fstatus !== 'all') list = list.filter(a => a.status === fstatus);
+    if (fDateFrom) list = list.filter(a => (a.dateAppt || a.dateLog) >= fDateFrom);
+    if (fDateTo) list = list.filter(a => (a.dateAppt || a.dateLog) <= fDateTo);
+    list.sort((a, b) => { const ta = a.loggedAt || (a.dateLog ? a.dateLog + 'T00:00:00Z' : ''); const tb = b.loggedAt || (b.dateLog ? b.dateLog + 'T00:00:00Z' : ''); return tb.localeCompare(ta); });
+
+    const getRate = a => {
+      const cl = d.clients.find(c => c.id === a.client);
+      if (!cl || cl.closeFee || a.status === 'cancel') return 0;
+      return a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0));
+    };
+    const total = list.length;
+    const shows = list.filter(a => a.status === 'show').length;
+    const showRate = total > 0 ? Math.round(shows / total * 100) : 0;
+    const earned = list.filter(a => a.status === 'show').reduce((x, a) => x + getRate(a), 0);
+    const pending = list.filter(a => a.status === 'open' || a.status === 'no_show').reduce((x, a) => x + getRate(a), 0);
+
     const upcoming = list.filter(a => !a.invoiced && !a.paid);
     const past = list.filter(a => a.invoiced || a.paid);
+
     const cols = [
       { label: 'Logged', render: r => e('div', null, UI.Mono(this.fmtDate(r.dateLog), { fontSize: 12, color: 'var(--text-mute)' }), r.loggedAt ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, new Date(r.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null) },
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
-      { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
+      { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc2 = r.sub && cl ? (cl.subclients || []).find(sc => sc.id === r.sub || sc.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc2 ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc2.name) : null); } },
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
-      { label: 'Payout', align: 'right', render: r => { const cl = d.clients.find(c => c.id === r.client); const isCloseFee = cl && cl.closeFee; const earned = isCloseFee ? r.quoteApproved : r.status === 'show'; const pay = earned ? (r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]))) : null; const pendingLabel = isCloseFee ? 'On close' : 'Pending'; return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : (r.status !== 'cancel' ? pendingLabel : '—'), { fontWeight: 700, color: pay ? 'var(--up)' : 'var(--text-mute)' }), earned && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
+      { label: 'Payout', align: 'right', render: r => {
+        const cl = d.clients.find(c => c.id === r.client);
+        const isCloseFee = cl && cl.closeFee;
+        if (r.status === 'cancel') return e('div', { style: { textAlign: 'right' } }, UI.Mono('—', { fontWeight: 700, color: 'var(--text-mute)' }));
+        if (isCloseFee) {
+          const earnedClose = r.quoteApproved;
+          const payClose = earnedClose ? (r.agentRate != null ? r.agentRate : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])) : null;
+          return e('div', { style: { textAlign: 'right' } }, UI.Mono(payClose ? this.euro(payClose) : 'On close', { fontWeight: 700, color: payClose ? 'var(--up)' : 'var(--text-mute)' }), earnedClose && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
+        }
+        const rate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]));
+        const isEarned = r.status === 'show';
+        const color = isEarned ? 'var(--up)' : 'oklch(0.62 0.06 256)';
+        return e('div', { style: { textAlign: 'right' } }, UI.Mono(rate != null ? this.euro(rate) : '—', { fontWeight: 700, color }), r.dealCommission != null && isEarned ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
+      } },
     ];
+
+    const selStyle = { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' };
+    const toolbar = UI.C({ padding: '14px 16px' },
+      e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 } },
+        quickRanges.map(qr => UI.Btn(qr.l, () => this.setState({ fDateFrom: qr.from, fDateTo: qr.to }), activeQuick && activeQuick.l === qr.l ? 'primary' : 'soft')),
+        myClients.length > 1 ? e('select', { value: fclient, onChange: ev => this.setState({ fclient: ev.target.value }), style: selStyle }, e('option', { value: 'all' }, 'All clients'), myClients.map(c => e('option', { key: c.id, value: c.id }, c.name))) : null,
+        e('select', { value: fstatus, onChange: ev => this.setState({ fstatus: ev.target.value }), style: selStyle }, e('option', { value: 'all' }, 'All statuses'), e('option', { value: 'open' }, 'Open'), e('option', { value: 'show' }, 'Show'), e('option', { value: 'no_show' }, 'No-show'), e('option', { value: 'cancel' }, 'Cancel'))),
+      e('div', { style: { display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--text-mute)', marginBottom: 12 } },
+        e('span', null, 'From'),
+        e('input', { type: 'date', value: fDateFrom, onChange: ev => this.setState({ fDateFrom: ev.target.value }), style: { padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } }),
+        e('span', null, 'to'),
+        e('input', { type: 'date', value: fDateTo, onChange: ev => this.setState({ fDateTo: ev.target.value }), style: { padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } })),
+      e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 20, padding: '12px 16px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+        [['Total', String(total), 'var(--text)'], ['Shows', String(shows), 'var(--up)'], ['Show rate', showRate + '%', 'var(--text)'], ['Earned', this.euro(earned), 'var(--up)'], ['Pending', this.euro(pending), 'oklch(0.62 0.06 256)']].map(([label, val, color]) =>
+          e('div', { key: label }, e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' } }, label), e('div', { style: { fontSize: 20, fontWeight: 800, color, fontFamily: "'JetBrains Mono'" } }, val)))));
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-      this._apptToolbar(d, s, { showClientFilter: true, clients: d.clients.filter(c => (me.clients || []).includes(c.id)) }),
+      toolbar,
       UI.C({ padding: 0, overflow: 'hidden' }, e('div', { style: { padding: '15px 18px' } }, UI.Hd('Active appointments', { fontSize: 15 })), UI.Table(cols, upcoming.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 700, empty: 'No active appointments match.' })),
       past.length ? e('details', null, e('summary', { style: { cursor: 'pointer', fontSize: 13.5, fontWeight: 700, color: 'var(--text-dim)', padding: '10px 4px' } }, `Show invoiced / paid history (${past.length})`), UI.C({ padding: 0, overflow: 'hidden', marginTop: 8 }, UI.Table(cols, past.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 700 }))) : null);
   },
