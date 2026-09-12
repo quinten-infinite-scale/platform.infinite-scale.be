@@ -48,7 +48,17 @@ const ScreenAgent = {
       { label: 'Lead', key: 'lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
-      { label: 'Payout', align: 'right', render: r => { const cl = d.clients.find(c => c.id === r.client); const isCloseFee = cl && cl.closeFee; const earned = isCloseFee ? r.quoteApproved : r.status === 'show'; const pay = earned ? (r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]))) : null; const pendingLabel = isCloseFee ? 'On close' : 'Pending'; return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : (r.status !== 'cancel' ? pendingLabel : '—'), { color: pay ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700 }), earned && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
+      { label: 'Payout', align: 'right', render: r => {
+        const cl = d.clients.find(c => c.id === r.client);
+        const isCloseFee = cl && cl.closeFee;
+        const isRenocheck = r.client === 'c15';
+        if (r.status === 'cancel') return e('div', { style: { textAlign: 'right' } }, UI.Mono('—', { fontWeight: 700, color: 'var(--text-mute)' }));
+        if (isCloseFee) { const ep = r.quoteApproved ? (r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client])) : null; return e('div', { style: { textAlign: 'right' } }, UI.Mono(ep ? this.euro(ep) : 'On close', { fontWeight: 700, color: ep ? 'var(--up)' : 'var(--text-mute)' })); }
+        if (isRenocheck) { const isShow = r.status === 'show'; const rp = isShow ? (r.agentRate != null ? r.agentRate : (rnAgentPay(r) ?? 0)) : null; return e('div', { style: { textAlign: 'right' } }, UI.Mono(rp != null ? this.euro(rp) : '—', { fontWeight: 700, color: isShow ? 'var(--up)' : 'var(--text-mute)' })); }
+        const rate = r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client]);
+        const isShow = r.status === 'show';
+        return e('div', { style: { textAlign: 'right' } }, UI.Mono(rate != null ? this.euro(rate) : '—', { fontWeight: 700, color: isShow ? 'var(--up)' : 'oklch(0.62 0.06 256)' }), r.dealCommission != null && isShow ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
+      } },
     ], recent.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 680 });
 
     const period = d.leaderPeriod || 'daily';
@@ -348,16 +358,22 @@ const ScreenAgent = {
       { label: 'Payout', align: 'right', render: r => {
         const cl = d.clients.find(c => c.id === r.client);
         const isCloseFee = cl && cl.closeFee;
+        const isRenocheck = r.client === 'c15';
         if (r.status === 'cancel') return e('div', { style: { textAlign: 'right' } }, UI.Mono('—', { fontWeight: 700, color: 'var(--text-mute)' }));
         if (isCloseFee) {
           const earnedClose = r.quoteApproved;
           const payClose = earnedClose ? (r.agentRate != null ? r.agentRate : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])) : null;
           return e('div', { style: { textAlign: 'right' } }, UI.Mono(payClose ? this.euro(payClose) : 'On close', { fontWeight: 700, color: payClose ? 'var(--up)' : 'var(--text-mute)' }), earnedClose && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
         }
-        const rate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]));
-        const isEarned = r.status === 'show';
-        const color = isEarned ? 'var(--up)' : 'oklch(0.62 0.06 256)';
-        return e('div', { style: { textAlign: 'right' } }, UI.Mono(rate != null ? this.euro(rate) : '—', { fontWeight: 700, color }), r.dealCommission != null && isEarned ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
+        if (isRenocheck) {
+          const isShow = r.status === 'show';
+          const rp = isShow ? (r.agentRate != null ? r.agentRate : (rnAgentPay(r) ?? 0)) : null;
+          return e('div', { style: { textAlign: 'right' } }, UI.Mono(rp != null ? this.euro(rp) : '—', { fontWeight: 700, color: isShow ? 'var(--up)' : 'var(--text-mute)' }));
+        }
+        const rate = r.agentRate != null ? r.agentRate : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]);
+        const isShow = r.status === 'show';
+        const color = isShow ? 'var(--up)' : 'oklch(0.62 0.06 256)';
+        return e('div', { style: { textAlign: 'right' } }, UI.Mono(rate != null ? this.euro(rate) : '—', { fontWeight: 700, color }), r.dealCommission != null && isShow ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
       } },
     ];
 
