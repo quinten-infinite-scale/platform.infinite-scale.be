@@ -1,6 +1,7 @@
 // Agent screens: dashboard, log, appointments, eod, payments, clients, stats, settings
 const RN_AGENT_RATE = {25:8, 40:12, 50:15, 55:15, 70:15, 80:20};
 const RN_CAT_RATE = {'Airco':8,'Thuisbatt':12,'Zonnepanelen':15,'Ramen en deuren':15,'Keukens':15,'Badkamers':15,'Crepi':15,'Dak':20,'Chapewerken':12};
+const RN_CAT_CLIENT_RATE = {'Chapewerken':25};
 function rnAgentPay(r) {
   try {
     const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null;

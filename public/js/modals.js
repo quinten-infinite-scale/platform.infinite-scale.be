@@ -279,9 +279,22 @@ const Modals = {
           this._kv('Agent', ag ? ag.name : ap.agent),
           this._kv('Appt date', this.fmtDate(ap.dateAppt)),
           this._kv('Logged', this.fmtDate(ap.dateLog) + (loggedTime ? ' · ' + loggedTime : '')),
-          role === 'admin' ? this._kv('Amount', ap.amount ? this.euro(ap.amount) : '—') : null,
           role === 'admin' ? (() => {
-            const agentRate = ap.agentRate != null ? ap.agentRate : (ag && ag.rates ? ((ag.rates[ap.sub] || ag.rates[ap.client]) || null) : null);
+            let amt = null;
+            try {
+              const fb = ap.clientFeedback ? JSON.parse(ap.clientFeedback) : null;
+              if (fb && fb._rn) {
+                if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) amt = RN_CAT_CLIENT_RATE[fb.category];
+                else if (fb.revenue != null) amt = fb.revenue;
+              }
+            } catch {}
+            if (amt == null) amt = ap.amount || null;
+            return this._kv('Amount', amt ? this.euro(amt) : '—');
+          })() : null,
+          role === 'admin' ? (() => {
+            let agentRate = ap.agentRate != null ? ap.agentRate : null;
+            if (agentRate == null && ap.client === 'c15' && typeof rnAgentPay !== 'undefined') agentRate = rnAgentPay(ap);
+            if (agentRate == null) agentRate = ag && ag.rates ? ((ag.rates[ap.sub] || ag.rates[ap.client]) || null) : null;
             if (!agentRate) return null;
             return this._kv('Agent rate', e('span', null, this.euro(agentRate), ap.agentRate != null ? e('span', { style: { fontSize: 11, color: 'var(--accent)', marginLeft: 5, fontFamily: "'JetBrains Mono'" } }, '✱ override') : null));
           })() : null,

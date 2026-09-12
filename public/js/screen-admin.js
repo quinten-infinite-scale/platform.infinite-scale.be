@@ -84,7 +84,7 @@ const ScreenAdmin = {
     const now = new Date();
     const currentYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     const today = this.iso(this.today());
-    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
     const aRate = (a) => { if (a.client === 'c15') return rnAgentPay(a) ?? 0; const ag = d.agents.find(g => g.id === a.agent); if (!ag) return 0; const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? ((ag.rates||{})[a.sub]||(ag.rates||{})[a.client]||0) : 0; return (ag && ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client])) || 0; };
     // Expected: all billable appointments logged this month (regardless of invoiced status)
     const curMonthBillable = d.appointments.filter(a => a.dateLog && a.dateLog.startsWith(currentYM) && a.status !== 'cancel' && a.status !== 'no_show');
@@ -706,7 +706,7 @@ const ScreenAdmin = {
                         const clBillable = clAppts.filter(a => a.status !== 'cancel' && a.status !== 'no_show');
                         const clPending = clBillable.filter(a => !a.invoiced);
                         const clIsInvoiced = clPending.length === 0 && clBillable.length > 0;
-                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {} if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
+                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
                         const clTotal = clBillable.reduce((s2, r) => s2 + apptRate(r), 0);
                         const clPendingTotal = clPending.reduce((s2, r) => s2 + apptRate(r), 0);
                         const openCount = clPending.filter(a => a.status === 'open').length;
