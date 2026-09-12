@@ -16,6 +16,16 @@ export const config = { api: { bodyParser: false } };
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://database.infinite-scale.be';
 
+async function sendInternalEmail(to, subject, html) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || key === 're_placeholder') return;
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: 'Infinite Scale <platform@infinite-scale.be>', to, subject, html }),
+  });
+}
+
 function sbHeaders() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return {
@@ -249,18 +259,58 @@ async function handlePost(req, res, rawBody) {
         for (const msg of (value?.messages || [])) {
           const fromPhone = msg?.from;
           const content = msg?.type === 'text' ? (msg?.text?.body || '') : `[${msg?.type}]`;
-          let appointmentId = null, clientId = null;
+          let appointmentId = null, clientId = null, leadName = null, apptDate = null;
           if (fromPhone) {
-            const apptRows = await sbGet(`appointments?phone=ilike.*${fromPhone.slice(-8)}*&select=id,client_id&order=created_at.desc&limit=1`).catch(() => []);
+            const apptRows = await sbGet(`appointments?phone=ilike.*${fromPhone.slice(-8)}*&select=id,client_id,lead_name,date_appt,status&order=created_at.desc&limit=1`).catch(() => []);
             const appt = Array.isArray(apptRows) ? apptRows[0] : null;
-            if (appt) { appointmentId = appt.id; clientId = appt.client_id; }
+            if (appt) { appointmentId = appt.id; clientId = appt.client_id; leadName = appt.lead_name; apptDate = appt.date_appt; }
+
+            // ── Cancel detection ──────────────────────────────────────────────
+            const cancelKeywords = /\b(annuleer|annuleren|annulatie|cancel|geannuleerd|afzeggen|afzegging|ik kom niet|zal niet komen|moet afzeggen|niet aanwezig|niet meer nodig|stel af|afgesteld)\b/i;
+            if (content && cancelKeywords.test(content) && appointmentId && appt?.status !== 'cancel') {
+              await sbPatch('appointments', `?id=eq.${appointmentId}`, { status: 'cancel' }).catch(() => {});
+              console.log(`[wa] Auto-cancelled appointment ${appointmentId} based on reply`);
+
+              // Notify client by email
+              if (clientId) {
+                const clientRows = await sbGet(`clients?id=eq.${clientId}&select=name,email`).catch(() => []);
+                const clientData = Array.isArray(clientRows) ? clientRows[0] : null;
+                if (clientData?.email) {
+                  const dateStr = apptDate ? apptDate.slice(0, 10) : '';
+                  await sendInternalEmail(
+                    [clientData.email],
+                    `[WhatsApp] Afspraak geannuleerd – ${leadName || fromPhone}`,
+                    `<h2>Afspraak geannuleerd via WhatsApp</h2>
+<p><b>Lead:</b> ${leadName || fromPhone || '—'}</p>
+<p><b>Telefoon:</b> +${fromPhone || '—'}</p>
+<p><b>Datum:</b> ${dateStr || '—'}</p>
+<p><b>Bericht:</b> "${content}"</p>
+<p>De afspraatstatus is automatisch op <b>Geannuleerd</b> gezet.</p>`
+                  ).catch(() => {});
+                }
+              }
+            }
           }
+
           await sbInsert('whatsapp_messages', {
             appointment_id: appointmentId, client_id: clientId,
             phone: fromPhone ? '+' + fromPhone : '', direction: 'inbound', message_type: 'reply',
             template_name: null, whatsapp_message_id: msg?.id || null,
             status: 'received', status_updated_at: now, content, raw_payload: msg,
           }).catch(() => {});
+
+          // ── Notify Quinten + Senne on every inbound ───────────────────────
+          const dateStr = apptDate ? apptDate.slice(0, 10) : '';
+          await sendInternalEmail(
+            ['quinten@infinite-scale.be', 'senne.db@infinite-scale.be'],
+            `[WhatsApp Reply] ${leadName || ('+' + fromPhone) || 'Onbekend'}`,
+            `<h2>Nieuw WhatsApp bericht</h2>
+<p><b>Van:</b> ${leadName || '—'} (+${fromPhone || '—'})</p>
+<p><b>Bericht:</b> "${content}"</p>
+${apptDate ? `<p><b>Afspraak:</b> ${dateStr}</p>` : ''}
+<p><a href="https://platform.infinite-scale.be">Open platform →</a></p>`
+          ).catch(err => console.error('[wa] Email notify failed:', err.message));
+
           console.log(`[wa] Inbound from ${fromPhone}, appt=${appointmentId}`);
         }
       }

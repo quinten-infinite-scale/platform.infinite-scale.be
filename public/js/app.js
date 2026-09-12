@@ -1,6 +1,6 @@
 // Runtime version check — forces cache-busting redirect if JS is stale (bypasses Vercel CDN)
 (function() {
-  const CURRENT_V = '20260912j';
+  const CURRENT_V = '20260912k';
   setTimeout(function() {
     fetch('/version.json?_=' + Date.now())
       .then(function(r) { return r.json(); })

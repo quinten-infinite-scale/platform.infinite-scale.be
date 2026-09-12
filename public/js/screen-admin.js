@@ -4053,27 +4053,41 @@ const ScreenAdmin = {
       }
     };
 
-    const threadView = threadPhone ? e('div', { style: { position: 'fixed', inset: 0, background: 'rgba(7,10,20,0.82)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
+    const threadMsgs = threadPhone ? wa.filter(m => m.phone === threadPhone || m.phone === '+' + threadPhone.replace(/^\+/, '')).sort((a, b) => a.created_at < b.created_at ? -1 : 1) : [];
+    const threadAppt = threadPhone ? (d.appointments || []).find(a => a.phone && a.phone.slice(-8) === threadPhone.slice(-8)) : null;
+    const threadLeadName = threadAppt ? (threadAppt.lead_name || threadAppt.lead || '') : null;
+    const threadClientName = threadAppt ? clientName(threadAppt.client) : null;
+
+    const threadView = threadPhone ? e('div', { style: { position: 'fixed', inset: 0, background: 'rgba(7,10,20,0.85)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 },
         onClick: ev => { if (ev.target === ev.currentTarget) this.setState({ _waThreadPhone: null, _waReplyText: '' }); } },
-      e('div', { style: { width: '100%', maxWidth: 620, maxHeight: '85vh', background: '#13161f', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-        e('div', { style: { padding: '14px 20px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 10 } },
-          e('span', { style: { fontWeight: 700, color: 'var(--text)', flex: 1 } }, 'Thread: ' + threadPhone),
-          e('button', { onClick: () => this.setState({ _waThreadPhone: null, _waReplyText: '' }), style: { background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 20, cursor: 'pointer' } }, '\u00D7')),
-        e('div', { style: { flex: 1, overflow: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 } },
-          ...wa.filter(m => m.phone === threadPhone || m.phone === '+' + threadPhone.replace(/^\+/, '')).map(m =>
-            e('div', { key: m.id, style: { display: 'flex', flexDirection: 'column', alignItems: m.direction === 'inbound' ? 'flex-start' : 'flex-end', gap: 3 } },
-              e('div', { style: { maxWidth: '80%', padding: '8px 14px', borderRadius: 14, background: m.direction === 'inbound' ? 'var(--surface)' : 'oklch(0.22 0.08 230 / .7)', color: 'var(--text)', fontSize: 13, lineHeight: 1.5 } },
-                m.content || (m.template_name ? '[Template: ' + m.template_name + ']' : '[no content]')),
-              e('div', { style: { fontSize: 10, color: 'var(--text-mute)', display: 'flex', gap: 6 } }, fmtTime(m.created_at), statusBadge(m.status))))
+      e('div', { style: { width: '100%', maxWidth: 540, maxHeight: '88vh', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 18, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' } },
+        e('div', { style: { padding: '16px 20px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface)' } },
+          e('div', { style: { width: 38, height: 38, borderRadius: '50%', background: 'oklch(0.22 0.09 180 / .4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 } }, '\uD83D\uDCAC'),
+          e('div', { style: { flex: 1, minWidth: 0 } },
+            e('div', { style: { fontWeight: 700, color: 'var(--text)', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, threadLeadName || threadPhone),
+            e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, [threadLeadName ? threadPhone : null, threadClientName].filter(Boolean).join(' \u00B7 '))),
+          e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginRight: 10 } }, threadMsgs.length + ' msgs'),
+          e('button', { onClick: () => this.setState({ _waThreadPhone: null, _waReplyText: '' }), style: { background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 2px' } }, '\u00D7')),
+        e('div', { style: { flex: 1, overflow: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 } },
+          threadMsgs.length === 0
+            ? e('div', { style: { color: 'var(--text-mute)', fontSize: 13, textAlign: 'center', marginTop: 32 } }, 'Geen berichten in deze thread.')
+            : threadMsgs.map(m =>
+                e('div', { key: m.id, style: { display: 'flex', flexDirection: 'column', alignItems: m.direction === 'inbound' ? 'flex-start' : 'flex-end', gap: 3 } },
+                  e('div', { style: { maxWidth: '78%', padding: '9px 13px', borderRadius: m.direction === 'inbound' ? '4px 14px 14px 14px' : '14px 4px 14px 14px', background: m.direction === 'inbound' ? 'var(--surface)' : 'oklch(0.28 0.12 180 / .85)', color: 'var(--text)', fontSize: 13, lineHeight: 1.55, border: '1px solid var(--border-soft)' } },
+                    m.content || (m.template_name ? '[Template: ' + m.template_name + ']' : '[geen inhoud]')),
+                  e('div', { style: { fontSize: 10, color: 'var(--text-mute)', display: 'flex', gap: 5, alignItems: 'center' } },
+                    fmtTime(m.created_at),
+                    m.direction === 'outbound' ? statusBadge(m.status) : null))
+              )
         ),
-        e('div', { style: { padding: '12px 16px', borderTop: '1px solid var(--border-soft)', display: 'flex', gap: 8, alignItems: 'flex-end' } },
+        e('div', { style: { padding: '12px 14px', borderTop: '1px solid var(--border-soft)', display: 'flex', gap: 8, alignItems: 'flex-end', background: 'var(--surface)' } },
           e('textarea', { value: threadReplyText, onChange: ev => this.setState({ _waReplyText: ev.target.value }),
             onKeyDown: ev => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); sendReply(); } },
-            placeholder: 'Type a message\u2026 (Enter to send, Shift+Enter for newline)', rows: 2,
-            style: { flex: 1, padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5 } }),
+            placeholder: 'Stuur een bericht\u2026 (Enter = verstuur, Shift+Enter = nieuwe lijn)', rows: 2,
+            style: { flex: 1, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, outline: 'none' } }),
           e('button', { onClick: sendReply, disabled: threadSending || !threadReplyText.trim(),
-            style: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#071a1a', fontWeight: 700, fontSize: 13, cursor: threadSending ? 'default' : 'pointer', opacity: threadSending || !threadReplyText.trim() ? 0.5 : 1, whiteSpace: 'nowrap' } },
-            threadSending ? 'Sending\u2026' : 'Send'))
+            style: { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#071a1a', fontWeight: 700, fontSize: 13, cursor: threadSending || !threadReplyText.trim() ? 'default' : 'pointer', opacity: threadSending || !threadReplyText.trim() ? 0.4 : 1, whiteSpace: 'nowrap', transition: 'opacity .15s' } },
+            threadSending ? 'Versturen\u2026' : 'Stuur \u21B5'))
       )
     ) : null;
 
@@ -4288,15 +4302,72 @@ const ScreenAdmin = {
       )
     );
 
+    // ── Chats tab ─────────────────────────────────────────────────────────────
+    const chatFilterClient = s._waChatFilterClient || '';
+    const inboundMsgs = wa.filter(m => m.direction === 'inbound');
+
+    // Group all messages by phone into conversation threads
+    const convMap = {};
+    for (const m of wa) {
+      const ph = m.phone || '';
+      if (!convMap[ph]) convMap[ph] = { phone: ph, msgs: [], lastMsg: null, hasUnread: false, clientId: m.client_id, apptId: m.appointment_id };
+      convMap[ph].msgs.push(m);
+      if (!convMap[ph].lastMsg || m.created_at > convMap[ph].lastMsg.created_at) {
+        convMap[ph].lastMsg = m;
+        if (!m.client_id && m.client_id !== convMap[ph].clientId) {} // keep first non-null clientId
+        if (m.client_id) convMap[ph].clientId = m.client_id;
+      }
+      if (m.direction === 'inbound') convMap[ph].hasUnread = true;
+    }
+    let convList = Object.values(convMap)
+      .filter(c => !chatFilterClient || c.clientId === chatFilterClient)
+      .sort((a, b) => (b.lastMsg?.created_at || '') < (a.lastMsg?.created_at || '') ? -1 : 1);
+
+    const inboundCount = inboundMsgs.length;
+
+    const chatsTab = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      e('div', { style: { display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' } },
+        e('select', { value: chatFilterClient, onChange: ev => this.setState({ _waChatFilterClient: ev.target.value }), style: { ...inputStyle, width: 'auto' } },
+          e('option', { value: '' }, 'Alle clients'),
+          ...(d.clients || []).map(c => e('option', { key: c.id, value: c.id }, c.name))),
+        e('span', { style: { fontSize: 12, color: 'var(--text-mute)', marginLeft: 'auto' } },
+          convList.length + ' gesprekken · ' + inboundCount + ' ontvangen berichten')),
+      convList.length === 0
+        ? e('div', { style: { padding: '32px 16px', color: 'var(--text-mute)', textAlign: 'center', fontSize: 13, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' } }, 'Nog geen gesprekken. Gesprekken verschijnen hier zodra leads via WhatsApp reageren.')
+        : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' } },
+            convList.map((conv, i) => {
+              const lastM = conv.lastMsg;
+              const appt = (d.appointments || []).find(a => a.id === conv.apptId || (a.phone && a.phone.slice(-8) === conv.phone.slice(-8)));
+              const lead = appt ? (appt.lead_name || appt.lead || conv.phone) : conv.phone;
+              const cName = conv.clientId ? clientName(conv.clientId) : null;
+              const isLast = i === convList.length - 1;
+              const inboundCount = conv.msgs.filter(m => m.direction === 'inbound').length;
+              return e('div', { key: conv.phone, onClick: () => this.setState({ _waThreadPhone: conv.phone, _waSubTab: 'chats' }), style: { display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px', cursor: 'pointer', borderBottom: isLast ? 'none' : '1px solid var(--border-soft)', background: conv.hasUnread ? 'oklch(0.13 0.04 180 / .5)' : 'transparent', transition: 'background .1s' } },
+                e('div', { style: { position: 'relative', flexShrink: 0 } },
+                  e('div', { style: { width: 42, height: 42, borderRadius: '50%', background: 'oklch(0.22 0.09 180 / .35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 } }, '👤'),
+                  conv.hasUnread ? e('div', { style: { position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)' } }) : null),
+                e('div', { style: { flex: 1, minWidth: 0 } },
+                  e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 } },
+                    e('span', { style: { fontWeight: conv.hasUnread ? 700 : 600, color: 'var(--text)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, lead),
+                    e('span', { style: { fontSize: 11, color: 'var(--text-mute)', flexShrink: 0 } }, lastM ? fmtTime(lastM.created_at) : '')),
+                  e('div', { style: { fontSize: 12, color: 'var(--text-mute)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 3, display: 'flex', gap: 6, alignItems: 'center' } },
+                    lastM?.direction === 'outbound' ? e('span', { style: { color: 'var(--text-mute)', fontSize: 11 } }, '↪') : null,
+                    lastM ? (lastM.content || (lastM.template_name ? '[Template: ' + lastM.template_name + ']' : '')) : '',
+                    cName ? e('span', { style: { color: 'oklch(0.55 0.09 180)', fontSize: 11, marginLeft: 4, flexShrink: 0 } }, '· ' + cName) : null)),
+                inboundCount > 0 ? e('div', { style: { flexShrink: 0, minWidth: 20, height: 20, borderRadius: 10, background: 'var(--accent)', color: '#071a1a', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px' } }, inboundCount) : null);
+            })
+          )
+    );
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
       threadView,
       statusRow,
       e('div', { style: { display: 'flex', gap: 4 } },
-        ['messages', 'templates'].map(t =>
+        [['chats', 'Chats (' + convList.length + ')'], ['messages', 'Messages'], ['templates', 'Templates (' + tpls.length + ')']].map(([t, label]) =>
           e('button', { key: t, onClick: () => setSubTab(t),
-            style: { padding: '7px 18px', borderRadius: 8, border: '1px solid ' + (subTab === t ? 'var(--accent)' : 'var(--border)'), background: subTab === t ? 'oklch(0.22 0.09 180 / .35)' : 'var(--surface)', color: subTab === t ? 'var(--accent)' : 'var(--text-mute)', fontWeight: subTab === t ? 700 : 400, cursor: 'pointer', fontSize: 13, textTransform: 'capitalize', transition: 'all .15s' } },
-            t === 'messages' ? 'Messages' : 'Templates (' + tpls.length + ')'))),
-      subTab === 'messages' ? messagesTab : templatesTab);
+            style: { padding: '7px 18px', borderRadius: 8, border: '1px solid ' + (subTab === t ? 'var(--accent)' : 'var(--border)'), background: subTab === t ? 'oklch(0.22 0.09 180 / .35)' : 'var(--surface)', color: subTab === t ? 'var(--accent)' : 'var(--text-mute)', fontWeight: subTab === t ? 700 : 400, cursor: 'pointer', fontSize: 13, transition: 'all .15s' } },
+            label))),
+      subTab === 'chats' ? chatsTab : subTab === 'messages' ? messagesTab : templatesTab);
   },
 
   _admTickets(d, s) {
