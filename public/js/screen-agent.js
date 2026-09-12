@@ -54,8 +54,7 @@ const ScreenAgent = {
         const isRenocheck = r.client === 'c15';
         if (r.status === 'cancel') return e('div', { style: { textAlign: 'right' } }, UI.Mono('—', { fontWeight: 700, color: 'var(--text-mute)' }));
         if (isCloseFee) { const ep = r.quoteApproved ? (r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client])) : null; return e('div', { style: { textAlign: 'right' } }, UI.Mono(ep ? this.euro(ep) : 'On close', { fontWeight: 700, color: ep ? 'var(--up)' : 'var(--text-mute)' })); }
-        if (isRenocheck) { const isShow = r.status === 'show'; const rp = isShow ? (r.agentRate != null ? r.agentRate : (rnAgentPay(r) ?? 0)) : null; return e('div', { style: { textAlign: 'right' } }, UI.Mono(rp != null ? this.euro(rp) : '—', { fontWeight: 700, color: isShow ? 'var(--up)' : 'var(--text-mute)' })); }
-        const rate = r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client]);
+        const rate = isRenocheck ? (r.agentRate != null ? r.agentRate : (rnAgentPay(r) ?? 0)) : (r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client]));
         const isShow = r.status === 'show';
         return e('div', { style: { textAlign: 'right' } }, UI.Mono(rate != null ? this.euro(rate) : '—', { fontWeight: 700, color: isShow ? 'var(--up)' : 'oklch(0.62 0.06 256)' }), r.dealCommission != null && isShow ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
       } },
@@ -389,7 +388,7 @@ const ScreenAgent = {
         e('span', null, 'to'),
         e('input', { type: 'date', value: fDateTo, onChange: ev => this.setState({ fDateTo: ev.target.value }), style: { padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 } })),
       e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 20, padding: '12px 16px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
-        [['Total', String(total), 'var(--text)'], ['Shows', String(shows), 'var(--up)'], ['Show rate', showRate + '%', 'var(--text)'], ['Earned', this.euro(earned), 'var(--up)'], ['Pending', this.euro(pending), 'oklch(0.62 0.06 256)']].map(([label, val, color]) =>
+        [['Pending', this.euro(pending), 'oklch(0.62 0.06 256)']].map(([label, val, color]) =>
           e('div', { key: label }, e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' } }, label), e('div', { style: { fontSize: 20, fontWeight: 800, color, fontFamily: "'JetBrains Mono'" } }, val)))));
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
@@ -989,10 +988,9 @@ const ScreenAgent = {
       if (!title) return this.toast('Ticket', 'Voer een titel in', 'var(--down)');
       if (!category) return this.toast('Ticket', 'Selecteer een categorie', 'var(--down)');
       if (desc.length < 30) return this.toast('Ticket', 'Beschrijving moet minstens 30 tekens zijn', 'var(--down)');
-      if (!steps) return this.toast('Ticket', 'Vul de stappen in om het probleem te reproduceren', 'var(--down)');
       this.setState({ _ticketSubmitting: true });
       try {
-        const fullDesc = desc + '\n\n**Stappen om te reproduceren:**\n' + steps + (expected ? '\n\n**Verwacht gedrag:**\n' + expected : '') + (actual ? '\n\n**Huidig gedrag:**\n' + actual : '');
+        const fullDesc = desc + (steps ? '\n\n**Stappen om te reproduceren:**\n' + steps : '') + (expected ? '\n\n**Verwacht gedrag:**\n' + expected : '') + (actual ? '\n\n**Huidig gedrag:**\n' + actual : '');
         await API.submitTicket(null, title, category, fullDesc, me.id);
         // Send email notification
         try {
@@ -1020,7 +1018,6 @@ const ScreenAgent = {
             TICKET_CATS.map(c => e('option', { key: c, value: c }, c)))),
           UI.Field('Titel *', e('input', { type: 'text', value: f.ticketTitle || '', onChange: ev => this.setForm('ticketTitle', ev.target.value), placeholder: 'Korte, duidelijke omschrijving van het probleem', style: inputStyle })),
           UI.Field('Beschrijving * (min. 30 tekens)', e('textarea', { value: f.ticketDesc || '', onChange: ev => this.setForm('ticketDesc', ev.target.value), placeholder: 'Wat is het probleem? Geef context.', rows: 4, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } })),
-          UI.Field('Stappen om te reproduceren *', e('textarea', { value: f.ticketSteps || '', onChange: ev => this.setForm('ticketSteps', ev.target.value), placeholder: '1. Ga naar...\n2. Klik op...\n3. Zie dat...', rows: 4, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } })),
           UI.Grid('1fr 1fr', 12,
             UI.Field('Verwacht gedrag', e('textarea', { value: f.ticketExpected || '', onChange: ev => this.setForm('ticketExpected', ev.target.value), placeholder: 'Wat zou er moeten gebeuren?', rows: 3, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } })),
             UI.Field('Huidig (fout) gedrag', e('textarea', { value: f.ticketActual || '', onChange: ev => this.setForm('ticketActual', ev.target.value), placeholder: 'Wat gebeurt er nu?', rows: 3, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } }))),
