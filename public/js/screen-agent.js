@@ -431,6 +431,8 @@ const ScreenAgent = {
 
     const apptThisMonth = a => a.agent === me.id && (a.dateLog || '').startsWith(currentYM);
     const agentRate = a => { const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return (a.quoteApproved ? ((me.rates||{})[a.sub]||(me.rates||{})[a.client]||0) : 0) + (a.dealCommission||0); return ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0) + (a.dealCommission || 0); };
+    // running = all non-cancel this month (open + shows) = potential earnings
+    const runningThisMonth = d.appointments.filter(a => apptThisMonth(a) && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + agentRate(a), 0);
     const running = d.appointments.filter(a => apptThisMonth(a) && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
     const confirmed = running;
     const allTimeRunning = d.appointments.filter(a => a.agent === me.id && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
@@ -566,12 +568,13 @@ const ScreenAgent = {
     const noShowCount = myAllAppts.filter(a => a.status === 'no_show').length;
     const cancelCount = myAllAppts.filter(a => a.status === 'cancel').length;
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
-      UI.Grid('repeat(auto-fit,minmax(190px,1fr))', 14,
-        UI.Stat('All-time earned', this.euro(allTimeRunning), null, 'all shows ever · excl. no-shows & cancels'),
-        UI.Stat('This month earned', this.euro(running), null, 'shows this month'),
-        UI.Stat('Lifetime paid', this.euro(me.lifetime || 0), null, 'confirmed & invoiced'),
+      UI.Grid('repeat(auto-fit,minmax(185px,1fr))', 14,
+        UI.Stat('Lopend deze maand', this.euro(runningThisMonth), null, 'open + shows · excl. cancels'),
+        UI.Stat('Bevestigd deze maand', this.euro(running), null, 'enkel shows deze maand'),
+        UI.Stat('All-time earned', this.euro(allTimeRunning), null, 'alle shows ooit · excl. cancels'),
+        UI.Stat('Lifetime paid', this.euro(me.lifetime || 0), null, 'bevestigd & gefactureerd'),
         UI.Stat('No-shows', String(noShowCount), null, 'all-time no-shows'),
-        UI.Stat('Cancels', String(cancelCount), null, 'all-time cancellations')),
+        UI.Stat('Cancels', String(cancelCount), null, 'all-time cancels')),
       earningsGraph,
       mfSection,
       e('div', { style: { borderRadius: 14, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
