@@ -1,6 +1,6 @@
 // Runtime version check — forces cache-busting redirect if JS is stale (bypasses Vercel CDN)
 (function() {
-  const CURRENT_V = '20260912e';
+  const CURRENT_V = '20260912f';
   setTimeout(function() {
     fetch('/version.json?_=' + Date.now())
       .then(function(r) { return r.json(); })
@@ -1335,6 +1335,8 @@ class Component extends DCLogic {
   _admRooster(...a) { return ScreenAdmin._admRooster.call(this, ...a); }
   _admActivity(...a) { return ScreenAdmin._admActivity.call(this, ...a); }
   _admTodos(...a) { return ScreenAdmin._admTodos.call(this, ...a); }
+  _admTickets(...a) { return ScreenAdmin._admTickets.call(this, ...a); }
+  _agentTickets(...a) { return ScreenAgent._agentTickets.call(this, ...a); }
   get _M() { return ScreenRoadmap._M; }
   _defaultTargets(...a) { return ScreenRoadmap._defaultTargets.call(this, ...a); }
   _getTargets(...a) { return ScreenRoadmap._getTargets.call(this, ...a); }
