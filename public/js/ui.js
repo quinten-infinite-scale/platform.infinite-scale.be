@@ -123,8 +123,11 @@ const UI = {
     const e = React.createElement;
     const times = [];
     for (let h = 7; h <= 21; h++) {
-      times.push((h < 10 ? '0' : '') + h + ':00');
-      if (h < 21) times.push((h < 10 ? '0' : '') + h + ':30');
+      const hh = (h < 10 ? '0' : '') + h;
+      times.push(hh + ':00');
+      if (h < 21) times.push(hh + ':15');
+      if (h < 21) times.push(hh + ':30');
+      if (h < 21) times.push(hh + ':45');
     }
     const isManual = value && !times.includes(value);
     const selectVal = isManual ? '__manual' : (value || '');

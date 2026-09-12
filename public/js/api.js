@@ -22,6 +22,7 @@ const API = {
         ? SB.get('eod_reports', `?agent_id=eq.${agentId}&order=report_date.desc`)
         : SB.get('eod_reports', '?order=report_date.desc'),
       role === 'admin' ? SB.get('tickets', '?order=submitted_at.desc') :
+        role === 'agent' && agentId ? SB.get('tickets', `?agent_id=eq.${agentId}&order=submitted_at.desc`) :
         clientId ? SB.get('tickets', `?client_id=eq.${clientId}&order=submitted_at.desc`) : [],
       role === 'admin' ? SB.get('recruits', '?order=created_at.desc') : [],
       role === 'admin' ? SB.get('prospects', '?order=created_at.desc') : [],
@@ -141,12 +142,16 @@ const API = {
 
     const ticketsNorm = (tickets || []).map(t => ({
       id: t.id,
+      submittedAt: t.submitted_at || '',
       time: (t.submitted_at || '').slice(0, 16).replace('T', ' '),
       title: t.title,
+      category: t.category,
       cat: t.category,
       client: t.client_id,
+      agentId: t.agent_id || null,
       desc: t.description || '',
       status: t.status,
+      notes: t.notes || '',
     }));
 
     const salesExpRaw = (platformSettings || []).find(r => r.key === 'recruit_sales_exp');
@@ -328,10 +333,11 @@ const API = {
     return SB.del('appointments', '?id=eq.' + id);
   },
 
-  async submitTicket(clientId, title, category, description) {
+  async submitTicket(clientId, title, category, description, agentId) {
     return SB.post('tickets', {
       id: 'tk' + Date.now(),
-      client_id: clientId,
+      client_id: clientId || null,
+      agent_id: agentId || null,
       title, category, description,
       status: 'open',
     });

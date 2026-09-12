@@ -34,6 +34,7 @@ const ScreenAgent = {
     if (s.route === 'clients') return this._agentClients(d, s, me);
     if (s.route === 'stats') return this._agentStats(d, s, me);
     if (s.route === 'rooster') return this._agentRooster(d, s, me);
+    if (s.route === 'tickets') return this._agentTickets(d, s, me);
     if (s.route === 'settings') return this._settings(d, s, me);
     return e('div', null, '');
   },
@@ -69,12 +70,22 @@ const ScreenAgent = {
       }, t.done ? e('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--accent-ink)', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M5 12l5 5L20 6' })) : null),
       e('span', { style: { flex: 1, fontSize: 13.5, color: t.done ? 'var(--text-mute)' : 'var(--text)', textDecoration: t.done ? 'line-through' : 'none', fontWeight: t.done ? 500 : 600 } }, t.text)));
 
+    // Today's appointments broken down per client
+    const myClients = d.clients.filter(c => (me.clients || []).includes(c.id));
+    const perClientToday = myClients.map(c => {
+      const cnt = apT.filter(a => a.client === c.id).length;
+      return { name: c.name, cnt };
+    }).filter(x => x.cnt > 0);
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       UI.Grid('repeat(auto-fit,minmax(190px,1fr))', 14,
         UI.Stat('Dials today', String(dialsT), pct(dialsT, dialsY), 'vs ' + dialsY + ' yesterday'),
         UI.Stat('Appointments today', String(apT.length), pct(apT.length, apY.length || 0), 'vs ' + apY.length + ' yesterday'),
         UI.Stat('Money made today', this.euro(moneyT), pct(moneyT, moneyY), 'live, per logged appt'),
       ),
+      perClientToday.length ? UI.C({},
+        e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 } }, "Today's appointments per client"),
+        UI.Grid('repeat(auto-fit,minmax(160px,1fr))', 10, ...perClientToday.map(x => UI.Stat(x.name, String(x.cnt), null, 'today')))) : null,
       UI.Grid('repeat(auto-fit,minmax(190px,1fr))', 14,
         UI.Stat('All-time appointments', String(allTimeAppts), null, 'every appt you ever logged'),
         UI.Stat('All-time earnings', this.euro(allTimeMoney), null, 'total across all appointments'),
@@ -301,7 +312,7 @@ const ScreenAgent = {
       { label: 'Payout', align: 'right', render: r => { const cl = d.clients.find(c => c.id === r.client); const isCloseFee = cl && cl.closeFee; const earned = isCloseFee ? r.quoteApproved : r.status === 'show'; const pay = earned ? (r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : ((me.rates || {})[r.sub] || (me.rates || {})[r.client]))) : null; const pendingLabel = isCloseFee ? 'On close' : 'Pending'; return e('div', { style: { textAlign: 'right' } }, UI.Mono(pay ? this.euro(pay) : (r.status !== 'cancel' ? pendingLabel : '—'), { fontWeight: 700, color: pay ? 'var(--up)' : 'var(--text-mute)' }), earned && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null); } },
     ];
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-      this._apptToolbar(d, s),
+      this._apptToolbar(d, s, { showClientFilter: true, clients: d.clients.filter(c => (me.clients || []).includes(c.id)) }),
       UI.C({ padding: 0, overflow: 'hidden' }, e('div', { style: { padding: '15px 18px' } }, UI.Hd('Active appointments', { fontSize: 15 })), UI.Table(cols, upcoming.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 700, empty: 'No active appointments match.' })),
       past.length ? e('details', null, e('summary', { style: { cursor: 'pointer', fontSize: 13.5, fontWeight: 700, color: 'var(--text-dim)', padding: '10px 4px' } }, `Show invoiced / paid history (${past.length})`), UI.C({ padding: 0, overflow: 'hidden', marginTop: 8 }, UI.Table(cols, past.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 700 }))) : null);
   },
@@ -551,12 +562,16 @@ const ScreenAgent = {
         ) : null);
     })() : null;
 
+    const myAllAppts = d.appointments.filter(a => a.agent === me.id);
+    const noShowCount = myAllAppts.filter(a => a.status === 'no_show').length;
+    const cancelCount = myAllAppts.filter(a => a.status === 'cancel').length;
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       UI.Grid('repeat(auto-fit,minmax(190px,1fr))', 14,
-        UI.Stat('Lopend deze maand', this.euro(running), null, 'open + shows · excl. cancels'),
-        UI.Stat('Bevestigde shows', this.euro(confirmed), null, 'enkel shows deze maand'),
-        UI.Stat('All-time running', this.euro(allTimeRunning), null, 'all appointments · excl. cancels'),
-        UI.Stat('Lifetime paid', this.euro(me.lifetime || 0), null, 'since you joined')),
+        UI.Stat('All-time earned', this.euro(allTimeRunning), null, 'all shows ever · excl. no-shows & cancels'),
+        UI.Stat('This month earned', this.euro(running), null, 'shows this month'),
+        UI.Stat('Lifetime paid', this.euro(me.lifetime || 0), null, 'confirmed & invoiced'),
+        UI.Stat('No-shows', String(noShowCount), null, 'all-time no-shows'),
+        UI.Stat('Cancels', String(cancelCount), null, 'all-time cancellations')),
       earningsGraph,
       mfSection,
       e('div', { style: { borderRadius: 14, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
@@ -868,5 +883,71 @@ const ScreenAgent = {
         ...summary) : null,
       UI.C({ padding: '12px 16px' }, clientBar),
       UI.C({ padding: '14px 12px' }, grid));
+  },
+
+  _agentTickets(d, s, me) {
+    const e = React.createElement;
+    const f = s.form || {};
+    const myTickets = (d.tickets || []).filter(t => t.agentId === me.id);
+    const submitting = !!s._ticketSubmitting;
+    const inputStyle = { padding: '10px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13.5, outline: 'none', width: '100%' };
+    const TICKET_CATS = ['Bug / technisch probleem', 'Feature verzoek / optimalisatie', 'Data / afspraken probleem', 'Platform UI feedback', 'Andere'];
+    const statusColor = { open: 'var(--warn)', in_progress: 'var(--info)', fixed: 'var(--up)', closed: 'var(--text-mute)' };
+    const statusLabel = { open: 'Open', in_progress: 'In behandeling', fixed: 'Opgelost', closed: 'Gesloten' };
+
+    const submitTicket = async () => {
+      const title = (f.ticketTitle || '').trim();
+      const category = f.ticketCategory || '';
+      const desc = (f.ticketDesc || '').trim();
+      const steps = (f.ticketSteps || '').trim();
+      const expected = (f.ticketExpected || '').trim();
+      const actual = (f.ticketActual || '').trim();
+      if (!title) return this.toast('Ticket', 'Voer een titel in', 'var(--down)');
+      if (!category) return this.toast('Ticket', 'Selecteer een categorie', 'var(--down)');
+      if (desc.length < 30) return this.toast('Ticket', 'Beschrijving moet minstens 30 tekens zijn', 'var(--down)');
+      if (!steps) return this.toast('Ticket', 'Vul de stappen in om het probleem te reproduceren', 'var(--down)');
+      this.setState({ _ticketSubmitting: true });
+      try {
+        const fullDesc = desc + '\n\n**Stappen om te reproduceren:**\n' + steps + (expected ? '\n\n**Verwacht gedrag:**\n' + expected : '') + (actual ? '\n\n**Huidig gedrag:**\n' + actual : '');
+        await API.submitTicket(null, title, category, fullDesc, me.id);
+        // Send email notification
+        try {
+          const tok = (typeof SB !== 'undefined' && SB.getSession()?.access_token) || '';
+          const emailHtml = `<h2>Nieuw ticket ingediend</h2><p><b>Agent:</b> ${me.name}</p><p><b>Categorie:</b> ${category}</p><p><b>Titel:</b> ${title}</p><p><b>Beschrijving:</b></p><pre style="background:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap">${fullDesc}</pre>`;
+          await fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ to: ['quinten@infinite-scale.be', 'senne.db@infinite-scale.be'], subject: '[Platform Ticket] ' + title + ' — ' + me.name, html: emailHtml }) });
+        } catch {}
+        await this.reload();
+        this.setState({ _ticketSubmitting: false, form: { ...f, ticketTitle: '', ticketCategory: '', ticketDesc: '', ticketSteps: '', ticketExpected: '', ticketActual: '' } });
+        this.toast('Ticket', 'Ingediend! We nemen zo snel mogelijk contact op.', 'var(--up)');
+      } catch(err) {
+        this.setState({ _ticketSubmitting: false });
+        this.toast('Fout', err.message, 'var(--down)');
+      }
+    };
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 760 } },
+      UI.Hd('Tickets'),
+      UI.C({},
+        UI.Hd('Nieuw ticket indienen', { fontSize: 15, marginBottom: 4 }),
+        e('p', { style: { fontSize: 13, color: 'var(--text-mute)', marginBottom: 16 } }, 'Meld een bug, platform-probleem of verbetervoorstel. Wees zo specifiek mogelijk — hoe meer detail, hoe sneller we het kunnen oplossen.'),
+        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+          UI.Field('Categorie *', e('select', { value: f.ticketCategory || '', onChange: ev => this.setForm('ticketCategory', ev.target.value), style: { ...inputStyle, cursor: 'pointer' } },
+            e('option', { value: '' }, '— Kies categorie —'),
+            TICKET_CATS.map(c => e('option', { key: c, value: c }, c)))),
+          UI.Field('Titel *', e('input', { type: 'text', value: f.ticketTitle || '', onChange: ev => this.setForm('ticketTitle', ev.target.value), placeholder: 'Korte, duidelijke omschrijving van het probleem', style: inputStyle })),
+          UI.Field('Beschrijving * (min. 30 tekens)', e('textarea', { value: f.ticketDesc || '', onChange: ev => this.setForm('ticketDesc', ev.target.value), placeholder: 'Wat is het probleem? Geef context.', rows: 4, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } })),
+          UI.Field('Stappen om te reproduceren *', e('textarea', { value: f.ticketSteps || '', onChange: ev => this.setForm('ticketSteps', ev.target.value), placeholder: '1. Ga naar...\n2. Klik op...\n3. Zie dat...', rows: 4, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } })),
+          UI.Grid('1fr 1fr', 12,
+            UI.Field('Verwacht gedrag', e('textarea', { value: f.ticketExpected || '', onChange: ev => this.setForm('ticketExpected', ev.target.value), placeholder: 'Wat zou er moeten gebeuren?', rows: 3, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } })),
+            UI.Field('Huidig (fout) gedrag', e('textarea', { value: f.ticketActual || '', onChange: ev => this.setForm('ticketActual', ev.target.value), placeholder: 'Wat gebeurt er nu?', rows: 3, style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit' } }))),
+          UI.Btn(submitting ? 'Indienen…' : 'Ticket indienen', submitting ? null : submitTicket, 'primary', { opacity: submitting ? 0.6 : 1 }))),
+      myTickets.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+        UI.SectionHd('Mijn tickets'),
+        ...myTickets.map(t => UI.C({},
+          UI.Row({ justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+            e('div', { style: { flex: 1 } },
+              e('div', { style: { fontWeight: 700, fontSize: 14 } }, t.title),
+              e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 3 } }, t.category + ' · ' + new Date(t.submittedAt).toLocaleDateString('nl-BE'))),
+            e('span', { style: { flexShrink: 0, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (statusColor[t.status] || 'var(--text-mute)') + '22', color: statusColor[t.status] || 'var(--text-mute)', border: '1px solid ' + (statusColor[t.status] || 'var(--border)') } }, statusLabel[t.status] || t.status))))) : null);
   },
 };

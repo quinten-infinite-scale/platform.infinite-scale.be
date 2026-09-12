@@ -73,6 +73,7 @@ const ScreenAdmin = {
     if (r === 'rooster') return this._admRooster(d, s);
     if (r === 'activity') return this._admActivity(d, s);
     if (r === 'todos') return this._admTodos(d, s);
+    if (r === 'tickets') return this._admTickets(d, s);
     if (r === 'whatsapp') return this._admWhatsApp(d, s);
     if (r === 'roadmap') return ScreenRoadmap.render.call(this, d, s);
     if (r === 'settings') { const session = typeof SB !== 'undefined' ? SB.getSession() : null; return this._settings(d, s, { name: (session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Admin'), email: session?.user?.email || 'quinten@infinite-scale.be' }); }
@@ -1931,7 +1932,6 @@ const ScreenAdmin = {
       { label: 'Vergoeding', align: 'right', render: x => e('span', { style: { fontSize: 12, fontWeight: 600, color: UI.rateStr(x) === '—' ? 'var(--text-dim)' : 'var(--up)' } }, UI.rateStr(x)) },
       { label: 'Month appts', align: 'right', render: x => String(d.appointments.filter(a => a.client === x.id && !a.invoiced).length) },
       { label: 'Billing', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); x.billStatus === 'paid' ? this.unmarkPaid(x.id) : this.markPaid(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.billStatus || 'pending')) },
-      { label: '', align: 'right', render: x => UI.Btn('Open', () => this.openModal('clientProfile', { id: x.id }), 'soft', { padding: '5px 12px', fontSize: 12 }) },
     ];
     const agencyCols = [
       { label: 'Agency', render: x => UI.Row({ gap: 8 }, e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.name), UI.Pill('Agency', 'var(--info)', 'oklch(0.30 0.05 240)')) },
@@ -1939,7 +1939,6 @@ const ScreenAdmin = {
       { label: 'Vergoeding', align: 'right', render: x => e('span', { style: { fontSize: 12, fontWeight: 600, color: UI.rateStr(x) === '—' ? 'var(--text-dim)' : 'var(--up)' } }, UI.rateStr(x)) },
       { label: 'Status', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); this.cycleClientStatus(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.status || 'inactive')) },
       { label: 'Billing', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); x.billStatus === 'paid' ? this.unmarkPaid(x.id) : this.markPaid(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.billStatus || 'pending')) },
-      { label: '', align: 'right', render: x => UI.Btn('Open', () => this.openModal('clientProfile', { id: x.id }), 'soft', { padding: '5px 12px', fontSize: 12 }) },
     ];
     // Subclient accounts section
     const scPending = s.scPending || {};
@@ -1984,10 +1983,10 @@ const ScreenAdmin = {
       UI.Row({ justifyContent: 'space-between' }, UI.Hd('Clients & lead agencies'), UI.Row({ gap: 8 }, UI.Btn('↑ Upload contract', () => this.openModal('uploadClientContract'), 'soft'), UI.Btn('Add client', () => this.openModal('createClient'), 'primary'))),
       agencies.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
         UI.SectionHd('Lead agencies'),
-        UI.C({ padding: 0, overflow: 'hidden' }, UI.Table(agencyCols, agencies, { min: 580, empty: 'No agencies yet.' }))) : null,
+        UI.C({ padding: 0, overflow: 'hidden' }, UI.Table(agencyCols, agencies.map(x => ({ ...x, _onClick: () => this.openModal('clientProfile', { id: x.id }) })), { min: 580, empty: 'No agencies yet.' }))) : null,
       e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
         agencies.length ? UI.SectionHd('Direct clients') : null,
-        UI.C({ padding: 0, overflow: 'hidden' }, UI.Table(directCols, directs, { min: 680, empty: 'No clients yet.' }))),
+        UI.C({ padding: 0, overflow: 'hidden' }, UI.Table(directCols, directs.map(x => ({ ...x, _onClick: () => this.openModal('clientProfile', { id: x.id }) })), { min: 680, empty: 'No clients yet.' }))),
       subAccountsBlock);
   },
 
@@ -1997,12 +1996,11 @@ const ScreenAdmin = {
       UI.Row({ justifyContent: 'space-between' }, UI.Hd('Call agents'), UI.Btn('Create agent', () => this.openModal('createAgent'), 'primary')),
       UI.C({ padding: 0, overflow: 'hidden' }, UI.Table([
         { label: 'Agent', render: x => e('span', { style: { color: x.active ? 'var(--text)' : 'var(--text-mute)', fontWeight: 700 } }, x.name) },
-        { label: 'Status', render: x => !x.active ? UI.Pill('Deactivated', 'var(--text-mute)', 'var(--bg-2)') : UI.Row({}, e('span', { style: { width: 8, height: 8, borderRadius: '50%', background: x.working ? 'var(--up)' : 'var(--text-mute)' } }), e('span', { style: { fontSize: 12.5, color: x.working ? 'var(--up)' : 'var(--text-mute)', fontWeight: 600 } }, x.working ? 'Working' : 'Offline')) },
+        { label: 'Status', render: x => !x.active ? UI.Pill('Deactivated', 'var(--text-mute)', 'var(--bg-2)') : e('div', null, UI.Row({}, e('span', { style: { width: 8, height: 8, borderRadius: '50%', background: x.working ? 'var(--up)' : 'var(--text-mute)' } }), e('span', { style: { fontSize: 12.5, color: x.working ? 'var(--up)' : 'var(--text-mute)', fontWeight: 600 } }, x.working ? 'Working' : 'Offline')), x.working && x.workSince ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, 'since ' + new Date(x.workSince).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null) },
         { label: 'Stage', align: 'center', render: x => UI.Pill({ launched: 'Launched', started: 'Started', signed: 'Signed' }[x.status] || x.status, 'var(--violet)', 'oklch(0.30 0.05 295)') },
         { label: 'Clients', render: x => [...new Set((x.clients || []).filter(c => d.clients.find(cl => cl.id === c)).map(c => this.clientName(c, d).split(' ')[0]))].join(', ') },
         { label: 'Dials today', align: 'right', render: x => UI.Mono((d.dials[x.id] || {})[today] || 0, { fontWeight: 700 }) },
-        { label: '', align: 'right', render: x => UI.Btn('Open', () => this.openModal('agentProfile', { id: x.id }), 'soft', { padding: '5px 12px', fontSize: 12 }) },
-      ], d.agents, { min: 720 })));
+      ], d.agents.map(x => ({ ...x, _onClick: () => this.openModal('agentProfile', { id: x.id }) })), { min: 720 })));
   },
 
   _admEod(d, s) {
@@ -4137,7 +4135,7 @@ const ScreenAdmin = {
       const r = await fetch('/api/db-write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (SB.getSession()?.access_token || '') },
-        body: JSON.stringify({ method: 'post', table: 'client_whatsapp_templates', body: { client_id: newTpl.client_id, template_name: newTpl.template_name.trim(), template_language: newTpl.template_language.trim(), reminder_hours_before: Number(newTpl.reminder_hours_before || 24), active: true, confirmation_enabled: newTpl.confirmation_enabled !== false, reminder_enabled: newTpl.reminder_enabled !== false, callback_phone: newTpl.callback_phone?.trim() || null } }),
+        body: JSON.stringify({ method: 'post', table: 'client_whatsapp_templates', body: { client_id: newTpl.client_id, subclient_id: newTpl.subclient_id || null, template_name: newTpl.template_name.trim(), template_language: newTpl.template_language.trim(), reminder_hours_before: Number(newTpl.reminder_hours_before || 24), active: true, confirmation_enabled: newTpl.confirmation_enabled !== false, reminder_enabled: newTpl.reminder_enabled !== false, callback_phone: newTpl.callback_phone?.trim() || null } }),
       }).then(r => r.json()).catch(() => ({}));
       if (r.ok) {
         const inserted = Array.isArray(r.data) ? r.data[0] : r.data;
@@ -4192,9 +4190,10 @@ const ScreenAdmin = {
           e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 } },
             e('div', null,
               e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Client *'),
-              e('select', { value: newTpl.client_id || '', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, client_id: ev.target.value } }), style: inputStyle },
+              e('select', { value: newTpl.client_id || '', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, client_id: ev.target.value, subclient_id: '' } }), style: inputStyle },
                 e('option', { value: '' }, 'Select client\u2026'),
                 ...waClients.map(c => e('option', { key: c.id, value: c.id }, c.name)))),
+            (() => { const selectedCl = waClients.find(c => c.id === newTpl.client_id); const subs = selectedCl && selectedCl.type === 'agency' ? (selectedCl.subclients || []).filter(sc => sc.id && sc.name) : []; return subs.length ? e('div', null, e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Subclient (optioneel)'), e('select', { value: newTpl.subclient_id || '', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, subclient_id: ev.target.value } }), style: inputStyle }, e('option', { value: '' }, 'Alle subclients'), subs.map(sc => e('option', { key: sc.id, value: sc.id }, sc.name)))) : null; })(),
             e('div', null,
               e('label', { style: { fontSize: 12, color: 'var(--text-mute)', display: 'block', marginBottom: 4 } }, 'Template name * (exact Meta name)'),
               e('input', { type: 'text', value: newTpl.template_name || '', placeholder: 'e.g. hello_world', onChange: ev => this.setState({ _waNewTpl: { ...newTpl, template_name: ev.target.value } }), style: inputStyle })),
@@ -4256,7 +4255,7 @@ const ScreenAdmin = {
                   : e('td', { style: { padding: '9px 12px', fontSize: 13 } }, val ? '✓' : '—');
 
                 return e('tr', { key: t.id, style: { borderBottom: '1px solid var(--border-soft)' } },
-                  e('td', { style: { padding: '9px 12px', color: 'var(--text)' } }, clientName(t.client_id)),
+                  e('td', { style: { padding: '9px 12px', color: 'var(--text)' } }, (() => { const cl = (d.clients || []).find(c => c.id === t.client_id); const sc = t.subclient_id && cl ? (cl.subclients || []).find(s => s.id === t.subclient_id) : null; return e('div', null, clientName(t.client_id), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); })()),
                   e('td', { style: { padding: '9px 12px', fontFamily: 'monospace', fontSize: 12 } },
                     isEditing ? e('input', { type: 'text', value: editName, onChange: ev => this.setState({ ['_waEditName_' + t.id]: ev.target.value }), style: { ...inputStyle, width: 180, fontSize: 12 } }) : t.template_name),
                   e('td', { style: { padding: '9px 12px', color: 'var(--text-mute)' } },
@@ -4298,6 +4297,76 @@ const ScreenAdmin = {
             style: { padding: '7px 18px', borderRadius: 8, border: '1px solid ' + (subTab === t ? 'var(--accent)' : 'var(--border)'), background: subTab === t ? 'oklch(0.22 0.09 180 / .35)' : 'var(--surface)', color: subTab === t ? 'var(--accent)' : 'var(--text-mute)', fontWeight: subTab === t ? 700 : 400, cursor: 'pointer', fontSize: 13, textTransform: 'capitalize', transition: 'all .15s' } },
             t === 'messages' ? 'Messages' : 'Templates (' + tpls.length + ')'))),
       subTab === 'messages' ? messagesTab : templatesTab);
+  },
+
+  _admTickets(d, s) {
+    const e = React.createElement;
+    const tickets = d.tickets || [];
+    const statusColor = { open: 'var(--warn)', in_progress: 'var(--info)', fixed: 'var(--up)', closed: 'var(--text-mute)' };
+    const statusLabel = { open: 'Open', in_progress: 'In behandeling', fixed: 'Opgelost', closed: 'Gesloten' };
+    const STATUS_OPTS = ['open', 'in_progress', 'fixed', 'closed'];
+    const inputStyle = { padding: '8px 11px', borderRadius: 9, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13, outline: 'none', width: '100%' };
+
+    const authHeader = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + ((typeof SB !== 'undefined' && SB.getSession()?.access_token) || '') });
+    const dbPatch = (table, id, fields) => fetch('/api/db-write', { method: 'POST', headers: authHeader(), body: JSON.stringify({ method: 'patch', table, query: '?id=eq.' + id, body: fields }) });
+
+    const updateStatus = async (ticketId, newStatus) => {
+      await dbPatch('tickets', ticketId, { status: newStatus });
+      await this.reload();
+      if (newStatus === 'fixed') {
+        const t = tickets.find(tk => tk.id === ticketId);
+        const ag = t && t.agentId ? d.agents.find(a => a.id === t.agentId) : null;
+        if (ag && ag.email) {
+          try {
+            await fetch('/api/send-email', { method: 'POST', headers: authHeader(), body: JSON.stringify({ to: [ag.email], subject: '[Platform] Ticket opgelost: ' + (t.title || ''), html: `<h2>Je ticket is opgelost!</h2><p><b>Ticket:</b> ${t.title}</p><p><b>Categorie:</b> ${t.category}</p><p>We hebben het probleem opgelost. Laat ons weten als je nog vragen hebt.</p>` }) });
+          } catch {}
+        }
+        this.toast('Ticket', 'Status bijgewerkt & agent genotificeerd', 'var(--up)');
+      } else {
+        this.toast('Ticket', 'Status bijgewerkt', 'var(--up)');
+      }
+    };
+
+    const saveNote = async (ticketId, note) => {
+      await dbPatch('tickets', ticketId, { notes: note });
+      await this.reload();
+      this.toast('Ticket', 'Notitie opgeslagen', 'var(--up)');
+    };
+
+    const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'in_progress');
+    const closedTickets = tickets.filter(t => t.status === 'fixed' || t.status === 'closed');
+
+    const TicketCard = (t) => {
+      const ag = t.agentId ? d.agents.find(a => a.id === t.agentId) : null;
+      const noteKey = '_ticketNote_' + t.id;
+      const expanded = !!s[t.id + '_exp'];
+      return UI.C({ padding: 0, overflow: 'hidden' },
+        e('div', { onClick: () => this.setState({ [t.id + '_exp']: !expanded }), style: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '14px 18px', cursor: 'pointer', background: expanded ? 'var(--bg-2)' : 'var(--surface)' } },
+          e('div', { style: { flex: 1, minWidth: 0 } },
+            e('div', { style: { fontWeight: 700, fontSize: 14, marginBottom: 3 } }, t.title),
+            e('div', { style: { fontSize: 12, color: 'var(--text-mute)' } }, (ag ? ag.name + ' · ' : '') + t.category + ' · ' + new Date(t.submittedAt).toLocaleDateString('nl-BE'))),
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 } },
+            e('select', { value: t.status, onClick: ev => ev.stopPropagation(), onChange: ev => updateStatus(t.id, ev.target.value), style: { padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (statusColor[t.status] || 'var(--border)'), background: 'transparent', color: statusColor[t.status] || 'var(--text)', fontWeight: 700, fontSize: 12, cursor: 'pointer', outline: 'none' } },
+              STATUS_OPTS.map(st => e('option', { key: st, value: st }, statusLabel[st]))),
+            e('span', { style: { fontSize: 16, color: 'var(--text-mute)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform .15s', display: 'inline-block' } }, '›'))),
+        expanded ? e('div', { style: { borderTop: '1px solid var(--border-soft)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
+          e('pre', { style: { margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-2)', padding: '12px 14px', borderRadius: 10 } }, t.desc),
+          e('div', null,
+            e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Interne notitie'),
+            e('textarea', { value: s[noteKey] !== undefined ? s[noteKey] : t.notes, onChange: ev => this.setState({ [noteKey]: ev.target.value }), rows: 3, placeholder: 'Notities voor intern gebruik…', style: { ...inputStyle, resize: 'vertical', fontFamily: 'inherit', marginBottom: 8 } }),
+            UI.Btn('Notitie opslaan', () => saveNote(t.id, s[noteKey] !== undefined ? s[noteKey] : t.notes), 'soft', { padding: '6px 14px', fontSize: 12 }))) : null);
+    };
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+      UI.Hd('Tickets'),
+      openTickets.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+        UI.SectionHd('Open & in behandeling (' + openTickets.length + ')'),
+        ...openTickets.map(t => TicketCard(t))) :
+        UI.C({}, e('div', { style: { fontSize: 13.5, color: 'var(--text-mute)', textAlign: 'center', padding: '20px 0' } }, '✓ Geen open tickets')),
+      closedTickets.length ? e('details', null,
+        e('summary', { style: { cursor: 'pointer', fontSize: 13.5, fontWeight: 700, color: 'var(--text-dim)', padding: '8px 4px' } }, 'Gesloten tickets (' + closedTickets.length + ')'),
+        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 } },
+          ...closedTickets.map(t => TicketCard(t)))) : null);
   },
 
 };

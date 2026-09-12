@@ -37,17 +37,32 @@ const ScreenShared = {
         e('div', { style: { marginTop: 12 } }, UI.Btn(nl ? 'Verbinden' : 'Connect', () => this.toast('CRM', nl ? 'Integratie opgeslagen' : 'Integration saved (API key stored on server)', 'var(--accent)'), 'primary'))) : null);
   },
 
-  _apptToolbar(d, s) {
+  _apptToolbar(d, s, opts) {
     const e = React.createElement; const q = s.q || ''; const fs = s.fstatus || 'all';
+    const selStyle = { padding: '9px 12px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13, outline: 'none', cursor: 'pointer' };
+    const showClientFilter = opts && opts.showClientFilter;
+    const clientFilter = s.fclient || '';
+    const dateFilter = s.fdate || '';
+    // Build unique client list from the appointment list passed in opts, or from d.clients
+    const clientOpts = showClientFilter ? (opts.clients || d.clients).filter(c => c.id && c.name).sort((a, b) => a.name < b.name ? -1 : 1) : [];
     return e('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 } },
-      e('div', { style: { position: 'relative', flex: '1 1 220px', minWidth: 180 } },
+      e('div', { style: { position: 'relative', flex: '1 1 200px', minWidth: 160 } },
         e('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--text-mute)', strokeWidth: 2, style: { position: 'absolute', left: 11, top: 11 } }, e('circle', { cx: 11, cy: 11, r: 7 }), e('path', { d: 'M21 21l-4-4' })),
         e('input', { value: q, placeholder: 'Search lead, phone…', onChange: ev => this.setState({ q: ev.target.value }), style: { width: '100%', padding: '9px 12px 9px 34px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13.5, outline: 'none' } })),
+      showClientFilter ? e('select', { value: clientFilter, onChange: ev => this.setState({ fclient: ev.target.value }), style: selStyle },
+        e('option', { value: '' }, 'All clients'),
+        clientOpts.map(c => e('option', { key: c.id, value: c.id }, c.name))) : null,
+      showClientFilter ? e('input', { type: 'date', value: dateFilter, onChange: ev => this.setState({ fdate: ev.target.value }), style: { ...selStyle, flex: '0 0 auto' } }) : null,
       UI.Seg(fs, v => this.setState({ fstatus: v }), [{ v: 'all', l: 'All' }, { v: 'open', l: 'Open' }, { v: 'show', l: 'Show' }, { v: 'no_show', l: 'No-show' }, { v: 'cancel', l: 'Cancelled' }]));
   },
 
   _filterAppts(list, s) {
     const q = (s.q || '').toLowerCase(); const fs = s.fstatus || 'all';
-    return list.filter(a => (fs === 'all' || a.status === fs) && (!q || a.lead.toLowerCase().includes(q) || (a.phone || '').replace(/\s/g,'').includes(q.replace(/\s/g,''))));
+    const fc = s.fclient || ''; const fd = s.fdate || '';
+    return list.filter(a =>
+      (fs === 'all' || a.status === fs) &&
+      (!fc || a.client === fc) &&
+      (!fd || a.dateLog === fd || a.dateAppt === fd) &&
+      (!q || (a.lead || '').toLowerCase().includes(q) || (a.phone || '').replace(/\s/g,'').includes(q.replace(/\s/g,''))));
   },
 };
