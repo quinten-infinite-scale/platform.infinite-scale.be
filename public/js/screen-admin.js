@@ -1706,10 +1706,10 @@ const ScreenAdmin = {
     if (fsub !== 'all') list = list.filter(a => a.sub === fsub);
     if (fs !== 'all') list = list.filter(a => a.status === fs);
     if (fDateFrom || fDateTo) {
-      if (fDateFrom) list = list.filter(a => (a.dateAppt || a.dateLog) >= fDateFrom);
-      if (fDateTo) list = list.filter(a => (a.dateAppt || a.dateLog) <= fDateTo);
+      if (fDateFrom) list = list.filter(a => (a.dateLog || '') >= fDateFrom);
+      if (fDateTo) list = list.filter(a => (a.dateLog || '') <= fDateTo);
     } else if (fmonth !== 'all') {
-      list = list.filter(a => (a.dateAppt || a.dateLog || '').startsWith(fmonth));
+      list = list.filter(a => (a.dateLog || '').startsWith(fmonth));
     }
     if (q) list = list.filter(a => a.lead.toLowerCase().includes(q) || (a.phone || '').replace(/\s/g,'').includes(q.replace(/\s/g,'')));
     list.sort((a, b) => {
