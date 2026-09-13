@@ -27,8 +27,13 @@ Wees direct en kritisch.
 
 Eindig met: biggest_growth_point (1 zin), score_total (gemiddelde), deal_facts: {prospect, pricing, terms, next_steps}.
 
+Identificeer ook de volgende concrete actie op basis van het transcript:
+- next_action_type: één van "second_call", "follow_up_call", "send_info", "meeting", "herplan_call", "geen_actie", "niet_gekwalificeerd"
+- next_action_date: datum indien vermeld in het gesprek (formaat YYYY-MM-DD), anders null
+- next_action_notes: korte beschrijving van wat er precies moet gebeuren (max 1 zin)
+
 Geef ALLEEN geldig JSON terug zonder markdown:
-{"c":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":7},"l":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":6},"o":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":5},"s":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":7},"e":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":6},"r":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":8},"biggest_growth_point":"...","score_total":6.5,"deal_facts":{"prospect":"...","pricing":"...","terms":"...","next_steps":"..."}}
+{"c":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":7},"l":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":6},"o":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":5},"s":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":7},"e":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":6},"r":{"wat_er_gebeurde":"...","wat_beter_kon":"...","score":8},"biggest_growth_point":"...","score_total":6.5,"deal_facts":{"prospect":"...","pricing":"...","terms":"...","next_steps":"..."},"next_action_type":"second_call","next_action_date":null,"next_action_notes":"..."}
 
 TRANSCRIPT:
 ${transcript}`;
