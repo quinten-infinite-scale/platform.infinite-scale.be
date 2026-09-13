@@ -504,23 +504,25 @@ const ScreenRoadmap = {
     const cancelled   = filtered.filter(p=>p.meeting_outcome==='cancelled').length;
     const rescheduled = filtered.filter(p=>p.meeting_outcome==='rescheduled').length;
     const noShowRate  = withOutcome.length > 0 ? noShows/withOutcome.length*100 : null;
+    const cancelRate  = withOutcome.length > 0 ? cancelled/withOutcome.length*100 : null;
 
     /* ── Funnel visualization ────────────────────────────────────────────── */
-    /* Each row = # of people at or past that stage (cumulative from top).
-       Shows true drop-off: how many made it this far. */
+    /* Each row = # of people CURRENTLY in that stage or group.
+       Shows where prospects stand right now, not cumulative throughput. */
+    const secondCallPlus = (byStage['second_call']||0)+(byStage['follow_up_call']||0)+(byStage['herplan_call']||0)+(byStage['lange_termijn']||0)+(byStage['follow_ups_oud']||0);
     const funnelDisplay = activePl === 'manuele'
       ? [
-          { label:'In Pipeline',     count:total,                       color:'var(--accent)' },
-          { label:'First Call',      count:cumulative[stageIdx['first_call']]||0, color:'var(--info)' },
-          { label:'Second Call+',    count:cumulative[stageIdx['second_call']]||0, color:'var(--warn)' },
-          { label:'Decided',         count:totalDecided,                 color:'#94a3b8' },
-          { label:'Closed Won',      count:closedWon,                    color:'var(--up)' },
+          { label:'In Pipeline',       count:total,                               color:'var(--accent)' },
+          { label:'In First Call',     count:byStage['first_call']||0,            color:'var(--info)' },
+          { label:'Second Call+',      count:secondCallPlus,                      color:'var(--warn)' },
+          { label:'Decided',           count:totalDecided,                         color:'#94a3b8' },
+          { label:'Closed Won',        count:closedWon,                            color:'var(--up)' },
         ]
       : [
-          { label:'In Pipeline',     count:total,                       color:'var(--accent)' },
-          { label:'First Call',      count:cumulative[stageIdx['first_call']]||0, color:'var(--info)' },
-          { label:'Meeting Booked+', count:cumulative[stageIdx['meeting']]||0, color:'var(--warn)' },
-          { label:'Closed Won',      count:closedWon,                    color:'var(--up)' },
+          { label:'In Pipeline',       count:total,                               color:'var(--accent)' },
+          { label:'In First Call',     count:byStage['first_call']||0,            color:'var(--info)' },
+          { label:'In Follow-up/Mtg',  count:(byStage['second_call']||0)+(byStage['follow_up']||0)+(byStage['meeting']||0), color:'var(--warn)' },
+          { label:'Closed Won',        count:closedWon,                            color:'var(--up)' },
         ];
 
     const maxCount = Math.max(1, ...funnelDisplay.map(f=>f.count));
@@ -548,7 +550,7 @@ const ScreenRoadmap = {
     /* ── Stage breakdown table ───────────────────────────────────────────── */
     const stageTable = e('div', { style:{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'18px 20px',marginBottom:16} },
       e('div', { style:{fontSize:12,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:12} }, 'Stage Breakdown'),
-      e('div', { style:{fontSize:11,color:'var(--text-mute)',marginBottom:10} }, '% conv = of everyone who reached this stage, how many moved further (approximation from current snapshot)'),
+      e('div', { style:{fontSize:11,color:'var(--text-mute)',marginBottom:10} }, '% conv = approximation: how many who are at this stage or further, moved beyond it (based on current snapshot)'),
       e('table', { style:{width:'100%',borderCollapse:'collapse',fontSize:12.5} },
         e('thead', null,
           e('tr', null,
@@ -594,7 +596,8 @@ const ScreenRoadmap = {
       this._card('Closed Won', num(closedWon), 'became clients', 'var(--up)'),
       activePl==='manuele' ? this._card('Not Qualified', num(notQualified), 'disqualified', 'var(--warn)') : null,
       this._card('Close Rate', closeRate!=null?pct(closeRate):'—', 'won / decided', 'var(--text-mute)'),
-      this._card('No-show Rate', noShowRate!=null?pct(noShowRate):'—', withOutcome.length+' meetings tracked', noShowRate!=null&&noShowRate>30?'var(--down)':'var(--text-mute)'),
+      this._card('No-show Rate', noShowRate!=null?pct(noShowRate):'—', noShows+' no-shows', noShowRate!=null&&noShowRate>30?'var(--down)':'var(--text-mute)'),
+      this._card('Cancel Rate', cancelRate!=null?pct(cancelRate):'—', cancelled+' cancelled', cancelRate!=null&&cancelRate>20?'var(--down)':'var(--text-mute)'),
     );
 
     /* ── Pipeline selector tabs ──────────────────────────────────────────── */
@@ -964,7 +967,11 @@ const ScreenRoadmap = {
       const cost     = held.reduce((s,a)=>s+aRate(a),0);
       const invRev   = invoiced.reduce((s,a)=>s+cRate(a),0);
       const paidRev  = paid.reduce((s,a)=>s+cRate(a),0);
-      return { rev, cost, contrib:rev-cost, margin:M.marginPct(rev,cost), invRev, paidRev, billableCount:billable.length };
+      const wdEl     = M.workingDaysElapsed(ymFilter);
+      const wdTot    = M.workingDaysInMonth(ymFilter);
+      const dailyPace = wdEl > 0 ? rev / wdEl : 0;
+      const forecast  = M.forecastEOM(rev, wdEl, wdTot);
+      return { rev, cost, contrib:rev-cost, margin:M.marginPct(rev,cost), invRev, paidRev, billableCount:billable.length, dailyPace, forecast, wdEl, wdTot };
     };
 
     const cur  = calc(ym);
@@ -988,7 +995,9 @@ const ScreenRoadmap = {
               ['Metric','This Month','Prev Month','Change'].map(h=>e('th',{key:h,style:{padding:'8px 12px',textAlign:'left',fontSize:10,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.06em'}},h))
             )),
             e('tbody', null,
-              row('Billable Revenue', cur.rev, prev.rev, euro, 'Revenue from billable appointments (not cancel/no-show) × client rate from config'),
+              row('Billable Revenue MTD', cur.rev, prev.rev, euro, 'Revenue from billable appointments (not cancel/no-show) × client rate from config'),
+              row('Daily Avg (working days)', cur.dailyPace, prev.dailyPace, euro, `This month: day ${cur.wdEl} of ${cur.wdTot} working days elapsed`),
+              row('EOM Forecast', cur.forecast, prev.forecast, euro, 'Projected end-of-month revenue if current daily pace continues'),
               row('Held Appointments', cur.billableCount, prev.billableCount, v=>num(v)+' appts', 'Count of billable appointments'),
               row('Agent Cost', cur.cost, prev.cost, euro, 'Sum of agent rates for held appointments'),
               row('Contribution Profit', cur.contrib, prev.contrib, euro, 'Billable Revenue − Agent Cost. Does not include lead/data costs.'),
