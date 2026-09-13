@@ -7,27 +7,32 @@
 
 const SB_URL = 'https://database.infinite-scale.be';
 
+// CloudTalk migrated to generic callagent@ accounts (2026-09-01).
+// Personal emails kept as fallback for agents who kept their own account.
+// Source of truth: sync-dials.js (confirmed by call-volume matching).
 const AGENT_MAP = {
+  // Personal accounts (kept own CloudTalk login)
   'senne.db@infinite-scale.be':       'a1',
   'john.vda@infinite-scale.be':       'a2',
   'kaiusr@proton.me':                 'a3',
-  'sanders.bram2003@gmail.com':       'a4',
   'ditske@infinite-scale.be':         'a5',
   'nick@infinite-scale.be':           'a6',
   'lotte@infinite-scale.be':          'a7',
   'shalom@infinite-scale.be':         'a8',
-  'lothar_dg@hotmail.com':            'a9',
   'mieke@infinite-scale.be':          'a10',
   'quinten@infinite-scale.be':        'a11',
-  'rickhoekstra28@gmail.com':         'a12',
   'isa.fleur@hotmail.com':            'a13',
-  'jimmynoahverschut@gmail.com':      'a14',
-  'info@ata-enterprise.com':          'a15',
-  'romy_zwiers@hotmail.com':          'a16',
   'zb.constulting@gmail.com':         'a17',
   'soretmaxim2006@icloud.com':        'a18',
   'jolijnemmers@hotmail.com':         'a19',
   'wien_ruessink@hotmail.com':        'a20',
+  // Generic callagent@ accounts (confirmed by volume matching in sync-dials.js)
+  'callagent@infinite-scale.be':      'a4',   // Bram Sanders
+  'callagent1@infinite-scale.be':     'a9',   // Lothar
+  'callagent2@infinite-scale.be':     'a12',  // Rick Hoekstra
+  'callagent4@infinite-scale.be':     'a15',  // Rabih Ibrahim
+  'callagent5@infinite-scale.be':     'a16',  // Romy Zwiers
+  'callagent7@infinite-scale.be':     'a14',  // Jimmy Verschut
 };
 
 export default async function handler(req, res) {

@@ -447,13 +447,17 @@ const ScreenRoadmap = {
         label: 'Meta Ads',
         filter: p => p.pipeline_id === 'meta_ads',
         stages: [
-          { id:'new_lead',      label:'New Lead',       terminal:false },
-          { id:'first_call',    label:'First Call',     terminal:false },
-          { id:'second_call',   label:'Second Call',    terminal:false },
-          { id:'follow_up',     label:'Follow-up',      terminal:false },
-          { id:'meeting',       label:'Meeting Booked', terminal:false },
-          { id:'gewonnen',      label:'Closed Won',     terminal:true  },
-          { id:'niet_gewonnen', label:'Closed Lost',    terminal:true  },
+          { id:'new_lead',              label:'New Lead',              terminal:false },
+          { id:'call_1',               label:'Call 1',                terminal:false },
+          { id:'call_2',               label:'Call 2',                terminal:false },
+          { id:'call_3',               label:'Call 3',                terminal:false },
+          { id:'call_4',               label:'Call 4',                terminal:false },
+          { id:'send_info',            label:'Send info',             terminal:false },
+          { id:'interested_follow_up', label:'Interested - follow-up',terminal:false },
+          { id:'appointment_booked',   label:'Appointment booked',    terminal:false },
+          { id:'long_term_follow_up',  label:'Long term follow-up',   terminal:false },
+          { id:'not_qualified',        label:'Not qualified',         terminal:true  },
+          { id:'afgevallen',           label:'AFGEVALLEN',            terminal:true  },
         ],
       },
     };
@@ -519,10 +523,10 @@ const ScreenRoadmap = {
           { label:'Closed Won',        count:closedWon,                            color:'var(--up)' },
         ]
       : [
-          { label:'In Pipeline',       count:total,                               color:'var(--accent)' },
-          { label:'In First Call',     count:byStage['first_call']||0,            color:'var(--info)' },
-          { label:'In Follow-up/Mtg',  count:(byStage['second_call']||0)+(byStage['follow_up']||0)+(byStage['meeting']||0), color:'var(--warn)' },
-          { label:'Closed Won',        count:closedWon,                            color:'var(--up)' },
+          { label:'In Pipeline',           count:total,                                                                color:'var(--accent)' },
+          { label:'Calling (Call 1–4)',     count:(byStage['call_1']||0)+(byStage['call_2']||0)+(byStage['call_3']||0)+(byStage['call_4']||0), color:'var(--info)' },
+          { label:'Interested / Info sent', count:(byStage['send_info']||0)+(byStage['interested_follow_up']||0),      color:'var(--warn)' },
+          { label:'Appointment booked',     count:byStage['appointment_booked']||0,                                    color:'var(--up)' },
         ];
 
     const maxCount = Math.max(1, ...funnelDisplay.map(f=>f.count));
