@@ -1709,14 +1709,13 @@ const ScreenAdmin = {
     if (fs !== 'all') list = list.filter(a => a.status === fs);
     if (fDateFrom || fDateTo) {
       list = list.filter(a => {
-        const dl = a.dateLog || '';
-        const da = a.dateAppt || '';
+        const da = a.dateAppt || a.dateLog || '';
         const from = fDateFrom || '';
         const to = fDateTo || '9999-99-99';
-        return (dl && dl >= from && dl <= to) || (da && da >= from && da <= to);
+        return da >= from && da <= to;
       });
     } else if (fmonth !== 'all') {
-      list = list.filter(a => (a.dateLog || '').startsWith(fmonth) || (a.dateAppt || '').startsWith(fmonth));
+      list = list.filter(a => (a.dateAppt || a.dateLog || '').startsWith(fmonth));
     }
     if (q) list = list.filter(a => a.lead.toLowerCase().includes(q) || (a.phone || '').replace(/\s/g,'').includes(q.replace(/\s/g,'')));
     list.sort((a, b) => {
