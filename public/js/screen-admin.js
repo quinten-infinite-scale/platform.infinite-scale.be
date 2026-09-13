@@ -1312,6 +1312,7 @@ const ScreenAdmin = {
     const lastWeekStart = isoNow(addDays(now, -dow - 7));
     const lastWeekEnd = isoNow(addDays(now, -dow - 1));
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const monthEnd = isoNow(addDays(new Date(now.getFullYear(), now.getMonth() + 1, 1), -1));
     const lastMonthStart = (() => { const d2 = new Date(now.getFullYear(), now.getMonth() - 1, 1); return isoNow(d2); })();
     const lastMonthEnd = isoNow(addDays(new Date(now.getFullYear(), now.getMonth(), 1), -1));
     const allDialDates = Object.values(d.dials).flatMap(obj => Object.keys(obj));
@@ -1322,7 +1323,7 @@ const ScreenAdmin = {
       { k: 'yesterday', l: 'Yesterday', from: isoNow(addDays(now, -1)), to: isoNow(addDays(now, -1)) },
       { k: 'thisweek', l: 'This week', from: weekStart, to: todayStr },
       { k: 'lastweek', l: 'Last week', from: lastWeekStart, to: lastWeekEnd },
-      { k: 'thismonth', l: 'This month', from: monthStart, to: todayStr },
+      { k: 'thismonth', l: 'This month', from: monthStart, to: monthEnd },
       { k: 'lastmonth', l: 'Last month', from: lastMonthStart, to: lastMonthEnd },
       { k: 'alltime', l: 'All time', from: minDialDate, to: todayStr },
     ];
@@ -1675,6 +1676,7 @@ const ScreenAdmin = {
     const lastMonday = () => { const d2 = new Date(now); d2.setDate(d2.getDate() - ((d2.getDay() || 7) - 1) - 7); return isoDate(d2); };
     const lastSunday = () => { const d2 = new Date(now); d2.setDate(d2.getDate() - ((d2.getDay() || 7))); return isoDate(d2); };
     const startOfMonth = () => { const d2 = new Date(now); d2.setDate(1); return isoDate(d2); };
+    const endOfMonth = () => { const d2 = new Date(now); d2.setMonth(d2.getMonth() + 1); d2.setDate(0); return isoDate(d2); };
     const yesterday = () => { const d2 = new Date(now); d2.setDate(d2.getDate() - 1); return isoDate(d2); };
 
     const quickRanges = [
@@ -1682,7 +1684,7 @@ const ScreenAdmin = {
       { l: 'Yesterday', from: yesterday(), to: yesterday() },
       { l: 'This week', from: startOfWeek(), to: endOfWeek() },
       { l: 'Last week', from: lastMonday(), to: lastSunday() },
-      { l: 'This month', from: startOfMonth(), to: isoDate(now) },
+      { l: 'This month', from: startOfMonth(), to: endOfMonth() },
       { l: 'Last month', from: (() => { const d2 = new Date(now); d2.setDate(1); d2.setMonth(d2.getMonth() - 1); return isoDate(d2); })(), to: (() => { const d2 = new Date(now); d2.setDate(0); return isoDate(d2); })() },
       { l: 'All time', from: '', to: '' },
     ];
