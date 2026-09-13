@@ -231,27 +231,58 @@ class Component extends DCLogic {
 
       if (role !== 'admin') return;
 
-      // Only fetch recent appointments (last 15 min) to detect new ones — not the full table
-      const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-      const [rawAppts, rawAgents, rawPresence, rawRecruits] = await Promise.all([
-        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,invoiced,paid`),
+      // Every 2 minutes: full refresh of current-month appointments so status/rate changes
+      // (cancel → held, amount corrections, etc.) are reflected in Command Center & Finance in real-time.
+      const now2 = Date.now();
+      const ym2 = new Date().toISOString().slice(0, 7);
+      const doFullRefresh = !this._lastFullApptRefresh || (now2 - this._lastFullApptRefresh) > 120000;
+
+      const since = new Date(now2 - 15 * 60 * 1000).toISOString();
+      const [rawAppts, rawAgents, rawPresence, rawRecruits, rawMtdAppts] = await Promise.all([
+        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback`),
         SB.get('agents', '?order=name&select=id,name,working,work_since'),
         SB.get('presence', '').catch(() => []),
         SB.get('recruits', `?created_at=gt.${since}&order=created_at.desc`),
+        doFullRefresh
+          ? SB.get('appointments', `?date_logged=like.${ym2}%&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback`)
+          : Promise.resolve(null),
       ]);
 
-      // Detect new appointments
+      if (doFullRefresh && rawMtdAppts) {
+        this._lastFullApptRefresh = now2;
+        // Merge: replace any MTD appointment that changed, keep history outside MTD untouched
+        this.mutLocal(dd => {
+          const incoming = (rawMtdAppts || []).map(rec => ({
+            id: rec.id, agent: rec.agent_id, client: rec.client_id,
+            sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
+            dateLog: rec.date_logged, dateAppt: rec.date_appt,
+            status: rec.status, amount: rec.amount || 0, agentRate: rec.agent_rate ?? null,
+            invoiced: rec.invoiced || false, paid: rec.paid || false,
+            clientFeedback: rec.client_feedback || '',
+          }));
+          const incomingIds = new Set(incoming.map(a => a.id));
+          // Drop stale MTD records, keep non-MTD history, prepend fresh MTD
+          dd.appointments = [
+            ...incoming,
+            ...dd.appointments.filter(a => !incomingIds.has(a.id) && !(a.dateLog||'').startsWith(ym2)),
+          ];
+        });
+      }
+
+      // Detect new appointments (within last 15 min window) — for real-time toast/notification
       for (const rec of (rawAppts || [])) {
         if (!d.appointments.find(a => a.id === rec.id)) {
           const appt = {
             id: rec.id, agent: rec.agent_id, client: rec.client_id,
             sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
             dateLog: rec.date_logged, dateAppt: rec.date_appt,
-            status: rec.status, amount: rec.amount || 0, invoiced: rec.invoiced || false, paid: rec.paid || false,
+            status: rec.status, amount: rec.amount || 0, agentRate: rec.agent_rate ?? null,
+            invoiced: rec.invoiced || false, paid: rec.paid || false,
+            clientFeedback: rec.client_feedback || '',
           };
           const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
           const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
-          this.mutLocal(dd => dd.appointments.unshift(appt));
+          if (!doFullRefresh) this.mutLocal(dd => dd.appointments.unshift(appt)); // full refresh already added it
           this._pushAdminNotif(`${agentName} booked ${appt.lead} for ${clientName}`, 'appt', { route: 'apptadmin', modal: 'appointmentDetail', modalForm: { id: appt.id } });
           this.toast('New appointment', `${agentName} · ${appt.lead} · ${clientName}`, 'var(--info)');
         }
