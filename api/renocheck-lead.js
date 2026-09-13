@@ -7,6 +7,7 @@ const CAT_SLUGS = {
   'Badkamers': 'badkamer',
   'Crepi': 'crepi',
   'Dak': 'dak-renovatie',
+  'Chapewerken': 'chapewerken',
 };
 
 export default async function handler(req, res) {
