@@ -603,6 +603,14 @@ class Component extends DCLogic {
     this.toast('Client', 'Deactivated', 'var(--down)');
   }
 
+  async deleteClient(id, name) {
+    if (!confirm('Permanently delete "' + name + '"? This cannot be undone. Appointments linked to this client will remain in the system.')) return;
+    await API.deleteClient(id);
+    this.mutLocal(d => { d.clients = d.clients.filter(x => x.id !== id); });
+    this.closeModal();
+    this.toast('Client deleted', name + ' has been removed', 'var(--down)');
+  }
+
   async logAppointment() {
     const f = this.state.form;
     if (f.apptSubmitting) return;

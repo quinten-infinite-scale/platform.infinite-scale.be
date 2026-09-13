@@ -467,6 +467,10 @@ const API = {
     return SB.patch('clients', `?id=eq.${id}`, { status: 'inactive' });
   },
 
+  async deleteClient(id) {
+    return SB.del('clients', '?id=eq.' + id);
+  },
+
   async toggleAgentActive(id, active) {
     return SB.patch('agents', `?id=eq.${id}`, { active });
   },
