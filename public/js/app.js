@@ -42,7 +42,7 @@ class Component extends DCLogic {
   componentWillUnmount() { document.removeEventListener('keydown', this._onKeyDown); }
 
   _emptyData() {
-    return { agents: [], clients: [], appointments: [], dials: {}, tickets: [], recruits: [], prospects: [], contracts: [], events: [], notifs: {}, eods: [], activityLog: [], leaderPeriod: 'daily' };
+    return { agents: [], clients: [], appointments: [], dials: {}, tickets: [], recruits: [], prospects: [], contracts: [], events: [], notifs: {}, eods: [], activityLog: [], contractEvents: [], leaderPeriod: 'daily' };
   }
 
   _tourSeenKey(uid) { return 'is_tour_seen_' + uid; }

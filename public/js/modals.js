@@ -102,7 +102,7 @@ const Modals = {
           e('button', { onClick: () => this.closeModal(), style: { width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', cursor: 'pointer' } },
             e('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, style: { display: 'block', margin: 'auto' } }, e('path', { d: 'M6 6l12 12M18 6 6 18' })))),
         e('div', { style: { padding: '22px' } }, body),
-        footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 22px', borderTop: '1px solid var(--border-soft)' } }, ...footer) : null)
+        footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 22px', borderTop: '1px solid var(--border-soft)', flexWrap: 'wrap' } }, ...footer) : null)
     });
 
     if (k === 'appointmentDetail') {
@@ -1771,7 +1771,7 @@ const Modals = {
             style: { flexShrink: 0, padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Manrope'" }
           }, c.status === 'signed' ? 'Opnieuw versturen' : 'Resend link') : null) : null,
         (() => {
-          const contractEvents = (d.activityLog || []).filter(function(l) {
+          const contractEvents = (d.contractEvents || d.activityLog || []).filter(function(l) {
             return (l.action === 'contract_viewed' || l.action === 'contract_signed') &&
               l.extra && l.extra.contract_id === id;
           }).sort(function(a, b) { return a.created_at > b.created_at ? 1 : -1; });
@@ -1809,7 +1809,7 @@ const Modals = {
          c.contract_html ? UI.Btn('PDF downloaden', () => { _showContractOverlay(_signedContractHtml(c), true); }, 'ghost') : null,
          c.status === 'signed' && c.party_type === 'client' && !d.clients.find(cl => cl.name?.toLowerCase() === c.party?.toLowerCase())
            ? UI.Btn('Convert to Client', () => this.convertContractToClient(c), 'primary') : null,
-         UI.Btn('Sluiten', () => this.closeModal(), 'primary')], '560px');
+         UI.Btn('Sluiten', () => this.closeModal(), 'primary')], '680px');
     }
 
     if (k === 'agentFinanceDetail') {
@@ -2226,7 +2226,7 @@ const Modals = {
           e('button', { onClick: () => this.closeModal(), style: { width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', cursor: 'pointer' } },
             e('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, style: { display: 'block', margin: 'auto' } }, e('path', { d: 'M6 6l12 12M18 6 6 18' })))),
         e('div', { style: { padding: '22px' } }, body),
-        footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 22px', borderTop: '1px solid var(--border-soft)' } }, ...footer) : null)
+        footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 22px', borderTop: '1px solid var(--border-soft)', flexWrap: 'wrap' } }, ...footer) : null)
     });
     if (k !== 'uploadContract') return null;
 
@@ -2361,7 +2361,7 @@ const Modals = {
           e('button', { onClick: () => this.closeModal(), style: { width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', cursor: 'pointer' } },
             e('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, style: { display: 'block', margin: 'auto' } }, e('path', { d: 'M6 6l12 12M18 6 6 18' })))),
         e('div', { style: { padding: '22px', overflowY: 'auto', maxHeight: '70vh' } }, body),
-        footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '16px 22px', borderTop: '1px solid var(--border-soft)' } }, ...footer) : null)
+        footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 22px', borderTop: '1px solid var(--border-soft)', flexWrap: 'wrap' } }, ...footer) : null)
     });
 
     const uploading = !!f.uploading;
