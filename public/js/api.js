@@ -3,7 +3,7 @@ const API = {
 
   async loadAll(role, agentId, clientId, subClientId) {
     const [agents, clients, acRows, appointments, dials, dialsHourlyRows, eods, tickets,
-      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows, whatsappMessagesRows, whatsappTemplatesRows, contractEvents] = await Promise.all([
+      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows, whatsappMessagesRows, whatsappTemplatesRows] = await Promise.all([
       SB.get('agents', '?order=name'),
       SB.get('clients', '?order=name'),
       SB.get('agent_clients'),
@@ -33,7 +33,6 @@ const API = {
         ? SB.get('agent_schedules', `?agent_id=eq.${agentId}&order=week_start.desc`).catch(() => [])
         : SB.get('agent_schedules', '?order=week_start.desc').catch(() => []),
       role === 'admin' ? SB.get('activity_log', '?order=created_at.desc&limit=500').catch(() => []) : Promise.resolve([]),
-      role === 'admin' ? SB.get('activity_log', '?action=in.(contract_viewed,contract_signed)&order=created_at.desc').catch(() => []) : Promise.resolve([]),
       SB.get('platform_settings', '').catch(() => []),
       role === 'admin' ? SB.get('presence', '').catch(() => []) : Promise.resolve([]),
       role === 'agent'
@@ -208,7 +207,7 @@ const API = {
       eods: eodsNorm,
       schedules: (schedules || []).map(s => ({ ...s, slots: s.slots || [] })),
       activityLog: activityLog || [],
-      contractEvents: contractEvents || [],
+      contractEvents: [],
       leaderPeriod: 'daily',
       settings: Object.fromEntries((platformSettings || []).map(r => [r.key, r.value])),
       presence: presenceRows || [],
@@ -219,12 +218,12 @@ const API = {
   },
 
   async getContractEvents(contractId) {
-    // Direct fetch with anon key — bypasses SB.get() session requirement which can hang on token refresh
-    const encoded = encodeURIComponent('{"contract_id":"' + contractId + '"}');
-    const url = window.SUPABASE_URL + '/rest/v1/activity_log?action=in.(contract_viewed,contract_signed)&extra=cs.' + encoded + '&order=created_at.asc';
+    // Route through /api/db-write (Vercel proxy) to avoid browser→Supabase HTTP/3 issues
+    const tok = SB.getSession()?.access_token || '';
+    const sbQuery = '?action=in.(contract_viewed,contract_signed)&extra=cs.' + encodeURIComponent('{"contract_id":"' + contractId + '"}') + '&order=created_at.asc';
     try {
-      const r = await fetch(url, {
-        headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY },
+      const r = await fetch('/api/db-write?table=activity_log&query=' + encodeURIComponent(sbQuery), {
+        headers: { Authorization: 'Bearer ' + tok },
       });
       if (!r.ok) return [];
       return r.json().catch(() => []);
