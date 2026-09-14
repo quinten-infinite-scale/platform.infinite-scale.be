@@ -369,10 +369,10 @@ ${sigBlock}
       logContractEvent('contract_viewed', 'Contract geopend: ' + (c.party || 'Onbekend') + ' — ' + (c.type || ''), contractId);
 
       // Notify admin: contract viewed
-      fetch('/api/contract-notify', {
+      fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'viewed', party: c.party || 'Onbekend', contractType: c.type || '', email: c.email || '', timestamp: new Date().toLocaleString('nl-BE') }),
+        body: JSON.stringify({ contractNotify: true, type: 'viewed', party: c.party || 'Onbekend', contractType: c.type || '', email: c.email || '', timestamp: new Date().toLocaleString('nl-BE') }),
       }).catch(() => {});
     }
 
@@ -440,10 +440,10 @@ ${sigBlock}
       logContractEvent('contract_signed', 'Contract getekend door ' + name + ' (' + (contractData.party || 'Onbekend') + ' — ' + (contractData.type || '') + ')', contractId);
 
       // Notify admin: contract signed
-      fetch('/api/contract-notify', {
+      fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'signed', party: contractData.party || 'Onbekend', contractType: contractData.type || '', email: contractData.email || '', signerName: name, timestamp: new Date(signedAt).toLocaleString('nl-BE') }),
+        body: JSON.stringify({ contractNotify: true, type: 'signed', party: contractData.party || 'Onbekend', contractType: contractData.type || '', email: contractData.email || '', signerName: name, timestamp: new Date(signedAt).toLocaleString('nl-BE') }),
       }).catch(() => {});
 
       try {
