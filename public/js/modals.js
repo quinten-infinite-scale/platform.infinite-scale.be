@@ -1771,10 +1771,19 @@ const Modals = {
             style: { flexShrink: 0, padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Manrope'" }
           }, c.status === 'signed' ? 'Opnieuw versturen' : 'Resend link') : null) : null,
         (() => {
-          const contractEvents = (d.contractEvents || d.activityLog || []).filter(function(l) {
+          // On first open (or when contract changes), fetch events live from DB
+          if (f._cEventsId !== id) {
+            Promise.resolve().then(() => {
+              API.getContractEvents(id).then(rows => {
+                this.setForm('_cEventsId', id);
+                this.setForm('_cEvents', rows || []);
+              }).catch(() => {});
+            });
+          }
+          const contractEvents = (f._cEventsId === id ? (f._cEvents || []) : (d.contractEvents || d.activityLog || []).filter(function(l) {
             return (l.action === 'contract_viewed' || l.action === 'contract_signed') &&
               l.extra && l.extra.contract_id === id;
-          }).sort(function(a, b) { return a.created_at > b.created_at ? 1 : -1; });
+          })).slice().sort(function(a, b) { return a.created_at > b.created_at ? 1 : -1; });
           if (!contractEvents.length) return null;
           return e('div', { style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
             e('div', { style: { padding: '9px 14px', background: 'var(--surface)', borderBottom: '1px solid var(--border-soft)', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em' } }, 'Contract activiteit'),

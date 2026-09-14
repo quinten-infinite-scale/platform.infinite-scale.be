@@ -218,6 +218,10 @@ const API = {
     };
   },
 
+  async getContractEvents(contractId) {
+    return SB.get('activity_log', '?action=in.(contract_viewed,contract_signed)&extra=cs.' + encodeURIComponent('{"contract_id":"' + contractId + '"}') + '&order=created_at.asc').catch(() => []);
+  },
+
   logActivity(userName, userRole, action, details, sessionId, extra) {
     const session = SB.getSession();
     const body = {
