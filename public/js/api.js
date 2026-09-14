@@ -219,7 +219,18 @@ const API = {
   },
 
   async getContractEvents(contractId) {
-    return SB.get('activity_log', '?action=in.(contract_viewed,contract_signed)&extra=cs.' + encodeURIComponent('{"contract_id":"' + contractId + '"}') + '&order=created_at.asc').catch(() => []);
+    // Direct fetch with anon key — bypasses SB.get() session requirement which can hang on token refresh
+    const encoded = encodeURIComponent('{"contract_id":"' + contractId + '"}');
+    const url = window.SUPABASE_URL + '/rest/v1/activity_log?action=in.(contract_viewed,contract_signed)&extra=cs.' + encoded + '&order=created_at.asc';
+    try {
+      const r = await fetch(url, {
+        headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY },
+      });
+      if (!r.ok) return [];
+      return r.json().catch(() => []);
+    } catch (e) {
+      return [];
+    }
   },
 
   logActivity(userName, userRole, action, details, sessionId, extra) {
