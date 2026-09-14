@@ -1772,18 +1772,20 @@ const Modals = {
           }, c.status === 'signed' ? 'Opnieuw versturen' : 'Resend link') : null) : null,
         (() => {
           // On first open (or when contract changes), fetch events live from DB
-          if (f._cEventsId !== id) {
+          if (!f._cData || f._cData.id !== id) {
             Promise.resolve().then(() => {
               API.getContractEvents(id).then(rows => {
-                this.setForm('_cEventsId', id);
-                this.setForm('_cEvents', rows || []);
+                this.setForm('_cData', { id, events: rows || [] });
               }).catch(() => {});
             });
           }
-          const contractEvents = (f._cEventsId === id ? (f._cEvents || []) : (d.contractEvents || d.activityLog || []).filter(function(l) {
-            return (l.action === 'contract_viewed' || l.action === 'contract_signed') &&
-              l.extra && l.extra.contract_id === id;
-          })).slice().sort(function(a, b) { return a.created_at > b.created_at ? 1 : -1; });
+          const contractEvents = (f._cData && f._cData.id === id
+            ? f._cData.events
+            : (d.contractEvents || d.activityLog || []).filter(function(l) {
+                return (l.action === 'contract_viewed' || l.action === 'contract_signed') &&
+                  l.extra && l.extra.contract_id === id;
+              })
+          ).slice().sort(function(a, b) { return a.created_at > b.created_at ? 1 : -1; });
           if (!contractEvents.length) return null;
           return e('div', { style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
             e('div', { style: { padding: '9px 14px', background: 'var(--surface)', borderBottom: '1px solid var(--border-soft)', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em' } }, 'Contract activiteit'),
