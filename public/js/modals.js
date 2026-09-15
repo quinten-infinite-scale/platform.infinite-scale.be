@@ -1908,9 +1908,60 @@ const Modals = {
           kv('Afspraak datum', p.appointment_date), kv('Bellen op', p.call_on), kv('Revenue', p.revenue), kv('Last follow-up', p.last_followup),
           p.caller_note ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Opmerking beller: '), e('span', { style: { color: 'var(--text-dim)', fontSize: 13 } }, p.caller_note)) : null,
           p.notes ? e('div', { style: { marginTop: 6, padding: 10, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, p.notes) : null)),
+        // Fathom summary + action items (if available)
+        p.fathom_summary ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, '🎙 Fathom samenvatting'),
+          e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, p.fathom_summary)) : null,
+        p.action_items ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, '✅ Actiepunten'),
+          e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.8, whiteSpace: 'pre-line' } }, p.action_items)) : null,
+        // CLOSER score badge
+        p.closer_score_total != null ? e('div', { onClick: () => this.openModal('closerAnalysis', { prospect: p }), style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', cursor: 'pointer' } },
+          e('div', { style: { fontSize: 20, fontWeight: 900, color: p.closer_score_total >= 7 ? 'var(--up)' : p.closer_score_total >= 5 ? '#facc15' : 'var(--down)', fontFamily: "'JetBrains Mono'" } }, p.closer_score_total.toFixed(1)),
+          e('div', null,
+            e('div', { style: { fontWeight: 700, fontSize: 12, color: 'var(--text)' } }, 'CLOSER Score'),
+            e('div', { style: { fontSize: 11, color: 'var(--accent)' } }, 'Klik voor details →'))) : null,
+        // Transcript analyse section
+        f.showTranscriptInput ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+          e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Plak Fathom transcript'),
+          e('textarea', { value: f.transcriptText || '', onChange: ev => this.setForm('transcriptText', ev.target.value), placeholder: 'Kopieer het volledige transcript van Fathom en plak het hier...', rows: 8, style: { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', outline: 'none', boxSizing: 'border-box' } }),
+          e('div', { style: { display: 'flex', gap: 8 } },
+            UI.Btn('Annuleer', () => this.setForm('showTranscriptInput', false), 'soft'),
+            UI.Btn(f.transcriptLoading ? '⏳ Analyseren...' : '🧠 Analyseer (CLOSER)', async () => {
+              if (!f.transcriptText?.trim()) return;
+              this.setForm('transcriptLoading', true);
+              try {
+                const r = await fetch('/api/enhance-contract', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ transcript: f.transcriptText }),
+                });
+                const { ok, analysis } = await r.json();
+                if (!ok || !analysis) throw new Error('Analyse mislukt');
+                const updates = {
+                  closer_analysis: { ...analysis, call_date: new Date().toISOString() },
+                  closer_score_total: analysis.score_total || null,
+                  next_action_type: analysis.next_action_type || null,
+                  next_action_date: analysis.next_action_date || null,
+                  next_action_notes: analysis.next_action_notes || null,
+                  last_call_at: new Date().toISOString(),
+                };
+                await this.updateProspectDetail(p.id, updates);
+                const updatedProspect = { ...p, ...updates };
+                this.setForm('showTranscriptInput', false);
+                this.setForm('transcriptText', '');
+                this.setForm('transcriptLoading', false);
+                this.setForm('prospect', updatedProspect);
+                this.openModal('closerAnalysis', { prospect: updatedProspect });
+              } catch (err) {
+                this.setForm('transcriptLoading', false);
+                this.toast('Fout', 'Analyse mislukt: ' + err.message, 'var(--down)');
+              }
+            }, 'primary', { opacity: f.transcriptLoading ? 0.6 : 1, pointerEvents: f.transcriptLoading ? 'none' : 'auto' }))) : null,
         [UI.Btn('Edit', () => this.setForm('editingProspect', true), 'soft'),
+         UI.Btn('🎙 Analyseer gesprek', () => this.setForm('showTranscriptInput', !f.showTranscriptInput), f.showTranscriptInput ? 'soft' : 'ghost'),
          UI.Btn('Follow-up', () => { this.closeModal(); this.openModal('prospectFollowup', { prospect: p }); }, 'ghost'),
-         UI.Btn('Create contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, partyType: 'client', company: p.company, contact: p.contact, email: p.email || '' }); }, 'primary')], '580px');
+         UI.Btn('Create contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, partyType: 'client', company: p.company, contact: p.contact, email: p.email || '' }); }, 'primary')], '600px');
     }
 
     if (k === 'closerAnalysis') {

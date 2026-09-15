@@ -769,7 +769,11 @@ const ScreenAdmin = {
         }
         const agentMonthSummary = (agent, ym) => {
           const appts = d.appointments.filter(a => a.agent === agent.id && a.status === 'show' && (a.dateAppt || a.dateLog || '').startsWith(ym));
-          return { count: appts.length, total: appts.reduce((s2, a) => s2 + ((agent.rates || {})[a.sub] || (agent.rates || {})[a.client] || 0) + (a.dealCommission || 0), 0) };
+          const apptTotal = appts.reduce((s2, a) => s2 + ((agent.rates || {})[a.sub] || (agent.rates || {})[a.client] || 0) + (a.dealCommission || 0), 0);
+          const rawBonus = (d.invoiceStates || {})[agent.id + '-' + ym]?.bonus || null;
+          const savedBonuses = Array.isArray(rawBonus) ? rawBonus : (rawBonus && rawBonus.amt != null ? [rawBonus] : []);
+          const bonusTotal = savedBonuses.reduce((s2, b) => s2 + (parseFloat(b.amt) || 0), 0);
+          return { count: appts.length, total: apptTotal + bonusTotal };
         };
         const agentInvOpen = !!s.agentInvOpen;
         return UI.C({},

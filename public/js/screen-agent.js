@@ -31,7 +31,14 @@ const ScreenAgent = {
     const moneyY = apY.reduce((x, a) => x + agentPay(a), 0) || 1;
     const pct = (a, b) => Math.round(((a - b) / (b || 1)) * 100);
     const allMyAppts = d.appointments.filter(a => a.agent === me.id);
-    const allTimeMoney = allMyAppts.reduce((x, a) => x + agentPay(a), 0);
+    const allTimeApptMoney = allMyAppts.reduce((x, a) => x + agentPay(a), 0);
+    const allTimeBonusMoney = Object.entries(d.invoiceStates || {}).reduce((sum, [key, state]) => {
+      if (!key.startsWith(me.id + '-')) return sum;
+      const rawB = state?.bonus || null;
+      const bArr = Array.isArray(rawB) ? rawB : (rawB && rawB.amt != null ? [rawB] : []);
+      return sum + bArr.reduce((s2, b) => s2 + (parseFloat(b.amt) || 0), 0);
+    }, 0);
+    const allTimeMoney = allTimeApptMoney + allTimeBonusMoney;
     const allTimeAppts = allMyAppts.length;
 
     if (s.route === 'dashboard') return this._agentDash(d, s, me, { dialsT, dialsY, apT, apY, moneyT, moneyY, pct, today, allTimeMoney, allTimeAppts });
@@ -523,7 +530,14 @@ const ScreenAgent = {
     const runningThisMonth = d.appointments.filter(a => apptThisMonth(a) && a.status === 'open').reduce((x, a) => x + agentRate(a), 0);
     const running = d.appointments.filter(a => apptThisMonth(a) && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
     const confirmed = running;
-    const allTimeRunning = d.appointments.filter(a => a.agent === me.id && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
+    const allTimeApptEarnings = d.appointments.filter(a => a.agent === me.id && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);
+    const allTimeBonuses = Object.entries(d.invoiceStates || {}).reduce((sum, [key, state]) => {
+      if (!key.startsWith(me.id + '-')) return sum;
+      const rawB = state?.bonus || null;
+      const bArr = Array.isArray(rawB) ? rawB : (rawB && rawB.amt != null ? [rawB] : []);
+      return sum + bArr.reduce((s2, b) => s2 + (parseFloat(b.amt) || 0), 0);
+    }, 0);
+    const allTimeRunning = allTimeApptEarnings + allTimeBonuses;
     const months = [];
     for (let i = 0; i < 12; i++) {
       const m = new Date(now2.getFullYear(), now2.getMonth() - i, 1);
@@ -534,7 +548,11 @@ const ScreenAgent = {
     const invExpanded = !!s.agentInvExpanded;
     const monthData = ym => {
       const appts = d.appointments.filter(a => a.agent === me.id && a.status === 'show' && (a.dateAppt || '').startsWith(ym));
-      return { count: appts.length, total: appts.reduce((s2, a) => s2 + ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0), 0) };
+      const apptTotal = appts.reduce((s2, a) => s2 + ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0), 0);
+      const rawBonus = (d.invoiceStates || {})[me.id + '-' + ym]?.bonus || null;
+      const savedBonuses = Array.isArray(rawBonus) ? rawBonus : (rawBonus && rawBonus.amt != null ? [rawBonus] : []);
+      const bonusTotal = savedBonuses.reduce((s2, b) => s2 + (parseFloat(b.amt) || 0), 0);
+      return { count: appts.length, total: apptTotal + bonusTotal };
     };
     // Only show past months in approval list — current month is still open
     const monthsWithData = months.filter(({ ym }) => ym < currentYM && monthData(ym).count > 0);
