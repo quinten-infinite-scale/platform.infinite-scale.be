@@ -140,34 +140,82 @@ const Modals = {
                 ['Straat', rnData.street ? rnData.street + (rnData.number ? ' ' + rnData.number : '') : null],
                 ['Postcode', rnData.zipcode],
                 ['Gemeente', rnData.city],
-                ...(rnData.data ? (rnData.category === 'Chapewerken' ? [
-                  ['Eigenaar', rnData.data.eigenaar],
-                  ['Type chape', rnData.data.type_chape],
-                  ['Oppervlakte (m²)', rnData.data.oppervlakte],
-                  ['Dikte chape (cm)', rnData.data.dikte_chape],
-                  ['Vloerverwarming', rnData.data.vloerverwarming],
-                  ['Isolatie nodig', rnData.data.isolatie_nodig],
-                  ['Dikte isolatie', rnData.data.dikte_isolatie],
-                  ['Polijsten', rnData.data.polijsten],
-                  ['Timing', rnData.data.timing],
-                  ['Premie aanvraag', rnData.data.premie_aanvraag],
-                  ['Voorkeur belmoment', Array.isArray(rnData.data.voorkeur_belmoment) ? rnData.data.voorkeur_belmoment.join(', ') : rnData.data.voorkeur_belmoment],
-                ] : [
-                  ['Eigenaar', rnData.data.eigenaar],
-                  ['Type dak', rnData.data.type_dak],
-                  ['Grootte dak', rnData.data.groote_dak],
-                  ['Zonnepanelen', rnData.data.zonnepanelen],
-                  ['Zonnepanelen gewenst', rnData.data.zonnepanelen_gewenst],
-                  ['Asbest', rnData.data.asbest],
-                  ['Lekkages', rnData.data.lekkages],
-                  ['Isolatie nodig', rnData.data.isolatie_nodig],
-                  ['Dikte isolatie', rnData.data.dikte_isolatie],
-                  ['Kleur dakpannen', rnData.data.kleur_dakpannen],
-                  ['Timing', rnData.data.timing],
-                  ['Financiering', rnData.data.financiering],
-                  ['Premie aanvraag', rnData.data.premie_aanvraag],
-                  ['Voorkeur belmoment', Array.isArray(rnData.data.voorkeur_belmoment) ? rnData.data.voorkeur_belmoment.join(', ') : rnData.data.voorkeur_belmoment],
-                ]) : []),
+                ...(rnData.data ? (() => {
+                  const d2 = rnData.data;
+                  const bel = Array.isArray(d2.voorkeur_belmoment) ? d2.voorkeur_belmoment.join(', ') : d2.voorkeur_belmoment;
+                  const cat = rnData.category;
+                  if (cat === 'Airco') return [
+                    ['Eigenaar', d2.eigenaar], ['Type woning', d2.type_woning],
+                    ['Aantal ruimtes', d2.aantal_ruimtes], ['Grootte per ruimte', d2.grootte_ruimte],
+                    ['Voorkeur merk', d2.merk], ['Meerdere merken vergelijken', d2.vergelijken],
+                    ['Financiering', d2.financiering], ['Timing', d2.timing],
+                    ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  if (cat === 'Thuisbatt') return [
+                    ['Eigenaar', d2.eigenaar], ['Doel batterij', d2.doel_batterij],
+                    ['Jaarverbruik (kWh)', d2.jaarverbruik], ['Piekverbruik (kW)', d2.piekverbruik],
+                    ['Gewenste capaciteit', d2.capaciteit], ['Digitale meter', d2.digitale_meter],
+                    ['Voorkeur merk', d2.merk], ['Locatie plaatsing', d2.locatie],
+                    ['Laadpaal', d2.laadpaal], ['Financiering', d2.financiering],
+                    ['Timing', d2.timing], ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  if (cat === 'Zonnepanelen') return [
+                    ['Eigenaar', d2.eigenaar], ['Type installatie', d2.type_installatie],
+                    ['Jaarverbruik (kWh)', d2.jaarverbruik], ['Type dak', d2.type_dak],
+                    ['Dakoppervlakte (m²)', d2.dakoppervlakte], ['Oriëntatie', d2.orientatie],
+                    ['Schaduw', d2.schaduw], ['Asbest', d2.asbest],
+                    ['Digitale meter', d2.digitale_meter], ['Thuisbatterij gewenst', d2.thuisbatterij],
+                    ['Batterijcapaciteit', d2.capaciteit], ['Laadpaal', d2.laadpaal],
+                    ['Airco', d2.airco], ['Financiering', d2.financiering],
+                    ['Timing', d2.timing], ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  if (cat === 'Ramen en deuren') return [
+                    ['Eigenaar', d2.eigenaar], ['Type werk', d2.type_werk],
+                    ['Materiaal', d2.materiaal], ['Type glas', d2.type_glas],
+                    ['Kleur', d2.kleur], ['Rolluiken', d2.rolluiken],
+                    ['Vervanging bestaande', d2.vervanging], ['Financiering', d2.financiering],
+                    ['Timing', d2.timing], ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  if (cat === 'Badkamers') return [
+                    ['Eigenaar', d2.eigenaar], ['Type project', d2.type_project],
+                    ['Afmeting (m²)', d2.afmeting], ['Douche', d2.douche], ['Bad', d2.bad],
+                    ['Lavabo', d2.lavabo], ['Toilet', d2.toilet],
+                    ['Tegelwerk', d2.tegelwerk], ['Sanitair', d2.sanitair],
+                    ['Loodgieterij', d2.loodgieterij], ['Elektriciteit', d2.elektriciteit],
+                    ['Financiering', d2.financiering], ['Timing', d2.timing],
+                    ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  if (cat === 'Keukens') return [
+                    ['Eigenaar', d2.eigenaar], ['Type project', d2.type_project],
+                    ['Afmeting (m²)', d2.afmeting], ['Financiering', d2.financiering],
+                    ['Timing', d2.timing], ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  if (cat === 'Crepi') return [
+                    ['Eigenaar', d2.eigenaar], ['Aantal gevels', d2.aantal_gevels],
+                    ['Voorgevel', d2.voorgevel], ['Oprit/rode lijn', d2.oprit],
+                    ['Afmeting (m²)', d2.afmeting], ['Isolatie nodig', d2.isolatie_nodig],
+                    ['Dikte isolatie', d2.dikte_isolatie], ['Kleur Crepi', d2.kleur_crepi],
+                    ['Financiering', d2.financiering], ['Timing', d2.timing],
+                    ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  if (cat === 'Chapewerken') return [
+                    ['Eigenaar', d2.eigenaar], ['Type chape', d2.type_chape],
+                    ['Oppervlakte (m²)', d2.oppervlakte], ['Dikte chape (cm)', d2.dikte_chape],
+                    ['Vloerverwarming', d2.vloerverwarming], ['Isolatie nodig', d2.isolatie_nodig],
+                    ['Dikte isolatie', d2.dikte_isolatie], ['Polijsten', d2.polijsten],
+                    ['Timing', d2.timing], ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                  // Dak (default)
+                  return [
+                    ['Eigenaar', d2.eigenaar], ['Type dak', d2.type_dak],
+                    ['Grootte dak (m²)', d2.groote_dak], ['Zonnepanelen', d2.zonnepanelen],
+                    ['Zonnepanelen gewenst', d2.zonnepanelen_gewenst], ['Asbest', d2.asbest],
+                    ['Lekkages', d2.lekkages], ['Isolatie nodig', d2.isolatie_nodig],
+                    ['Dikte isolatie', d2.dikte_isolatie], ['Kleur dakpannen', d2.kleur_dakpannen],
+                    ['Financiering', d2.financiering], ['Timing', d2.timing],
+                    ['Premie aanvraag', d2.premie_aanvraag], ['Voorkeur belmoment', bel],
+                  ];
+                })() : []),
               ].filter(([,v]) => v).map(([k, v]) =>
                 e('div', { key: k },
                   e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 } }, k),

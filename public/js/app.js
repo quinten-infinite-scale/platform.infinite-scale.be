@@ -1,6 +1,6 @@
 // Runtime version check — forces cache-busting redirect if JS is stale (bypasses Vercel CDN)
 (function() {
-  const CURRENT_V = '20260912p';
+  const CURRENT_V = '20260918a';
   setTimeout(function() {
     fetch('/version.json?_=' + Date.now())
       .then(function(r) { return r.json(); })
@@ -701,7 +701,67 @@ class Component extends DCLogic {
         polijsten: f.rnPolijsten || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
         premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
       } : null;
-      const description = intakeData ? [intakeData.info_project || '', intakeData.timing || ''].filter(Boolean).join(' — ') : '';
+      const description = intakeData ? (() => {
+        const parts = [];
+        if (intakeData.eigenaar) parts.push('Eigenaar: ' + intakeData.eigenaar);
+        // Category-specific fields
+        if (intakeData.type_woning) parts.push('Woning: ' + intakeData.type_woning);
+        if (intakeData.aantal_ruimtes) parts.push('Ruimtes: ' + intakeData.aantal_ruimtes);
+        if (intakeData.grootte_ruimte) parts.push('Grootte: ' + intakeData.grootte_ruimte);
+        if (intakeData.merk) parts.push('Merk: ' + intakeData.merk);
+        if (intakeData.vergelijken) parts.push('Vergelijken: ' + intakeData.vergelijken);
+        if (intakeData.type_dak) parts.push('Type dak: ' + intakeData.type_dak);
+        if (intakeData.groote_dak) parts.push('Grootte dak: ' + intakeData.groote_dak);
+        if (intakeData.dakoppervlakte) parts.push('Dakoppervlakte: ' + intakeData.dakoppervlakte);
+        if (intakeData.orientatie) parts.push('Oriëntatie: ' + intakeData.orientatie);
+        if (intakeData.zonnepanelen) parts.push('Zonnepanelen: ' + intakeData.zonnepanelen);
+        if (intakeData.zonnepanelen_gewenst) parts.push('ZP gewenst: ' + intakeData.zonnepanelen_gewenst);
+        if (intakeData.asbest) parts.push('Asbest: ' + intakeData.asbest);
+        if (intakeData.lekkages) parts.push('Lekkages: ' + intakeData.lekkages);
+        if (intakeData.schaduw) parts.push('Schaduw: ' + intakeData.schaduw);
+        if (intakeData.digitale_meter) parts.push('Digitale meter: ' + intakeData.digitale_meter);
+        if (intakeData.thuisbatterij) parts.push('Thuisbatterij: ' + intakeData.thuisbatterij);
+        if (intakeData.doel_batterij) parts.push('Doel batterij: ' + intakeData.doel_batterij);
+        if (intakeData.jaarverbruik) parts.push('Jaarverbruik: ' + intakeData.jaarverbruik);
+        if (intakeData.piekverbruik) parts.push('Piekverbruik: ' + intakeData.piekverbruik);
+        if (intakeData.capaciteit) parts.push('Capaciteit: ' + intakeData.capaciteit);
+        if (intakeData.locatie) parts.push('Locatie: ' + intakeData.locatie);
+        if (intakeData.laadpaal) parts.push('Laadpaal: ' + intakeData.laadpaal);
+        if (intakeData.airco) parts.push('Airco: ' + intakeData.airco);
+        if (intakeData.type_werk) parts.push('Type werk: ' + intakeData.type_werk);
+        if (intakeData.materiaal) parts.push('Materiaal: ' + intakeData.materiaal);
+        if (intakeData.type_glas) parts.push('Glas: ' + intakeData.type_glas);
+        if (intakeData.kleur) parts.push('Kleur: ' + intakeData.kleur);
+        if (intakeData.rolluiken) parts.push('Rolluiken: ' + intakeData.rolluiken);
+        if (intakeData.vervanging) parts.push('Vervanging: ' + intakeData.vervanging);
+        if (intakeData.type_project) parts.push('Type project: ' + intakeData.type_project);
+        if (intakeData.afmeting) parts.push('Afmeting: ' + intakeData.afmeting);
+        if (intakeData.douche) parts.push('Douche: ' + intakeData.douche);
+        if (intakeData.bad) parts.push('Bad: ' + intakeData.bad);
+        if (intakeData.lavabo) parts.push('Lavabo: ' + intakeData.lavabo);
+        if (intakeData.toilet) parts.push('Toilet: ' + intakeData.toilet);
+        if (intakeData.tegelwerk) parts.push('Tegelwerk: ' + intakeData.tegelwerk);
+        if (intakeData.sanitair) parts.push('Sanitair: ' + intakeData.sanitair);
+        if (intakeData.loodgieterij) parts.push('Loodgieterij: ' + intakeData.loodgieterij);
+        if (intakeData.elektriciteit) parts.push('Elektriciteit: ' + intakeData.elektriciteit);
+        if (intakeData.aantal_gevels) parts.push('Gevels: ' + intakeData.aantal_gevels);
+        if (intakeData.voorgevel) parts.push('Voorgevel: ' + intakeData.voorgevel);
+        if (intakeData.kleur_crepi) parts.push('Kleur Crepi: ' + intakeData.kleur_crepi);
+        if (intakeData.type_chape) parts.push('Type chape: ' + intakeData.type_chape);
+        if (intakeData.oppervlakte) parts.push('Oppervlakte: ' + intakeData.oppervlakte);
+        if (intakeData.dikte_chape) parts.push('Dikte chape: ' + intakeData.dikte_chape);
+        if (intakeData.vloerverwarming) parts.push('Vloerverwarming: ' + intakeData.vloerverwarming);
+        if (intakeData.polijsten) parts.push('Polijsten: ' + intakeData.polijsten);
+        if (intakeData.isolatie_nodig) parts.push('Isolatie: ' + intakeData.isolatie_nodig);
+        if (intakeData.dikte_isolatie) parts.push('Dikte isolatie: ' + intakeData.dikte_isolatie);
+        if (intakeData.kleur_dakpannen) parts.push('Kleur dakpannen: ' + intakeData.kleur_dakpannen);
+        if (intakeData.financiering) parts.push('Financiering: ' + intakeData.financiering);
+        if (intakeData.timing) parts.push('Timing: ' + intakeData.timing);
+        if (intakeData.premie_aanvraag) parts.push('Premie: ' + intakeData.premie_aanvraag);
+        if (intakeData.voorkeur_belmoment && intakeData.voorkeur_belmoment.length) parts.push('Belmoment: ' + (Array.isArray(intakeData.voorkeur_belmoment) ? intakeData.voorkeur_belmoment.join(', ') : intakeData.voorkeur_belmoment));
+        if (intakeData.info_project) parts.push('Info: ' + intakeData.info_project);
+        return parts.join(' | ');
+      })() : '';
       const rnPayload = {
         category: f.rnCategory,
         firstname: f.rnFirst || '',
