@@ -142,5 +142,7 @@ const SB = (() => {
     return d;
   }
 
-  return { signIn, signOut, loadSession, getSession, get, post, patch, del, rpc, upsert, updateAuth };
+  async function ensureSession() { await _refreshIfNeeded(); return _session; }
+
+  return { signIn, signOut, loadSession, getSession, ensureSession, get, post, patch, del, rpc, upsert, updateAuth };
 })();

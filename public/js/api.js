@@ -657,7 +657,7 @@ const API = {
 </table>
 </body></html>`;
 
-    const _sess = SB.getSession();
+    const _sess = await SB.ensureSession();
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(_sess?.access_token ? { 'Authorization': 'Bearer ' + _sess.access_token } : {}) },
@@ -704,7 +704,7 @@ const API = {
   </td></tr>
 </table>
 </body></html>`;
-    const _sess = SB.getSession();
+    const _sess = await SB.ensureSession();
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(_sess?.access_token ? { 'Authorization': 'Bearer ' + _sess.access_token } : {}) },
