@@ -73,6 +73,7 @@ const ScreenAdmin = {
     if (r === 'rooster') return this._admRooster(d, s);
     if (r === 'activity') return this._admActivity(d, s);
     if (r === 'todos') return this._admTodos(d, s);
+    if (r === 'targets') return this._admTargets(d, s);
     if (r === 'tickets') return this._admTickets(d, s);
     if (r === 'whatsapp') return this._admWhatsApp(d, s);
     if (r === 'roadmap') return ScreenRoadmap.render.call(this, d, s);
@@ -3678,48 +3679,63 @@ const ScreenAdmin = {
 
     const todos = s._todosLoaded ? (s.todosList || []) : null;
 
+    // Priority is encoded in the notes field as JSON: {"p":"h","n":"notes text"} or {"p":"u","n":"..."}
+    const parsePriority = (notes) => {
+      if (!notes) return { priority: 'normal', text: '' };
+      try {
+        const j = JSON.parse(notes);
+        if (j && j.p) return { priority: j.p === 'h' ? 'high' : j.p === 'u' ? 'urgent' : 'normal', text: j.n || '' };
+      } catch (_) {}
+      return { priority: 'normal', text: notes };
+    };
+    const encodePriority = (priority, text) => {
+      const trimmed = (text || '').trim();
+      if (!priority || priority === 'normal') return trimmed || null;
+      return JSON.stringify({ p: priority === 'urgent' ? 'u' : 'h', ...(trimmed ? { n: trimmed } : {}) });
+    };
+    const priorityOrder = p => p === 'urgent' ? 0 : p === 'high' ? 1 : 2;
+
     const loadDay = async (targetDay) => {
       this.setState({ todosLoading: true, todosList: null, _todosLoaded: false });
       const res = await fetch(`${SB_URL}/rest/v1/todos?day=eq.${targetDay}&order=order_idx.asc,created_at.asc`, {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
       });
       let list = await res.json();
+
       if (targetDay >= today) {
-        const prevDay = new Date(targetDay);
-        prevDay.setDate(prevDay.getDate() - 1);
-        const prevStr = prevDay.toISOString().slice(0, 10);
-        const prevRes = await fetch(`${SB_URL}/rest/v1/todos?day=eq.${prevStr}&completed_at=is.null&order=order_idx.asc,created_at.asc`, {
+        // Carry ALL uncompleted todos from ANY past day (not just yesterday)
+        // This fixes the bug where todos get stuck when the page isn't opened daily
+        const pastRes = await fetch(`${SB_URL}/rest/v1/todos?day=lt.${targetDay}&completed_at=is.null&order=day.asc,order_idx.asc`, {
           headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
         });
-        const prevUndone = await prevRes.json();
-        // Prune already-carried tasks whose source is now done (edge case: user navigated to tomorrow before marking done)
-        const staleCarried = list.filter(t => t.carried_from === prevStr && !t.completed_at && !prevUndone.some(pt => pt.title === t.title && pt.created_by === t.created_by));
-        for (const sc of staleCarried) {
-          await fetch(`${SB_URL}/rest/v1/todos?id=eq.${sc.id}`, { method: 'DELETE', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } });
-          list = list.filter(t => t.id !== sc.id);
+        const allPast = await pastRes.json();
+
+        // Deduplicate: for each (created_by, title) keep only the most recent day's version
+        const latestByKey = {};
+        for (const pt of allPast) {
+          const key = pt.created_by + ':' + pt.title;
+          if (!latestByKey[key] || pt.day > latestByKey[key].day) latestByKey[key] = pt;
         }
-        // Assign carry indices per user, preserving source order
+
+        // Carry each unique past task to today if not already present
         const carryIdxByUser = {};
         const getCarryIdx = (userId) => {
-          if (carryIdxByUser[userId] === undefined) {
-            carryIdxByUser[userId] = list.filter(t => t.created_by === userId && !t.carried_from && !t.completed_at).reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
-          }
-          carryIdxByUser[userId] += 1;
-          return carryIdxByUser[userId];
+          if (carryIdxByUser[userId] === undefined)
+            carryIdxByUser[userId] = list.filter(t => t.created_by === userId && !t.completed_at).reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
+          return ++carryIdxByUser[userId];
         };
-        for (const pt of prevUndone) {
-          const existing = list.find(t => t.carried_from === prevStr && t.title === pt.title && t.created_by === pt.created_by);
-          const targetIdx = getCarryIdx(pt.created_by);
-          if (!existing) {
+
+        for (const pt of Object.values(latestByKey)) {
+          const alreadyToday = list.find(t => t.title === pt.title && t.created_by === pt.created_by);
+          if (!alreadyToday) {
             const upsertRes = await fetch(`${SB_URL}/rest/v1/todos`, {
               method: 'POST',
               headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-              body: JSON.stringify({ title: pt.title, category: pt.category || null, deadline: pt.deadline || null, notes: pt.notes || null, created_by: pt.created_by, day: targetDay, order_idx: targetIdx, carried_from: prevStr })
+              body: JSON.stringify({ title: pt.title, category: pt.category || null, deadline: pt.deadline || null, notes: pt.notes || null, created_by: pt.created_by, day: targetDay, order_idx: getCarryIdx(pt.created_by), carried_from: pt.day })
             });
             const newRow = await upsertRes.json();
             if (Array.isArray(newRow) && newRow[0]) list.push(newRow[0]);
           }
-          // Never re-sync order_idx for already-existing carried items — user's manual drag-reorder must be preserved
         }
         list.sort((a, b) => (a.order_idx || 0) - (b.order_idx || 0) || a.created_at.localeCompare(b.created_at));
       }
@@ -3771,18 +3787,20 @@ const ScreenAdmin = {
     };
 
     const addTodoFor = async ownerId => {
-      const tk = 'todosAddTitle_' + ownerId, ck = 'todosAddCat_' + ownerId, dk = 'todosAddDl_' + ownerId, nk = 'todosAddNotes_' + ownerId;
+      const tk = 'todosAddTitle_' + ownerId, ck = 'todosAddCat_' + ownerId, dk = 'todosAddDl_' + ownerId, nk = 'todosAddNotes_' + ownerId, pk = 'todosAddPri_' + ownerId;
       const title = (s[tk] || '').trim(); if (!title) return;
+      const priority = s[pk] || 'normal';
       const userActive = (todos || []).filter(t => t.created_by === ownerId && !t.completed_at);
       const maxIdx = userActive.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
+      const notesEncoded = encodePriority(priority, s[nk] || '');
       const res = await fetch(`${SB_URL}/rest/v1/todos`, {
         method: 'POST',
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-        body: JSON.stringify({ title, category: s[ck] || null, deadline: s[dk] || null, notes: (s[nk] || '').trim() || null, created_by: ownerId, day, order_idx: maxIdx + 1 })
+        body: JSON.stringify({ title, category: s[ck] || null, deadline: s[dk] || null, notes: notesEncoded, created_by: ownerId, day, order_idx: maxIdx + 1 })
       });
       const rows = await res.json();
       if (Array.isArray(rows) && rows[0]) {
-        const clear = { [tk]: '', [ck]: '', [dk]: '', [nk]: '', ['todosAddOpen_' + ownerId]: false };
+        const clear = { [tk]: '', [ck]: '', [dk]: '', [nk]: '', [pk]: 'normal', ['todosAddOpen_' + ownerId]: false };
         this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], ...clear }));
       }
     };
@@ -3804,7 +3822,8 @@ const ScreenAdmin = {
     const renderColumn = user => {
       const isMe = user.id === myId;
       const col = user.id;
-      const userActive = (todos || []).filter(t => t.created_by === col && !t.completed_at);
+      const userActive = (todos || []).filter(t => t.created_by === col && !t.completed_at)
+        .sort((a, b) => priorityOrder(parsePriority(a.notes).priority) - priorityOrder(parsePriority(b.notes).priority) || (a.order_idx || 0) - (b.order_idx || 0));
       const userDone = (todos || []).filter(t => t.created_by === col && !!t.completed_at);
       const doneOpenKey = 'todosDoneOpen_' + col;
       const addOpenKey = 'todosAddOpen_' + col;
@@ -3826,11 +3845,14 @@ const ScreenAdmin = {
 
       const saveTodoEdit = async (todo) => {
         const ek = 'todoEdit_' + todo.id;
+        const { text: existingNoteText } = parsePriority(todo.notes);
+        const newPriority = s[ek + '_pri'] !== undefined ? s[ek + '_pri'] : parsePriority(todo.notes).priority;
+        const newNoteText = s[ek + '_notes'] !== undefined ? s[ek + '_notes'] : existingNoteText;
         const fields = {
           title: (s[ek + '_title'] || '').trim() || todo.title,
-          category: s[ek + '_cat'] || null,
-          deadline: s[ek + '_dl'] || null,
-          notes: (s[ek + '_notes'] || '').trim() || null,
+          category: s[ek + '_cat'] !== undefined ? (s[ek + '_cat'] || null) : todo.category,
+          deadline: s[ek + '_dl'] !== undefined ? (s[ek + '_dl'] || null) : todo.deadline,
+          notes: encodePriority(newPriority, newNoteText),
         };
         await fetch(`${SB_URL}/rest/v1/todos?id=eq.${todo.id}`, {
           method: 'PATCH',
@@ -3845,30 +3867,52 @@ const ScreenAdmin = {
 
       const todoRow = (todo, idx, isDone) => {
         const isDragging = this[dragIdxKey] === idx;
-        const isTop = !isDone && idx === 0;
         const ek = 'todoEdit_' + todo.id;
         const isEditing = !!s[ek + '_open'];
-        const rowBg = isDragging ? 'transparent' : dragOver === idx ? 'var(--surface-2)' : isTop ? 'oklch(0.20 0.04 250 / 0.55)' : 'transparent';
+        const { priority, text: notesText } = parsePriority(todo.notes);
+        const isUrgent = !isDone && priority === 'urgent';
+        const isHigh = !isDone && priority === 'high';
+        const isTop = !isDone && idx === 0;
+        const priColor = isUrgent ? '#ef4444' : isHigh ? '#f97316' : null;
+        const rowBg = isDragging ? 'transparent' : dragOver === idx ? 'var(--surface-2)' : isUrgent ? 'oklch(0.18 0.05 15 / 0.5)' : isHigh ? 'oklch(0.18 0.05 35 / 0.4)' : isTop ? 'oklch(0.20 0.04 250 / 0.55)' : 'transparent';
         const rowStyle = {
           display: 'flex', alignItems: 'flex-start', gap: 10,
-          padding: isTop ? '13px 14px 13px 10px' : '11px 14px',
+          padding: (isUrgent || isHigh || isTop) ? '13px 14px 13px 10px' : '11px 14px',
           borderBottom: '1px solid var(--border-soft)',
           background: rowBg,
           opacity: isDragging ? 0.4 : 1,
           cursor: !isDone && !isEditing ? 'grab' : 'default',
-          borderLeft: isTop ? '3px solid var(--accent)' : '3px solid transparent',
-          boxShadow: isTop ? '0 2px 12px oklch(0.50 0.18 250 / 0.12)' : 'none',
+          borderLeft: isUrgent ? '3px solid #ef4444' : isHigh ? '3px solid #f97316' : isTop ? '3px solid var(--accent)' : '3px solid transparent',
+          boxShadow: isUrgent ? '0 2px 12px rgba(239,68,68,0.15)' : isHigh ? '0 2px 12px rgba(249,115,22,0.12)' : isTop ? '0 2px 12px oklch(0.50 0.18 250 / 0.12)' : 'none',
           transition: 'background .15s',
         };
 
+        const priPill = (p) => {
+          if (!p || p === 'normal') return null;
+          const color = p === 'urgent' ? '#ef4444' : '#f97316';
+          const label = p === 'urgent' ? '\uD83D\uDD34 URGENT' : '\uD83D\uDFE0 HIGH';
+          return e('span', { style: { fontSize: 9.5, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: color + '22', color, flexShrink: 0, letterSpacing: '.08em' } }, label);
+        };
+
+        const priSelect = (value, onChange) => e('select', {
+          value, onChange: ev => onChange(ev.target.value),
+          style: { padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, outline: 'none', cursor: 'pointer' }
+        },
+          e('option', { value: 'normal' }, '\u2B1C Normal'),
+          e('option', { value: 'high' }, '\uD83D\uDFE0 High'),
+          e('option', { value: 'urgent' }, '\uD83D\uDD34 Urgent'));
+
         if (isEditing) {
           const inputStyle = { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box' };
+          const curPri = s[ek + '_pri'] !== undefined ? s[ek + '_pri'] : priority;
+          const curNotes = s[ek + '_notes'] !== undefined ? s[ek + '_notes'] : notesText;
           return e('div', { key: todo.id, style: { ...rowStyle, cursor: 'default', flexDirection: 'column', gap: 8 } },
             e('input', { autoFocus: true, value: s[ek + '_title'] !== undefined ? s[ek + '_title'] : todo.title, onChange: ev => this.setState({ [ek + '_title']: ev.target.value }), onKeyDown: ev => { if (ev.key === 'Enter') saveTodoEdit(todo); if (ev.key === 'Escape') this.setState({ [ek + '_open']: false }); }, style: { ...inputStyle, fontWeight: 700 }, placeholder: 'Task title\u2026' }),
-            e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 } },
+            e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 } },
               e('input', { placeholder: 'Category', value: s[ek + '_cat'] !== undefined ? s[ek + '_cat'] : (todo.category || ''), onChange: ev => this.setState({ [ek + '_cat']: ev.target.value }), list: 'todo-cats-' + col, style: { ...inputStyle, fontSize: 12 } }),
-              e('input', { type: 'date', value: s[ek + '_dl'] !== undefined ? s[ek + '_dl'] : (todo.deadline || ''), onChange: ev => this.setState({ [ek + '_dl']: ev.target.value }), style: { ...inputStyle, fontSize: 12 } })),
-            e('input', { placeholder: 'Notes', value: s[ek + '_notes'] !== undefined ? s[ek + '_notes'] : (todo.notes || ''), onChange: ev => this.setState({ [ek + '_notes']: ev.target.value }), style: { ...inputStyle, fontSize: 12 } }),
+              e('input', { type: 'date', value: s[ek + '_dl'] !== undefined ? s[ek + '_dl'] : (todo.deadline || ''), onChange: ev => this.setState({ [ek + '_dl']: ev.target.value }), style: { ...inputStyle, fontSize: 12 } }),
+              priSelect(curPri, v => this.setState({ [ek + '_pri']: v }))),
+            e('input', { placeholder: 'Notes', value: curNotes, onChange: ev => this.setState({ [ek + '_notes']: ev.target.value }), style: { ...inputStyle, fontSize: 12 } }),
             e('div', { style: { display: 'flex', gap: 6 } },
               e('button', { onClick: () => saveTodoEdit(todo), style: { padding: '5px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Opslaan'),
               e('button', { onClick: () => this.setState({ [ek + '_open']: false }), style: { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Annuleren')));
@@ -3881,30 +3925,37 @@ const ScreenAdmin = {
           onDrop: !isDone ? ev => onDrop2(ev, idx) : undefined,
           onDragEnd: !isDone ? onDragEnd2 : undefined,
           style: rowStyle },
-          !isDone ? e('div', { style: { color: 'var(--text-mute)', fontSize: 14, flexShrink: 0, paddingTop: 2, userSelect: 'none' } }, '\u28FF') : e('div', { style: { width: 14 } }),
-          !isDone ? e('div', { style: { width: 18, flexShrink: 0, fontSize: 11, fontWeight: 700, color: isTop ? 'var(--accent)' : 'var(--text-mute)', fontFamily: "'JetBrains Mono'", paddingTop: 3, textAlign: 'right', userSelect: 'none' } }, String(idx + 1)) : null,
-          e('div', { onClick: () => checkTodo(todo), style: { width: 20, height: 20, borderRadius: 6, border: isDone ? 'none' : isTop ? '2px solid var(--accent)' : '2px solid var(--border)', background: isDone ? 'var(--up)' : 'transparent', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1, transition: 'all .15s' } },
+          !isDone ? e('div', { style: { color: priColor || (isTop ? 'var(--accent)' : 'var(--text-mute)'), fontSize: 14, flexShrink: 0, paddingTop: 2, userSelect: 'none' } }, '\u28FF') : e('div', { style: { width: 14 } }),
+          !isDone ? e('div', { style: { width: 18, flexShrink: 0, fontSize: 11, fontWeight: 700, color: priColor || (isTop ? 'var(--accent)' : 'var(--text-mute)'), fontFamily: "'JetBrains Mono'", paddingTop: 3, textAlign: 'right', userSelect: 'none' } }, String(idx + 1)) : null,
+          e('div', { onClick: () => checkTodo(todo), style: { width: 20, height: 20, borderRadius: 6, border: isDone ? 'none' : isUrgent ? '2px solid #ef4444' : isHigh ? '2px solid #f97316' : isTop ? '2px solid var(--accent)' : '2px solid var(--border)', background: isDone ? 'var(--up)' : 'transparent', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1, transition: 'all .15s' } },
             isDone ? e('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'oklch(0.12 0 0)', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M20 6L9 17l-5-5' })) : null),
           e('div', { style: { flex: 1, minWidth: 0 } },
             e('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
-              e('span', { onClick: () => this.setState({ [ek + '_open']: true }), style: { fontSize: isTop ? 14 : 13.5, fontWeight: isTop ? 700 : 600, color: isDone ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'var(--up)', textDecorationThickness: 2, flex: 1, minWidth: 0, cursor: isDone ? 'default' : 'text' } }, todo.title),
-              catPill(todo.category), deadlinePill(todo.deadline), carriedBadge(todo.carried_from)),
-            todo.notes ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 3, lineHeight: 1.5 } }, todo.notes) : null,
+              e('span', { onClick: () => this.setState({ [ek + '_open']: true }), style: { fontSize: (isUrgent || isHigh || isTop) ? 14 : 13.5, fontWeight: (isUrgent || isHigh || isTop) ? 700 : 600, color: isDone ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'var(--up)', textDecorationThickness: 2, flex: 1, minWidth: 0, cursor: isDone ? 'default' : 'text' } }, todo.title),
+              priPill(priority), catPill(todo.category), deadlinePill(todo.deadline), carriedBadge(todo.carried_from)),
+            notesText ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 3, lineHeight: 1.5 } }, notesText) : null,
             isDone && todo.completed_by ? e('div', { style: { fontSize: 11, color: 'var(--up)', marginTop: 2 } }, '\u2713 ' + todo.completed_by) : null),
           !isDone && todo.category === 'Platform' ? e('button', {
             title: 'Run with Claude',
-            onClick: ev => { ev.stopPropagation(); this.setState({ claudeSession: { id: todo.id, title: todo.title, notes: todo.notes || '', output: '', status: 'running' } }); },
+            onClick: ev => { ev.stopPropagation(); this.setState({ claudeSession: { id: todo.id, title: todo.title, notes: notesText || '', output: '', status: 'running' } }); },
             style: { background: 'none', border: '1px solid rgba(103,220,223,0.3)', borderRadius: 6, color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: '2px 6px', flexShrink: 0, lineHeight: 1, marginRight: 2, fontWeight: 700 }
           }, '\u26A1') : null,
           e('button', { onClick: () => deleteTodo(todo.id), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 15, padding: '0 2px', flexShrink: 0, opacity: 0.4, lineHeight: 1 } }, '\u00D7'));
       };
 
+      const priSelectAdd = (col2) => e('select', {
+        value: s['todosAddPri_' + col2] || 'normal',
+        onChange: ev => this.setState({ ['todosAddPri_' + col2]: ev.target.value }),
+        style: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' }
+      }, e('option', { value: 'normal' }, '\u2b1c Normal'), e('option', { value: 'high' }, '\ud83d\udfe0 High'), e('option', { value: 'urgent' }, '\ud83d\udd34 Urgent'));
+
       const addForm = s[addOpenKey] ? e('div', { style: { padding: '12px 14px', borderTop: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: 8 } },
         e('input', { placeholder: 'Task title\u2026', value: s['todosAddTitle_' + col] || '', onChange: ev => this.setState({ ['todosAddTitle_' + col]: ev.target.value }), onKeyDown: ev => { if (ev.key === 'Enter') addTodoFor(col); if (ev.key === 'Escape') this.setState({ [addOpenKey]: false }); }, autoFocus: true, style: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' } }),
-        e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 } },
+        e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 } },
           e('input', { placeholder: 'Category', value: s['todosAddCat_' + col] || '', onChange: ev => this.setState({ ['todosAddCat_' + col]: ev.target.value }), list: 'todo-cats-' + col, style: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' } }),
           e('datalist', { id: 'todo-cats-' + col }, ...allCats.map(c => e('option', { key: c, value: c }))),
-          e('input', { type: 'date', value: s['todosAddDl_' + col] || '', onChange: ev => this.setState({ ['todosAddDl_' + col]: ev.target.value }), style: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' } })),
+          e('input', { type: 'date', value: s['todosAddDl_' + col] || '', onChange: ev => this.setState({ ['todosAddDl_' + col]: ev.target.value }), style: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' } }),
+          priSelectAdd(col)),
         e('input', { placeholder: 'Notes', value: s['todosAddNotes_' + col] || '', onChange: ev => this.setState({ ['todosAddNotes_' + col]: ev.target.value }), style: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' } }),
         e('div', { style: { display: 'flex', gap: 6 } },
           e('button', { onClick: () => addTodoFor(col), style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: isMe ? 'var(--accent)' : 'var(--info)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Add'),
@@ -4010,6 +4061,169 @@ const ScreenAdmin = {
         e('button', { onClick: () => navDay(1), style: { padding: '6px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 18, lineHeight: 1 } }, '\u203A')),
       e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' } },
         ...USERS.map(u => renderColumn(u))));
+  },
+
+  // ---------------------------------------------------------------------------
+  // Targets tab
+  // ---------------------------------------------------------------------------
+  _admTargets(d, s) {
+    const e = React.createElement;
+    const SB_KEY = SC_KEY;
+    const SB_URL = SC_DB;
+    const today = new Date().toISOString().slice(0, 10);
+    const agents = (d.agents || []).filter(a => a.active !== false);
+
+    // CloudTalk account assignments (from user config)
+    const CLOUDTALK_ACCOUNTS = {
+      1: ['Brahm'], 2: ['Lothar'], 3: ['Rick'], 4: ['Robbie'],
+      5: ['Romy (voormiddag)', 'Lisa (namiddag)'], 6: ['Shalom (voormiddag)', 'Joy (namiddag)'], 7: ['?']
+    };
+
+    // Load targets from platform_settings
+    const tgts = s._targetsData !== undefined ? s._targetsData : null;
+    if (tgts === null && !s._targetsLoading) {
+      this.setState({ _targetsLoading: true });
+      fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.agent_targets&select=value`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+        .then(r => r.json()).then(rows => {
+          const val = rows[0]?.value || {};
+          this.setState({ _targetsData: val, _targetsLoading: false });
+        }).catch(() => this.setState({ _targetsData: {}, _targetsLoading: false }));
+    }
+
+    const targets = tgts || {};
+    const monthlyTarget = targets._monthly || 0;
+    const agentTargets = targets.agents || {};
+
+    const saveTargets = async (newData) => {
+      const merged = { ...targets, ...newData };
+      this.setState({ _targetsData: merged });
+      const session = typeof SB !== 'undefined' ? SB.getSession() : null;
+      const token = session?.access_token;
+      if (!token) return;
+      await fetch('/api/db-write', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ method: 'upsert', table: 'platform_settings', conflict: 'key', body: { key: 'agent_targets', value: merged } })
+      });
+    };
+
+    const setAgentTarget = (agentId, field, val) => {
+      const updated = { ...agentTargets, [agentId]: { ...(agentTargets[agentId] || {}), [field]: val } };
+      saveTargets({ agents: updated });
+    };
+    const copyTarget = (fromId) => {
+      const src = agentTargets[fromId] || {};
+      const updated = {};
+      agents.forEach(a => { if (a.id !== fromId) updated[a.id] = { ...(agentTargets[a.id] || {}), dials: src.dials, revenue: src.revenue }; });
+      saveTargets({ agents: { ...agentTargets, ...updated } });
+    };
+
+    // Today's actual dials per agent
+    const dialsToday = s._dialsToday;
+    if (!dialsToday && !s._dialsLoading) {
+      this.setState({ _dialsLoading: true });
+      fetch(`${SB_URL}/rest/v1/dials_hourly?date=eq.${today}&select=agent_id,total_dials`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+        .then(r => r.json()).then(rows => {
+          const map = {};
+          (rows || []).forEach(r => { map[r.agent_id] = (map[r.agent_id] || 0) + (r.total_dials || 0); });
+          this.setState({ _dialsToday: map, _dialsLoading: false });
+        }).catch(() => this.setState({ _dialsToday: {}, _dialsLoading: false }));
+    }
+    // Today's revenue per agent
+    const revenueToday = s._revenueToday;
+    if (!revenueToday && !s._revLoading) {
+      this.setState({ _revLoading: true });
+      const cfg = typeof Config !== 'undefined' ? Config : null;
+      fetch(`${SB_URL}/rest/v1/appointments?date_logged=eq.${today}&status=in.(show,cancel)&select=agent_id,status,client_id,sub_client_id,amount`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+        .then(r => r.json()).then(rows => {
+          const map = {};
+          (rows || []).forEach(r => {
+            const amt = r.amount || 0;
+            if (r.status === 'show') map[r.agent_id] = (map[r.agent_id] || 0) + amt;
+          });
+          this.setState({ _revenueToday: map, _revLoading: false });
+        }).catch(() => this.setState({ _revenueToday: {}, _revLoading: false }));
+    }
+    const dialsMap = s._dialsToday || {};
+    const revMap = s._revenueToday || {};
+
+    // Total monthly revenue from appointments this month
+    const monthStr = today.slice(0, 7);
+    const monthlyActual = (d.appointments || []).filter(a => a.date_logged && a.date_logged.startsWith(monthStr) && a.status === 'show')
+      .reduce((sum, a) => sum + (a.amount || 0), 0);
+
+    const inputNum = (val, onChange) => e('input', {
+      type: 'number', min: 0, value: val || '', onChange: ev => onChange(Number(ev.target.value) || 0),
+      style: { width: 80, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', textAlign: 'right' }
+    });
+
+    const progressBar = (actual, target, color) => {
+      const pct = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : 0;
+      return e('div', { style: { flex: 1 } },
+        e('div', { style: { height: 8, borderRadius: 4, background: 'var(--border)', overflow: 'hidden' } },
+          e('div', { style: { height: '100%', width: pct + '%', background: pct >= 100 ? 'var(--up)' : color || 'var(--accent)', borderRadius: 4, transition: 'width .5s' } })),
+        e('div', { style: { fontSize: 10.5, color: pct >= 100 ? 'var(--up)' : 'var(--text-mute)', marginTop: 2, fontWeight: 600 } }, `${actual} / ${target || '—'} (${pct}%)`));
+    };
+
+    const agentRow = (agent) => {
+      const t = agentTargets[agent.id] || {};
+      const dialsActual = dialsMap[agent.id] || 0;
+      const revActual = revMap[agent.id] || 0;
+      const isCopied = s._copiedAgent === agent.id;
+      return e('div', { key: agent.id, style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)' } },
+        e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, agent.name || agent.id),
+        inputNum(t.dials, v => setAgentTarget(agent.id, 'dials', v)),
+        progressBar(dialsActual, t.dials, 'var(--info)'),
+        inputNum(t.revenue, v => setAgentTarget(agent.id, 'revenue', v)),
+        progressBar(revActual, t.revenue, 'var(--accent)'),
+        e('button', {
+          onClick: () => { copyTarget(agent.id); this.setState({ _copiedAgent: agent.id }); setTimeout(() => this.setState({ _copiedAgent: null }), 1500); },
+          title: 'Kopieer targets naar alle andere agents',
+          style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: isCopied ? 'var(--up)' : 'var(--surface)', color: isCopied ? '#071a1a' : 'var(--text-mute)', fontSize: 11, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }
+        }, isCopied ? '✓ Copied' : '⎘ Copy all'));
+    };
+
+    const sectionHeader = (label) => e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.08em', textTransform: 'uppercase', padding: '10px 16px 6px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } }, label);
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 24 } },
+      // Monthly grand target
+      e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
+        sectionHeader('📊 Maandelijkse omzet target'),
+        e('div', { style: { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 } },
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+            e('span', { style: { fontSize: 13, color: 'var(--text-mute)', minWidth: 80 } }, 'Target:'),
+            e('input', { type: 'number', min: 0, value: s._monthlyInput !== undefined ? s._monthlyInput : monthlyTarget,
+              onChange: ev => this.setState({ _monthlyInput: ev.target.value }),
+              onBlur: ev => { const v = Number(ev.target.value) || 0; this.setState({ _monthlyInput: undefined }); saveTargets({ _monthly: v }); },
+              style: { width: 120, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 15, fontWeight: 700, outline: 'none', textAlign: 'right' } }),
+            e('span', { style: { fontSize: 13, color: 'var(--text-mute)' } }, '€')),
+          e('div', null,
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 } },
+              e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, monthStr),
+              e('span', { style: { fontSize: 14, fontWeight: 700, color: monthlyActual >= monthlyTarget && monthlyTarget > 0 ? 'var(--up)' : 'var(--text)' } }, `€${monthlyActual.toFixed(0)} / €${monthlyTarget.toFixed(0)}`)),
+            e('div', { style: { height: 14, borderRadius: 7, background: 'var(--border)', overflow: 'hidden' } },
+              e('div', { style: { height: '100%', width: (monthlyTarget > 0 ? Math.min(100, monthlyActual / monthlyTarget * 100) : 0) + '%', background: monthlyActual >= monthlyTarget && monthlyTarget > 0 ? 'var(--up)' : 'linear-gradient(90deg, var(--accent), var(--info))', borderRadius: 7, transition: 'width .6s' } }))))),
+
+      // Per-agent targets
+      e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
+        sectionHeader('🎯 Dagelijkse call agent targets — ' + today),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, padding: '8px 16px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } },
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase' } }, 'Agent'),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)', textAlign: 'right' } }, 'Dials target'),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)' } }, 'Dials vandaag'),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textAlign: 'right' } }, 'Omzet target'),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, 'Omzet vandaag'),
+          e('span', null)),
+        ...agents.map(agentRow)),
+
+      // CloudTalk account overview
+      e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
+        sectionHeader('📞 CloudTalk account indeling'),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 } },
+          ...Object.entries(CLOUDTALK_ACCOUNTS).map(([acc, names]) =>
+            e('div', { key: acc, style: { padding: '10px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', gap: 10, alignItems: 'center' } },
+              e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent)18', borderRadius: 6, padding: '2px 8px', flexShrink: 0, fontFamily: "'JetBrains Mono'" } }, 'Account ' + acc),
+              e('span', { style: { fontSize: 13, color: 'var(--text)' } }, names.join(' / ')))))));
   },
 
   // ---------------------------------------------------------------------------
