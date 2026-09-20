@@ -1967,7 +1967,7 @@ const Modals = {
           kv('Contact', p.contact), kv('Phone', p.phone), kv('Email', p.email), kv('Owner', p.assigned), kv('Lead Source', p.lead_source), kv('Source', p.source),
           kv('Afspraak datum', p.appointment_date), kv('Bellen op', p.call_on), kv('Revenue', p.revenue), kv('Last follow-up', p.last_followup),
           p.caller_note ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Opmerking beller: '), e('span', { style: { color: 'var(--text-dim)', fontSize: 13 } }, p.caller_note)) : null,
-          p.notes ? e('div', { style: { marginTop: 6, padding: 10, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, p.notes) : null)),
+          p.notes ? e('div', { style: { marginTop: 6, padding: 10, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, p.notes) : null),
         // Fathom summary + action items (if available)
         p.fathom_summary ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
           e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, '🎙 Fathom samenvatting'),
@@ -2017,7 +2017,7 @@ const Modals = {
                 this.setForm('transcriptLoading', false);
                 this.toast('Fout', 'Analyse mislukt: ' + err.message, 'var(--down)');
               }
-            }, 'primary', { opacity: f.transcriptLoading ? 0.6 : 1, pointerEvents: f.transcriptLoading ? 'none' : 'auto' }))) : null,
+            }, 'primary', { opacity: f.transcriptLoading ? 0.6 : 1, pointerEvents: f.transcriptLoading ? 'none' : 'auto' }))) : null),
         [UI.Btn('✏️ Bewerken', () => this.setForm('editingProspect', true), 'soft'),
          UI.Btn('🎙 Analyseer gesprek', () => this.setForm('showTranscriptInput', !f.showTranscriptInput), f.showTranscriptInput ? 'soft' : 'ghost'),
          UI.Btn('Follow-up', () => { this.closeModal(); this.openModal('prospectFollowup', { prospect: p }); }, 'ghost'),
