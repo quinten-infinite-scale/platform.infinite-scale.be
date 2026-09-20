@@ -50,6 +50,7 @@ const ScreenAgent = {
     if (s.route === 'stats') return this._agentStats(d, s, me);
     if (s.route === 'rooster') return this._agentRooster(d, s, me);
     if (s.route === 'tickets') return this._agentTickets(d, s, me);
+    if (s.route === 'coaching') return this._agentCoaching(d, s, me);
     if (s.route === 'settings') return this._settings(d, s, me);
     return e('div', null, '');
   },
@@ -87,12 +88,16 @@ const ScreenAgent = {
       return { name: a.name, appts, dials, me: a.id === me.id };
     }).sort((x, y) => y.appts - x.appts);
 
-    const todoList = (me.todos || []).map(t => e('div', { key: t.id, style: { display: 'flex', alignItems: 'center', gap: 11, padding: '10px 0', borderBottom: '1px solid var(--border-soft)' } },
-      e('button', {
-        onClick: () => this.toggleTodo(t.id, me),
-        style: { width: 20, height: 20, borderRadius: 6, flex: 'none', cursor: 'pointer', border: `1.5px solid ${t.done ? 'var(--accent)' : 'var(--border)'}`, background: t.done ? 'var(--accent)' : 'transparent', display: 'grid', placeItems: 'center' }
-      }, t.done ? e('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--accent-ink)', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M5 12l5 5L20 6' })) : null),
-      e('span', { style: { flex: 1, fontSize: 13.5, color: t.done ? 'var(--text-mute)' : 'var(--text)', textDecoration: t.done ? 'line-through' : 'none', fontWeight: t.done ? 500 : 600 } }, t.text)));
+    const todayStr = this.iso(this.today());
+    const todoList = (me.todos || []).map(t => {
+      const isDone = t.done && t.doneDate === todayStr;
+      return e('div', { key: t.id, style: { display: 'flex', alignItems: 'center', gap: 11, padding: '10px 0', borderBottom: '1px solid var(--border-soft)' } },
+        e('button', {
+          onClick: () => this.toggleTodo(t.id, me),
+          style: { width: 20, height: 20, borderRadius: 6, flex: 'none', cursor: 'pointer', border: `1.5px solid ${isDone ? 'var(--accent)' : 'var(--border)'}`, background: isDone ? 'var(--accent)' : 'transparent', display: 'grid', placeItems: 'center' }
+        }, isDone ? e('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--accent-ink)', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M5 12l5 5L20 6' })) : null),
+        e('span', { style: { flex: 1, fontSize: 13.5, color: isDone ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', fontWeight: isDone ? 500 : 600 } }, t.text));
+    });
 
     // Today's appointments broken down per client
     const myClients = d.clients.filter(c => (me.clients || []).includes(c.id));
@@ -101,7 +106,29 @@ const ScreenAgent = {
       return { name: c.name, cnt };
     }).filter(x => x.cnt > 0);
 
+    // Load targets for this agent
+    const agentTargets = (d.settings && d.settings.agent_targets && d.settings.agent_targets.agents) || {};
+    const myTargets = agentTargets[me.id] || {};
+    const dialTarget = myTargets.dials || 0;
+    const revTarget = myTargets.revenue || 0;
+    const dialPct = dialTarget > 0 ? Math.min(100, Math.round(dialsT / dialTarget * 100)) : 0;
+    const revPct = revTarget > 0 ? Math.min(100, Math.round(moneyT / revTarget * 100)) : 0;
+
+    const targetBar = (label, actual, target, pctVal, color, fmtVal) =>
+      e('div', { style: { flex: 1, minWidth: 0 } },
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 } },
+          e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, label),
+          e('span', { style: { fontSize: 13, fontWeight: 700, color: pctVal >= 100 ? 'var(--up)' : 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, fmtVal(actual) + (target ? ' / ' + fmtVal(target) : ''))),
+        e('div', { style: { height: 10, borderRadius: 5, background: 'var(--border)', overflow: 'hidden' } },
+          e('div', { style: { height: '100%', width: pctVal + '%', background: pctVal >= 100 ? 'var(--up)' : color, borderRadius: 5, transition: 'width .4s' } })),
+        e('div', { style: { fontSize: 11, color: pctVal >= 100 ? 'var(--up)' : 'var(--text-mute)', marginTop: 3, fontWeight: 600 } }, target ? pctVal + '% van target' : 'Geen target ingesteld'));
+
+    const targetsWidget = (dialTarget > 0 || revTarget > 0) ? e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', display: 'flex', gap: 24, flexWrap: 'wrap' } },
+      targetBar('Dials vandaag', dialsT, dialTarget, dialPct, 'var(--info)', v => String(v)),
+      targetBar('Omzet vandaag', moneyT, revTarget, revPct, 'var(--accent)', v => '€' + Math.round(v))) : null;
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
+      targetsWidget,
       UI.Grid('repeat(auto-fit,minmax(190px,1fr))', 14,
         UI.Stat('Dials today', String(dialsT), pct(dialsT, dialsY), 'vs ' + dialsY + ' yesterday'),
         UI.Stat('Appointments today', String(apT.length), pct(apT.length, apY.length || 0), 'vs ' + apY.length + ' yesterday'),
@@ -767,7 +794,7 @@ const ScreenAgent = {
 
   _agentRooster(d, s, me) {
     const e = React.createElement;
-    const HOURS = [7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+    const HOURS = [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21];
     const DAYS  = [0,1,2,3,4,5,6];
     const DAY_S = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
     const COLORS = ['#0891b2','#7c3aed','#059669','#d97706','#dc2626','#db2777','#2563eb','#0e7490'];
@@ -1056,5 +1083,82 @@ const ScreenAgent = {
               e('div', { style: { fontWeight: 700, fontSize: 14 } }, t.title),
               e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 3 } }, t.category + ' · ' + new Date(t.submittedAt).toLocaleDateString('nl-BE'))),
             e('span', { style: { flexShrink: 0, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (statusColor[t.status] || 'var(--text-mute)') + '22', color: statusColor[t.status] || 'var(--text-mute)', border: '1px solid ' + (statusColor[t.status] || 'var(--border)') } }, statusLabel[t.status] || t.status))))) : null);
+  },
+
+  _agentCoaching(d, s, me) {
+    const e = React.createElement;
+    const CF_URL = SC_DB + '/rest/v1/coaching_feed';
+    const hdrs = { apikey: SC_KEY, Authorization: 'Bearer ' + SC_KEY, 'Content-Type': 'application/json' };
+
+    const loadItems = async () => {
+      const r = await fetch(CF_URL + '?agent_id=in.(' + encodeURIComponent(me.id + ',all') + ')&order=created_at.desc&limit=200', { headers: hdrs });
+      const items = await r.json();
+      this.setState({ cfAgItems: Array.isArray(items) ? items : [], cfAgLoaded: true });
+    };
+    if (!s.cfAgLoaded) { loadItems(); return e('div', { style: { padding: 24, color: 'var(--text-mute)' } }, 'Laden…'); }
+
+    const items = s.cfAgItems || [];
+    const cfDay = s.cfAgDay || 0;
+    const today = this.iso(this.today());
+    const dayLabel = n => n === 0 ? 'Vandaag' : n === 1 ? 'Gisteren' : n + ' dagen geleden';
+    const dayDate = n => { const d2 = new Date(); d2.setDate(d2.getDate() - n); return d2.toISOString().slice(0,10); };
+
+    const typeColors = { w: { border: 'var(--up)', bg: 'oklch(0.22 0.10 145 / .12)', text: 'var(--up)', label: '🟢 Win' }, c: { border: 'var(--warn)', bg: 'oklch(0.22 0.12 75 / .12)', text: 'var(--warn)', label: '🟡 Coaching' }, a: { border: 'var(--info)', bg: 'oklch(0.22 0.08 255 / .12)', text: 'var(--info)', label: '🔵 Actie' } };
+
+    const doToggleDone = async (item) => {
+      await fetch(CF_URL + '?id=eq.' + item.id, { method: 'PATCH', headers: { ...hdrs, Prefer: 'return=minimal' }, body: JSON.stringify({ action_done: !item.action_done }) });
+      await loadItems();
+    };
+
+    const pinned = items.filter(x => x.important);
+    const dayStr = dayDate(cfDay);
+    const dayItems = items.filter(x => !x.important && x.day_date === dayStr).sort((a,b) => b.created_at.localeCompare(a.created_at));
+
+    const openActCount = items.filter(x => x.type === 'a' && !x.action_done).length;
+    const totalActCount = items.filter(x => x.type === 'a').length;
+    const pct = totalActCount ? Math.round((totalActCount - openActCount) / totalActCount * 100) : 0;
+
+    const badge = (type) => e('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 8, textTransform: 'uppercase', letterSpacing: '.04em', background: typeColors[type]?.bg || 'var(--surface-2)', color: typeColors[type]?.text || 'var(--text-mute)' } }, typeColors[type]?.label || type);
+
+    const FeedItem = (item) => e('div', { key: item.id,
+      style: { display: 'flex', gap: 10, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', background: item.important ? 'oklch(0.20 0.08 45 / .10)' : 'transparent', borderLeft: item.important ? '3px solid var(--warn)' : '3px solid transparent' } },
+      e('div', { style: { width: 2, borderRadius: 1, background: typeColors[item.type]?.border || 'var(--border)', flexShrink: 0, marginTop: 4 } }),
+      e('div', { style: { flex: 1, minWidth: 0 } },
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' } },
+          badge(item.type),
+          item.important ? e('span', { style: { fontSize: 11, color: 'var(--warn)', fontWeight: 700 } }, '⚑') : null,
+          e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 'auto' } }, new Date(item.created_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }))),
+        e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.55 } }, item.text),
+        item.action_text ? e('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 9, padding: '8px 11px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border-soft)' } },
+          e('div', { onClick: () => doToggleDone(item),
+            style: { width: 18, height: 18, borderRadius: 4, border: '1.5px solid ' + (item.action_done ? 'var(--up)' : 'var(--border)'), background: item.action_done ? 'var(--up)' : 'transparent', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 } },
+            item.action_done ? e('svg', { width: 10, height: 10, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--accent-ink)', strokeWidth: 3.5 }, e('polyline', { points: '20 6 9 17 4 12' })) : null),
+          e('span', { style: { fontSize: 12.5, color: item.action_done ? 'var(--text-mute)' : 'var(--text-dim)', lineHeight: 1.5, textDecoration: item.action_done ? 'line-through' : 'none' } }, item.action_text)) : null));
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+      // Progress header
+      e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' } },
+        e('div', null,
+          e('div', { style: { fontWeight: 700, fontSize: 16, color: 'var(--text)' } }, 'Coaching'),
+          e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 2 } }, 'Feedback van je team lead')),
+        e('div', { style: { marginLeft: 'auto', textAlign: 'right' } },
+          e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginBottom: 5 } }, (totalActCount - openActCount) + ' van ' + totalActCount + ' acties afgerond'),
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            e('div', { style: { width: 120, height: 5, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' } },
+              e('div', { style: { width: pct + '%', height: '100%', background: 'var(--up)', borderRadius: 3 } })),
+            e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--up)', fontFamily: "'JetBrains Mono'" } }, pct + '%')))),
+      // Feed
+      e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
+        e('div', { style: { padding: '10px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 12 } },
+          e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 } }, 'Alle feedback'),
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+            e('button', { onClick: () => this.setState({ cfAgDay: cfDay + 1 }), style: { width: 26, height: 26, border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text-mute)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '‹'),
+            e('span', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', minWidth: 90, textAlign: 'center' } }, dayLabel(cfDay)),
+            e('button', { onClick: () => this.setState({ cfAgDay: Math.max(0, cfDay - 1) }), disabled: cfDay === 0, style: { width: 26, height: 26, border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: cfDay === 0 ? 'var(--border)' : 'var(--text-mute)', fontSize: 14, fontWeight: 700, cursor: cfDay === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '›'))),
+        pinned.length ? e('div', null,
+          e('div', { style: { padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--warn)', textTransform: 'uppercase', letterSpacing: '.06em' } }, '⚑ Vastgepind'),
+          ...pinned.map(FeedItem),
+          dayItems.length ? e('div', { style: { height: 1, background: 'var(--border-soft)', margin: '4px 0' } }) : null) : null,
+        dayItems.length ? e('div', null, ...dayItems.map(FeedItem)) : (!pinned.length ? e('div', { style: { padding: 28, textAlign: 'center', fontSize: 13, color: 'var(--text-mute)' } }, 'Geen feedback voor deze dag.') : null)));
   },
 };

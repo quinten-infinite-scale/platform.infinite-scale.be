@@ -3,7 +3,7 @@ const API = {
 
   async loadAll(role, agentId, clientId, subClientId) {
     const [agents, clients, acRows, appointments, dials, dialsHourlyRows, eods, tickets,
-      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows, whatsappMessagesRows, whatsappTemplatesRows] = await Promise.all([
+      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows, whatsappMessagesRows, managerFeedbackRows, checklistItemRows, checklistLogRows, whatsappTemplatesRows, salespeopleRows, managersRows] = await Promise.all([
       SB.get('agents', '?order=name'),
       SB.get('clients', '?order=name'),
       SB.get('agent_clients'),
@@ -25,7 +25,7 @@ const API = {
         role === 'agent' && agentId ? SB.get('tickets', `?agent_id=eq.${agentId}&order=submitted_at.desc`) :
         clientId ? SB.get('tickets', `?client_id=eq.${clientId}&order=submitted_at.desc`) : [],
       role === 'admin' ? SB.get('recruits', '?order=created_at.desc') : [],
-      role === 'admin' ? SB.get('prospects', '?order=created_at.desc') : [],
+      (role === 'admin' || role === 'salesperson' || role === 'manager') ? SB.get('prospects', '?order=created_at.desc') : [],
       SB.get('contracts', '?order=sent.desc'),
       SB.get('events', '?order=event_date'),
       SB.get('notifications', `?target_role=eq.${role}&order=created_at.desc`),
@@ -39,6 +39,9 @@ const API = {
         ? SB.get('invoice_states', `?agent_id=eq.${agentId}`).catch(() => [])
         : SB.get('invoice_states', '').catch(() => []),
       role === 'admin' ? SB.get('whatsapp_messages', '?order=created_at.desc&limit=500').catch(() => []) : Promise.resolve([]),
+      role === 'admin' ? SB.get('manager_agent_feedback', '?order=report_date.desc').catch(() => []) : Promise.resolve([]),
+      role === 'admin' ? SB.get('manager_checklist_items', '?active=eq.true&order=order_idx').catch(() => []) : Promise.resolve([]),
+      role === 'admin' ? SB.get('manager_checklist_logs', '?log_date=gte.' + (() => { const d = new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10); })() + '&order=log_date.desc').catch(() => []) : Promise.resolve([]),
       role === 'admin' ? (async () => {
         const sess = SB.getSession();
         const tok = sess?.access_token || '';
@@ -46,6 +49,8 @@ const API = {
         const r = await fetch('/api/db-write?table=client_whatsapp_templates&query=?order=created_at.asc', { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
         return r?.ok ? r.json().catch(() => []) : [];
       })() : Promise.resolve([]),
+      SB.get('salespeople', '?active=eq.true&order=name').catch(() => []),
+      role === 'admin' ? SB.get('managers', '?active=eq.true&order=name').catch(() => []) : Promise.resolve([]),
     ]);
 
     // Build dials map: { agentId: { date: count } }
@@ -214,6 +219,11 @@ const API = {
       invoiceStates: invoiceStatesMap,
       whatsappMessages: whatsappMessagesRows || [],
       whatsappTemplates: whatsappTemplatesRows || [],
+      managerFeedback: managerFeedbackRows || [],
+      checklistItems: checklistItemRows || [],
+      checklistLogs: checklistLogRows || [],
+      salespeople: salespeopleRows || [],
+      managers: managersRows || [],
     };
   },
 

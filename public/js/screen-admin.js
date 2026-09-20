@@ -74,9 +74,13 @@ const ScreenAdmin = {
     if (r === 'activity') return this._admActivity(d, s);
     if (r === 'todos') return this._admTodos(d, s);
     if (r === 'targets') return this._admTargets(d, s);
+    if (r === 'clientsuccess') return this._admClientSuccess(d, s);
+    if (r === 'coaching') return this._admCoaching(d, s);
     if (r === 'tickets') return this._admTickets(d, s);
     if (r === 'whatsapp') return this._admWhatsApp(d, s);
     if (r === 'roadmap') return ScreenRoadmap.render.call(this, d, s);
+    if (r === 'salespeople') return this._admSalespeople(d, s);
+    if (r === 'managers') return this._admManagers(d, s);
     if (r === 'settings') { const session = typeof SB !== 'undefined' ? SB.getSession() : null; return this._settings(d, s, { name: (session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Admin'), email: session?.user?.email || 'quinten@infinite-scale.be' }); }
     return e('div', null, '');
   },
@@ -204,7 +208,7 @@ const ScreenAdmin = {
     const e = React.createElement;
     const F = this._fin(d);
     const now = new Date();
-    const iso = d2 => d2.toISOString().slice(0, 10);
+    const iso = d2 => d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0') + '-' + String(d2.getDate()).padStart(2, '0');
     const period = s.finPeriod || 'monthly';
     const offset = s.finOffset || 0;
 
@@ -1670,7 +1674,7 @@ const ScreenAdmin = {
     const monthOpts = [{ v: 'all', l: 'All months' }];
     for (let i = 0; i < 18; i++) {
       const d2 = new Date(now); d2.setDate(1); d2.setMonth(d2.getMonth() - i);
-      const ym = d2.toISOString().slice(0, 7);
+      const ym = d2.getFullYear() + '-' + String(d2.getMonth() + 1).padStart(2, '0');
       monthOpts.push({ v: ym, l: d2.toLocaleString('en', { month: 'long', year: 'numeric' }) });
     }
 
@@ -1730,16 +1734,22 @@ const ScreenAdmin = {
     });
 
     const cols = [
-      { label: 'Logged', render: r => e('div', null, UI.Mono(this.fmtDate(r.dateLog), { fontSize: 12, color: 'var(--text-mute)' }), r.loggedAt ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, new Date(r.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null) },
-      { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
+      { label: 'Dates', render: r => e('div', null,
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+            e('span', { style: { fontSize: 10, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' } }, 'L'),
+            UI.Mono(this.fmtDate(r.dateLog), { fontSize: 11.5, color: 'var(--text-mute)' }),
+            r.loggedAt ? e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, new Date(r.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null),
+          r.dateAppt ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 } },
+            e('span', { style: { fontSize: 10, color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' } }, 'A'),
+            UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 11.5, color: 'var(--text-dim)' })) : null) },
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Agent', render: r => e('span', { style: { color: 'var(--text-dim)', fontWeight: 500 } }, this.agentName(r.agent, d).split(' ')[0]) },
-      { label: 'Client', render: r => this.clientName(r.client, d) },
-      { label: 'Subclient', render: r => {
-        if (!r.sub) return null;
+      { label: 'Client', render: r => {
         const cl = d.clients.find(c => c.id === r.client);
-        const sc = cl && cl.subclients ? cl.subclients.find(s => s.id === r.sub) : null;
-        return sc ? e('span', { style: { color: 'var(--text-dim)', fontSize: 12.5 } }, sc.name) : null;
+        const sc = r.sub && cl && cl.subclients ? cl.subclients.find(s => s.id === r.sub) : null;
+        return e('div', null,
+          e('span', { style: { color: 'var(--text-dim)', fontWeight: 500 } }, cl ? cl.name : r.client || '—'),
+          sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null);
       }},
       { label: 'Status', align: 'center', render: r => {
         const sc = { open: { bg: 'oklch(0.24 0.05 240 / .7)', border: 'oklch(0.42 0.10 240)', color: 'oklch(0.78 0.12 220)' }, show: { bg: 'oklch(0.22 0.08 152 / .7)', border: 'oklch(0.42 0.14 152)', color: 'var(--up)' }, no_show: { bg: 'oklch(0.24 0.07 25 / .7)', border: 'oklch(0.42 0.14 25)', color: 'var(--down)' }, cancel: { bg: 'oklch(0.20 0.01 256 / .6)', border: 'var(--border)', color: 'var(--text-mute)' } }[r.status] || { bg: 'var(--surface)', border: 'var(--border)', color: 'var(--text)' };
@@ -1780,11 +1790,29 @@ const ScreenAdmin = {
       e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
         e('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
           UI.Seg(period, v => this.setState({ apptPeriod: v }), [{ v: 'daily', l: 'Daily' }, { v: 'weekly', l: 'Weekly' }, { v: 'monthly', l: 'Monthly' }])),
-        e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
-          Stat('Booked', String(curBooked), pct(curBooked, prevBooked), [curBooked, prevBooked], 'vs ' + prevBooked + ' ' + periodLabel),
-          Stat('Shows', String(curShows), pct(curShows, prevShows), [curShows, prevShows], 'vs ' + prevShows + ' ' + periodLabel),
-          Stat('Show rate', curRate + '%', (curRate - prevRate >= 0 ? '+' : '') + (curRate - prevRate) + 'pp', [curRate, prevRate], 'vs ' + prevRate + '% ' + periodLabel),
-          ...d.agents.filter(a => a.active).map(ag => Stat(ag.name.split(' ')[0], String(cur.filter(a => a.agent === ag.id).length), null, null, agentRate(ag.id) + '% show rate')))),
+        // Summary row — 3 overview tiles, smaller than default
+        e('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
+          ...[
+            { label: 'Booked', val: String(curBooked), delta: pct(curBooked, prevBooked), sub: 'vs ' + prevBooked + ' ' + periodLabel, deltaColor: pctColor(curBooked, prevBooked) },
+            { label: 'Shows', val: String(curShows), delta: pct(curShows, prevShows), sub: 'vs ' + prevShows + ' ' + periodLabel, deltaColor: pctColor(curShows, prevShows) },
+            { label: 'Show rate', val: curRate + '%', delta: (curRate - prevRate >= 0 ? '+' : '') + (curRate - prevRate) + 'pp', sub: 'vs ' + prevRate + '% ' + periodLabel, deltaColor: pctColor(curRate, prevRate) },
+          ].map(s2 => e('div', { key: s2.label, style: { padding: '12px 16px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', minWidth: 120 } },
+            e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 } }, s2.label),
+            e('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8 } },
+              e('span', { style: { fontSize: 22, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, s2.val),
+              s2.delta != null ? e('span', { style: { fontSize: 12, fontWeight: 700, color: s2.deltaColor } }, s2.delta) : null),
+            e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, s2.sub)))),
+        // Per-agent row
+        e('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          ...d.agents.filter(a => a.active).map(ag => {
+            const cnt = cur.filter(a => a.agent === ag.id).length;
+            const sr = agentRate(ag.id);
+            const srColor = sr >= 70 ? 'var(--up)' : sr >= 50 ? 'var(--warn)' : sr > 0 ? 'var(--down)' : 'var(--text-mute)';
+            return e('div', { key: ag.id, style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', minWidth: 90, display: 'flex', flexDirection: 'column', gap: 2 } },
+              e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100 } }, ag.name.split(' ')[0]),
+              e('div', { style: { fontSize: 20, fontWeight: 800, color: 'var(--text)', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' } }, cnt),
+              e('div', { style: { fontSize: 11, fontWeight: 600, color: srColor } }, sr + '% show'));
+          }))),
       // Filters
       e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
         // Row 1: search + status + agent + client
@@ -1929,7 +1957,7 @@ const ScreenAdmin = {
               },
               style: { padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }
             }, '↓ Export CSV'))),
-        UI.Table(cols, list.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 800, empty: 'No appointments match.' })));
+        UI.Table(cols, list.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 600, empty: 'No appointments match.' })));
   },
 
   _admClients(d, s) {
@@ -2014,8 +2042,134 @@ const ScreenAdmin = {
       ], d.agents.map(x => ({ ...x, _onClick: () => this.openModal('agentProfile', { id: x.id }) })), { min: 720 })));
   },
 
+  _admSalespeople(d, s) {
+    const e = React.createElement;
+    const salespeople = d.salespeople || [];
+    const modal = s._spModal;
+    const form = s._spForm || {};
+
+    const openCreate = () => this.setState({ _spModal: 'create', _spForm: { name: '', email: '', phone: '', calendly_url: '' } });
+    const openEdit = sp => this.setState({ _spModal: 'edit', _spForm: { ...sp } });
+    const closeModal = () => this.setState({ _spModal: null, _spForm: null });
+
+    const saveForm = async () => {
+      const f = s._spForm || {};
+      if (!f.name?.trim()) return alert('Naam is verplicht');
+      if (modal === 'create') {
+        const id = 'sp' + Date.now();
+        await fetch(`${SC_DB}/rest/v1/salespeople`, { method: 'POST', headers: { apikey: SC_KEY, Authorization: `Bearer ${SC_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ id, name: f.name, email: f.email || '', phone: f.phone || '', calendly_url: f.calendly_url || '', active: true }) });
+      } else {
+        await fetch(`${SC_DB}/rest/v1/salespeople?id=eq.${f.id}`, { method: 'PATCH', headers: { apikey: SC_KEY, Authorization: `Bearer ${SC_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ name: f.name, email: f.email || '', phone: f.phone || '', calendly_url: f.calendly_url || '' }) });
+      }
+      closeModal();
+      this.go('salespeople');
+      setTimeout(() => window.location.reload(), 300);
+    };
+
+    const deactivate = async sp => {
+      if (!confirm(`${sp.name} deactiveren?`)) return;
+      await fetch(`${SC_DB}/rest/v1/salespeople?id=eq.${sp.id}`, { method: 'PATCH', headers: { apikey: SC_KEY, Authorization: `Bearer ${SC_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ active: false }) });
+      setTimeout(() => window.location.reload(), 300);
+    };
+
+    const inp = (label, key, placeholder, type) => e('div', { key, style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+      e('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text-mute)', letterSpacing: '.04em' } }, label),
+      e('input', { type: type || 'text', value: form[key] || '', placeholder: placeholder || '', onChange: ev => this.setState(st => ({ _spForm: { ...st._spForm, [key]: ev.target.value } })), style: { padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13 } }));
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      modal && e('div', { style: { position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: closeModal },
+        e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 28, width: 420, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 14 }, onClick: ev => ev.stopPropagation() },
+          e('div', { style: { fontWeight: 700, fontSize: 16 } }, modal === 'create' ? 'Nieuwe salesperson' : 'Salesperson bewerken'),
+          inp('Naam *', 'name', 'Voornaam Achternaam'),
+          inp('E-mail', 'email', 'naam@bedrijf.be', 'email'),
+          inp('Telefoon', 'phone', '+32 ...', 'tel'),
+          inp('Calendly URL', 'calendly_url', 'https://calendly.com/naam/...'),
+          e('div', { style: { display: 'flex', gap: 8, marginTop: 4 } },
+            e('button', { onClick: saveForm, style: { flex: 1, padding: '9px 0', borderRadius: 9, border: 'none', background: 'var(--accent)', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13 } }, 'Opslaan'),
+            e('button', { onClick: closeModal, style: { flex: 1, padding: '9px 0', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Annuleren')))),
+      UI.Row({ justifyContent: 'space-between', alignItems: 'center' }, UI.Hd('Salespeople'), UI.Btn('+ Salesperson', openCreate, 'primary')),
+      e('div', { style: { fontSize: 13, color: 'var(--text-mute)', marginBottom: 4 } }, 'Salespeople hebben toegang tot de platform met hun eigen account (role = salesperson). Koppel een account via de e-mail hieronder.'),
+      UI.C({ padding: 0, overflow: 'hidden' },
+        salespeople.length === 0
+          ? e('div', { style: { padding: '32px 20px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Nog geen salespeople. Klik op "+ Salesperson" om te starten.')
+          : UI.Table([
+              { label: 'Naam', render: x => e('span', { style: { fontWeight: 700 } }, x.name) },
+              { label: 'E-mail', render: x => e('span', { style: { fontFamily: 'monospace', fontSize: 12 } }, x.email || '–') },
+              { label: 'Telefoon', render: x => x.phone || '–' },
+              { label: 'Calendly', render: x => x.calendly_url ? e('a', { href: x.calendly_url, target: '_blank', style: { color: 'var(--accent)', fontSize: 12 } }, '🔗 Link') : e('span', { style: { color: 'var(--text-mute)', fontSize: 12 } }, 'Niet ingesteld') },
+              { label: '', align: 'right', render: x => e('div', { style: { display: 'flex', gap: 6 } },
+                  e('button', { onClick: ev => { ev.stopPropagation(); openEdit(x); }, style: { padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 } }, 'Bewerken'),
+                  e('button', { onClick: ev => { ev.stopPropagation(); deactivate(x); }, style: { padding: '4px 10px', borderRadius: 6, border: 'none', background: 'oklch(0.25 0.07 25 / .3)', color: 'var(--down)', cursor: 'pointer', fontSize: 12 } }, 'Verwijderen')) },
+            ], salespeople, { min: 650 })));
+  },
+
+  _admManagers(d, s) {
+    const e = React.createElement;
+    const managers = d.managers || [];
+    const modal = s._mgModal;
+    const form = s._mgForm || {};
+
+    const openCreate = () => this.setState({ _mgModal: 'create', _mgForm: { name: '', email: '', phone: '' } });
+    const openEdit = mg => this.setState({ _mgModal: 'edit', _mgForm: { ...mg } });
+    const closeModal = () => this.setState({ _mgModal: null, _mgForm: null });
+
+    const saveForm = async () => {
+      const f = s._mgForm || {};
+      if (!f.name?.trim()) return alert('Naam is verplicht');
+      if (modal === 'create') {
+        const id = 'mgr' + Date.now();
+        await fetch(`${SC_DB}/rest/v1/managers`, { method: 'POST', headers: { apikey: SC_KEY, Authorization: `Bearer ${SC_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ id, name: f.name, email: f.email || '', phone: f.phone || '', active: true }) });
+      } else {
+        await fetch(`${SC_DB}/rest/v1/managers?id=eq.${f.id}`, { method: 'PATCH', headers: { apikey: SC_KEY, Authorization: `Bearer ${SC_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ name: f.name, email: f.email || '', phone: f.phone || '' }) });
+      }
+      closeModal();
+      setTimeout(() => window.location.reload(), 300);
+    };
+
+    const deactivate = async mg => {
+      if (!confirm(`${mg.name} deactiveren?`)) return;
+      await fetch(`${SC_DB}/rest/v1/managers?id=eq.${mg.id}`, { method: 'PATCH', headers: { apikey: SC_KEY, Authorization: `Bearer ${SC_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ active: false }) });
+      setTimeout(() => window.location.reload(), 300);
+    };
+
+    const inp = (label, key, placeholder, type) => e('div', { key, style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+      e('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text-mute)', letterSpacing: '.04em' } }, label),
+      e('input', { type: type || 'text', value: form[key] || '', placeholder: placeholder || '', onChange: ev => this.setState(st => ({ _mgForm: { ...st._mgForm, [key]: ev.target.value } })), style: { padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13 } }));
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+      modal && e('div', { style: { position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: closeModal },
+        e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 28, width: 420, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 14 }, onClick: ev => ev.stopPropagation() },
+          e('div', { style: { fontWeight: 700, fontSize: 16 } }, modal === 'create' ? 'Nieuwe manager' : 'Manager bewerken'),
+          inp('Naam *', 'name', 'Voornaam Achternaam'),
+          inp('E-mail', 'email', 'naam@bedrijf.be', 'email'),
+          inp('Telefoon', 'phone', '+32 ...', 'tel'),
+          e('div', { style: { display: 'flex', gap: 8, marginTop: 4 } },
+            e('button', { onClick: saveForm, style: { flex: 1, padding: '9px 0', borderRadius: 9, border: 'none', background: 'var(--accent)', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13 } }, 'Opslaan'),
+            e('button', { onClick: closeModal, style: { flex: 1, padding: '9px 0', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 } }, 'Annuleren')))),
+      UI.Row({ justifyContent: 'space-between', alignItems: 'center' }, UI.Hd('Managers'), UI.Btn('+ Manager', openCreate, 'primary')),
+      e('div', { style: { fontSize: 13, color: 'var(--text-mute)', marginBottom: 4 } }, 'Managers kunnen inloggen met role = manager en zien EOD reports, call agents en to-do\'s.'),
+      UI.C({ padding: 0, overflow: 'hidden' },
+        managers.length === 0
+          ? e('div', { style: { padding: '32px 20px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Nog geen managers. Klik op "+ Manager" om te starten.')
+          : UI.Table([
+              { label: 'Naam', render: x => e('span', { style: { fontWeight: 700 } }, x.name) },
+              { label: 'E-mail', render: x => e('span', { style: { fontFamily: 'monospace', fontSize: 12 } }, x.email || '–') },
+              { label: 'Telefoon', render: x => x.phone || '–' },
+              { label: '', align: 'right', render: x => e('div', { style: { display: 'flex', gap: 6 } },
+                  e('button', { onClick: ev => { ev.stopPropagation(); openEdit(x); }, style: { padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 12 } }, 'Bewerken'),
+                  e('button', { onClick: ev => { ev.stopPropagation(); deactivate(x); }, style: { padding: '4px 10px', borderRadius: 6, border: 'none', background: 'oklch(0.25 0.07 25 / .3)', color: 'var(--down)', cursor: 'pointer', fontSize: 12 } }, 'Verwijderen')) },
+            ], managers, { min: 550 })));
+  },
+
   _admEod(d, s) {
     const e = React.createElement;
+    const eodTab = s._eodTab || 'agents';
+    const tabBtn = (id, label, icon) => e('button', { onClick: () => this.setState({ _eodTab: id }),
+      style: { padding: '7px 20px', borderRadius: 9, border: 'none', background: eodTab === id ? 'var(--accent)' : 'transparent', color: eodTab === id ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: eodTab === id ? 700 : 500, fontSize: 13, cursor: 'pointer', transition: 'all .15s', display: 'flex', alignItems: 'center', gap: 6 } }, icon, ' ', label);
+    const tabs = e('div', { style: { display: 'flex', gap: 4, background: 'var(--surface)', borderRadius: 12, padding: 4, border: '1px solid var(--border)', marginBottom: 20, width: 'fit-content' } },
+      tabBtn('agents', 'Call Agents', '📞'),
+      tabBtn('manager', 'Manager', '📋'));
+    if (eodTab === 'manager') return e('div', null, UI.SectionHd('End-of-day reports'), tabs, ScreenAdmin._admEodManager.call(this, d, s));
     const activeAgents = d.agents.filter(a => a.active);
     // Show last 14 working days regardless of submissions — so days with zero reports still appear
     const today = new Date(); today.setHours(0,0,0,0);
@@ -2033,6 +2187,7 @@ const ScreenAdmin = {
     const expandedAgents = s.eodAgentOpen || {};
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
       UI.SectionHd('End-of-day reports'),
+      tabs,
       ...dates.map(date => {
         const dateOpen = !!expandedDates[date];
         const dayEods = d.eods.filter(r => r.date === date);
@@ -2088,6 +2243,189 @@ const ScreenAdmin = {
                   })()) : null);
             })) : null);
       }));
+  },
+
+  _admEodManager(d, s) {
+    const e = React.createElement;
+    const activeAgents = (d.agents || []).filter(a => a.active !== false);
+    const SB_URL = SC_DB;
+    const SB_KEY = SC_KEY;
+    const localISO = dt => { const y = dt.getFullYear(), m = String(dt.getMonth()+1).padStart(2,'0'), day = String(dt.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; };
+    const todayStr = localISO(new Date());
+    const myEmail = SB.getSession()?.user?.email || '';
+
+    // ── Feedback section ─────────────────────────────────────────────────────
+    const feedback = d.managerFeedback || [];
+    const addingFeedback = !!s._eodFbOpen;
+    const inputSt = { padding: '7px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' };
+
+    const saveFeedback = async () => {
+      const agentId = s._eodFbAgent;
+      const score = parseInt(s._eodFbScore || '');
+      const text = (s._eodFbText || '').trim();
+      const date = s._eodFbDate || todayStr;
+      if (!agentId || isNaN(score) || score < 0 || score > 100 || !text) return;
+      const row = { agent_id: agentId, score, feedback: text, report_date: date, created_by: myEmail };
+      const r = await fetch(`${SB_URL}/rest/v1/manager_agent_feedback`, {
+        method: 'POST',
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify(row),
+      });
+      const rows = await r.json().catch(() => []);
+      if (Array.isArray(rows) && rows[0]) {
+        this.mutLocal(dd => { if (!dd.managerFeedback) dd.managerFeedback = []; dd.managerFeedback.unshift(rows[0]); });
+        this.setState({ _eodFbOpen: false, _eodFbAgent: null, _eodFbScore: '', _eodFbText: '', _eodFbDate: todayStr });
+      }
+    };
+
+    const deleteFeedback = async (id) => {
+      await fetch(`${SB_URL}/rest/v1/manager_agent_feedback?id=eq.${id}`, {
+        method: 'DELETE', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
+      });
+      this.mutLocal(dd => { dd.managerFeedback = (dd.managerFeedback || []).filter(r => r.id !== id); });
+    };
+
+    const scoreColor = n => n >= 80 ? 'var(--up)' : n >= 55 ? 'var(--info)' : n >= 35 ? '#f97316' : 'var(--down)';
+
+    const fbForm = addingFeedback ? e('div', { style: { padding: '14px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 } },
+      e('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 2 } }, 'Add Agent Feedback'),
+      e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: 8 } },
+        e('select', { value: s._eodFbAgent || '', onChange: ev => this.setState({ _eodFbAgent: ev.target.value }), style: { ...inputSt, cursor: 'pointer' } },
+          e('option', { value: '' }, 'Select agent…'),
+          ...activeAgents.map(a => e('option', { key: a.id, value: a.id }, a.name))),
+        e('input', { type: 'date', value: s._eodFbDate || todayStr, onChange: ev => this.setState({ _eodFbDate: ev.target.value }), style: inputSt }),
+        e('input', { type: 'number', min: 0, max: 100, placeholder: 'Score', value: s._eodFbScore || '', onChange: ev => this.setState({ _eodFbScore: ev.target.value }), style: { ...inputSt, textAlign: 'center' } })),
+      e('textarea', { placeholder: 'Feedback voor de agent…', value: s._eodFbText || '', onChange: ev => this.setState({ _eodFbText: ev.target.value }), rows: 3, style: { ...inputSt, resize: 'vertical', width: '100%', boxSizing: 'border-box' } }),
+      e('div', { style: { display: 'flex', gap: 8 } },
+        e('button', { onClick: saveFeedback, style: { padding: '6px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' } }, 'Opslaan'),
+        e('button', { onClick: () => this.setState({ _eodFbOpen: false }), style: { padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12.5, cursor: 'pointer' } }, 'Annuleren'))) : null;
+
+    // Group feedback by date
+    const fbDates = [...new Set(feedback.map(r => r.report_date))].sort((a, b) => b.localeCompare(a));
+
+    // ── Checklist section ─────────────────────────────────────────────────────
+    const checklistItems = d.checklistItems || [];
+    const checklistLogs = d.checklistLogs || [];
+    const todayLogs = checklistLogs.filter(l => l.log_date === todayStr);
+    const checklistDay = s._clDay || todayStr;
+    const clDayLogs = checklistLogs.filter(l => l.log_date === checklistDay);
+
+    const toggleChecklistItem = async (itemId) => {
+      const existing = clDayLogs.find(l => l.item_id === itemId);
+      const newDone = existing ? !existing.completed : true;
+      if (existing) {
+        const r = await fetch(`${SB_URL}/rest/v1/manager_checklist_logs?id=eq.${existing.id}`, {
+          method: 'PATCH',
+          headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({ completed: newDone, completed_by: myEmail, completed_at: newDone ? new Date().toISOString() : null }),
+        });
+        const rows = await r.json().catch(() => []);
+        if (rows[0]) this.mutLocal(dd => { dd.checklistLogs = (dd.checklistLogs || []).map(l => l.id === existing.id ? rows[0] : l); });
+      } else {
+        const r = await fetch(`${SB_URL}/rest/v1/manager_checklist_logs`, {
+          method: 'POST',
+          headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({ item_id: itemId, log_date: checklistDay, completed: true, completed_by: myEmail, completed_at: new Date().toISOString() }),
+        });
+        const rows = await r.json().catch(() => []);
+        if (rows[0]) this.mutLocal(dd => { if (!dd.checklistLogs) dd.checklistLogs = []; dd.checklistLogs.push(rows[0]); });
+      }
+    };
+
+    const saveNewItem = async () => {
+      const text = (s._clNewText || '').trim();
+      if (!text) return;
+      const maxIdx = checklistItems.reduce((m, it) => Math.max(m, it.order_idx || 0), -1);
+      const r = await fetch(`${SB_URL}/rest/v1/manager_checklist_items`, {
+        method: 'POST',
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ text, order_idx: maxIdx + 1 }),
+      });
+      const rows = await r.json().catch(() => []);
+      if (rows[0]) this.mutLocal(dd => { if (!dd.checklistItems) dd.checklistItems = []; dd.checklistItems.push(rows[0]); });
+      this.setState({ _clNewText: '' });
+    };
+
+    const deleteItem = async (id) => {
+      await fetch(`${SB_URL}/rest/v1/manager_checklist_items?id=eq.${id}`, {
+        method: 'DELETE', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
+      });
+      this.mutLocal(dd => { dd.checklistItems = (dd.checklistItems || []).filter(it => it.id !== id); });
+    };
+
+    // History dates for checklist (past 14 working days)
+    const clDateSet = new Set([todayStr]);
+    const now = new Date(); now.setHours(0,0,0,0);
+    for (let i = 1; clDateSet.size < 14; i++) {
+      const d2 = new Date(now); d2.setDate(now.getDate() - i);
+      const dow = d2.getDay();
+      if (dow !== 0 && dow !== 6) clDateSet.add(localISO(d2));
+      if (i > 30) break;
+    }
+    const clDates = [...clDateSet].sort((a, b) => b.localeCompare(a));
+
+    const completedCount = checklistItems.filter(it => clDayLogs.find(l => l.item_id === it.id && l.completed)).length;
+    const totalItems = checklistItems.length;
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 24 } },
+      // ── Agent Feedback ──────────────────────────────────────────────────────
+      e('div', null,
+        e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 } },
+          e('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--text)' } }, '👤 Agent Feedback'),
+          e('button', { onClick: () => this.setState({ _eodFbOpen: !addingFeedback, _eodFbDate: todayStr }), style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: addingFeedback ? 'var(--surface)' : 'var(--accent)', color: addingFeedback ? 'var(--text-mute)' : 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, addingFeedback ? '↑ Sluiten' : '+ Feedback toevoegen')),
+        fbForm,
+        feedback.length === 0 ? e('div', { style: { padding: '24px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13, fontStyle: 'italic', borderRadius: 12, border: '1px dashed var(--border)' } }, 'Nog geen agent feedback.') :
+        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+          ...fbDates.map(date => {
+            const dayFb = feedback.filter(r => r.report_date === date);
+            return e('div', { key: date, style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
+              e('div', { style: { padding: '10px 14px', background: 'var(--surface)', fontWeight: 700, fontSize: 12.5, color: 'var(--text-mute)' } }, this.fmtFull(date)),
+              e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+                dayFb.map((fb, i) => {
+                  const agent = activeAgents.find(a => a.id === fb.agent_id);
+                  return e('div', { key: fb.id, style: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', borderTop: i > 0 ? '1px solid var(--border-soft)' : 'none', background: 'var(--bg-1)' } },
+                    e('div', { style: { minWidth: 48, height: 48, borderRadius: 10, background: scoreColor(fb.score) + '22', border: '2px solid ' + scoreColor(fb.score), display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', flexShrink: 0 } },
+                      e('span', { style: { fontSize: 17, fontWeight: 800, color: scoreColor(fb.score), fontFamily: "'JetBrains Mono'" } }, fb.score),
+                      e('span', { style: { fontSize: 8, color: scoreColor(fb.score), fontWeight: 600, letterSpacing: '.05em' } }, '/100')),
+                    e('div', { style: { flex: 1, minWidth: 0 } },
+                      e('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 3, color: 'var(--text)' } }, agent?.name || fb.agent_id),
+                      e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.6 } }, fb.feedback)),
+                    e('button', { onClick: () => deleteFeedback(fb.id), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 15, padding: '2px', opacity: 0.4, flexShrink: 0 } }, '×'));
+                })));
+          }))),
+      // ── Management Checklist ────────────────────────────────────────────────
+      e('div', null,
+        e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 } },
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+            e('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--text)' } }, '✅ Management Checklist'),
+            totalItems > 0 ? e('div', { style: { fontSize: 12, color: checklistDay === todayStr && completedCount === totalItems ? 'var(--up)' : 'var(--text-mute)', fontWeight: 600 } }, completedCount + '/' + totalItems) : null),
+          e('button', { onClick: () => this.setState({ _clEditMode: !s._clEditMode }), style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: s._clEditMode ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12, cursor: 'pointer' } }, s._clEditMode ? '✓ Klaar' : '✏️ Bewerken')),
+        // Date selector
+        e('div', { style: { display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 8, marginBottom: 12 } },
+          clDates.map(date => e('button', { key: date, onClick: () => this.setState({ _clDay: date }),
+            style: { flexShrink: 0, padding: '4px 11px', borderRadius: 7, border: 'none', background: checklistDay === date ? 'var(--accent)' : 'var(--surface)', color: checklistDay === date ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: checklistDay === date ? 700 : 400, fontSize: 11.5, cursor: 'pointer' } },
+            date === todayStr ? 'Vandaag' : this.fmtFull(date)))),
+        checklistItems.length === 0 && !s._clEditMode ?
+          e('div', { style: { padding: 24, textAlign: 'center', color: 'var(--text-mute)', fontSize: 13, fontStyle: 'italic', borderRadius: 12, border: '1px dashed var(--border)' } },
+            'Nog geen checklist items. Klik "Bewerken" om items toe te voegen.') :
+        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 1, borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
+          ...checklistItems.map((item, idx) => {
+            const log = clDayLogs.find(l => l.item_id === item.id);
+            const done = log?.completed || false;
+            return e('div', { key: item.id, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', background: done ? 'oklch(0.18 0.06 145 / .2)' : idx % 2 === 0 ? 'var(--surface)' : 'var(--bg-1)', borderBottom: idx < checklistItems.length - 1 ? '1px solid var(--border-soft)' : 'none', transition: 'background .15s' } },
+              checklistDay === todayStr ? e('div', { onClick: () => toggleChecklistItem(item.id), style: { width: 20, height: 20, borderRadius: 5, border: done ? 'none' : '2px solid var(--border)', background: done ? 'var(--up)' : 'transparent', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' } },
+                done ? e('svg', { width: 11, height: 11, viewBox: '0 0 24 24', fill: 'none', stroke: '#0a1a1a', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M20 6L9 17l-5-5' })) : null) :
+              e('div', { style: { width: 20, height: 20, borderRadius: 5, border: done ? 'none' : '2px solid var(--border)', background: done ? 'var(--up)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                done ? e('svg', { width: 11, height: 11, viewBox: '0 0 24 24', fill: 'none', stroke: '#0a1a1a', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M20 6L9 17l-5-5' })) : null),
+              e('span', { style: { flex: 1, fontSize: 13, color: done ? 'var(--text-mute)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none', textDecorationColor: 'var(--up)', lineHeight: 1.4 } }, item.text),
+              done && log?.completed_at ? e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", flexShrink: 0 } }, new Date(log.completed_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null,
+              s._clEditMode ? e('button', { onClick: () => deleteItem(item.id), style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0 } }, '×') : null);
+          }),
+          s._clEditMode ? e('div', { style: { display: 'flex', gap: 8, padding: '10px 14px', background: 'var(--surface)', borderTop: '1px solid var(--border-soft)' } },
+            e('input', { placeholder: 'Nieuw checklist item…', value: s._clNewText || '', onChange: ev => this.setState({ _clNewText: ev.target.value }),
+              onKeyDown: ev => { if (ev.key === 'Enter') saveNewItem(); },
+              style: { flex: 1, ...inputSt }, autoFocus: true }),
+            e('button', { onClick: saveNewItem, style: { padding: '7px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' } }, '+ Toevoegen')) : null)));
   },
 
   _admTimeline(d, s) {
@@ -2261,11 +2599,16 @@ const ScreenAdmin = {
     const saveStatuses = (next) => savePipelines(pipelines.map(p => p.id === pipeline.id ? { ...p, statuses: next } : p));
 
     // ── Prospects for this pipeline ───────────────────────────────────────────
-    const pipelineProspects = (d.prospects || []).filter(p =>
-      activePipelineId === 'manuele'
+    const mySalespersonName = (d.salespeople || []).find(sp => sp.user_id === (typeof SB !== 'undefined' ? SB.getSession()?.user?.id : null))?.name || null;
+    const isSalesperson = s.role === 'salesperson';
+    const pipelineProspects = (d.prospects || []).filter(p => {
+      const inPipeline = activePipelineId === 'manuele'
         ? (!p.pipeline_id || p.pipeline_id === 'manuele')
-        : p.pipeline_id === activePipelineId
-    );
+        : p.pipeline_id === activePipelineId;
+      if (!inPipeline) return false;
+      if (isSalesperson && mySalespersonName) return p.assigned === mySalespersonName;
+      return true;
+    });
 
     // ── Drag-drop rows ────────────────────────────────────────────────────────
     const dragOver = s._prospectDragOver || null;
@@ -2314,24 +2657,24 @@ const ScreenAdmin = {
       { label: 'Afspraak datum', key: 'appointment_date', w: 110, datePick: true },
       { label: 'Meeting Outcome', key: 'meeting_outcome', w: 130, meetingOutcomeCol: true },
       { label: 'CLOSER Score', key: 'closer_score_total', w: 95, closerScoreCol: true },
-      { label: 'Laatste contact', key: 'last_followup', w: 100, date: true },
+      { label: 'Laatste contact', key: 'last_followup', w: 100, datePick: true },
       { label: 'Opmerking beller', key: 'caller_note', w: 185, editable: true },
       { label: 'E-mail', key: 'email', w: 175, mono: true, editable: true },
       { label: 'Telefoon', key: 'phone', w: 115, mono: true, editable: true },
       { label: 'Datum', key: 'created_at', w: 88, date: true },
       { label: 'Bron', key: 'source', w: 95, pill: true, editable: true, editSelect: ['LinkedIn', 'Cold email', 'Referral', 'Meta forms', 'Website', 'Cold call'] },
       { label: 'Omzet', key: 'revenue', w: 80, editable: true },
-      { label: 'Sales pers.', key: 'assigned', w: 105, editable: true },
+      { label: 'Sales pers.', key: 'assigned', w: 105, editable: true, editSelect: ['', ...(d.salespeople || []).map(sp => sp.name)] },
       { label: 'Bellen op', key: 'call_on', w: 100, datePick: true },
       { label: 'Opmerkingen', key: 'notes', w: 200, editable: true },
     ];
     const metaCols = activePipelineId === 'meta_ads' ? [
-      { label: 'AD Name', key: 'ad_name', w: 140 },
-      { label: 'Lead ID', key: 'lead_id', w: 120, mono: true },
+      { label: 'AD Name', key: 'ad_name', w: 140, editable: true },
+      { label: 'Lead ID', key: 'lead_id', w: 120, mono: true, editable: true },
     ] : [];
     const cols = [...baseCols, ...metaCols];
 
-    const totalW = 28 + cols.reduce((acc, c) => acc + c.w, 0);
+    const totalW = 28 + 36 + cols.reduce((acc, c) => acc + c.w, 0);
     const cellSt = c => ({ width: c.w + 'px', minWidth: c.w + 'px', maxWidth: c.w + 'px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11.5, padding: '0 8px', boxSizing: 'border-box', flexShrink: 0 });
 
     // ── Status helpers ────────────────────────────────────────────────────────
@@ -2366,7 +2709,8 @@ const ScreenAdmin = {
         draggable: true,
         onDragStart: () => onDragStart(it.id),
         onDragEnd,
-        style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'grab', minHeight: 28, transition: 'background .1s', minWidth: totalW + 'px', position: 'relative' },
+        onClick: () => this.openModal('prospectDetail', { prospect: it, salespeople: d.salespeople || [] }),
+        style: { display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer', minHeight: 28, transition: 'background .1s', minWidth: totalW + 'px', position: 'relative' },
         onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; const btn = ev.currentTarget.querySelector('.__del-btn'); if (btn) btn.style.opacity = '1'; },
         onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; const btn = ev.currentTarget.querySelector('.__del-btn'); if (btn) btn.style.opacity = '0'; },
       },
@@ -2473,19 +2817,14 @@ const ScreenAdmin = {
             }
             const cellColor = col.bold ? 'var(--text)' : 'var(--text-dim)';
             return e('div', { key: col.key,
-              onClick: ev => { ev.stopPropagation(); this.setState({ _prospectEditCell: { id: it.id, key: col.key } }); },
-              style: { ...cellSt(col), color: cellColor, fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined, cursor: 'text', display: 'flex', alignItems: 'center', gap: 4 },
-              title: 'Click to edit' },
+              onClick: ev => ev.stopPropagation(),
+              style: { ...cellSt(col), color: cellColor, fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined, cursor: 'default', display: 'flex', alignItems: 'center', gap: 4 },
+            },
               e('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                 val
                   ? (col.pill ? e('span', { style: { fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--bg-2)', border: '1px solid var(--border-soft)', borderRadius: 3, padding: '1px 5px' } }, val) : val)
                   : e('span', { style: { color: 'var(--border-soft)' } }, '—')
-              ),
-              col.bold ? e('span', { title: 'Open detail', onClick: ev => { ev.stopPropagation(); this.openModal('prospectDetail', { prospect: it }); },
-                style: { fontSize: 10, color: 'var(--text-mute)', opacity: 0, flexShrink: 0, cursor: 'pointer', lineHeight: 1, padding: '1px 2px', borderRadius: 2 },
-                onMouseEnter: ev => { ev.currentTarget.style.opacity = '1'; ev.currentTarget.parentElement.style.background = ''; },
-                onMouseLeave: ev => { ev.currentTarget.style.opacity = '0'; },
-              }, '↗') : null
+              )
             );
           }
 
@@ -2496,9 +2835,117 @@ const ScreenAdmin = {
           }
           const st = { ...cellSt(col), color: 'var(--text-dim)', fontWeight: 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined };
           return e('div', { key: col.key, style: st }, val || e('span', { style: { color: 'var(--border-soft)' } }, '—'));
-        })
+        }),
+        // Calendly book button (always last)
+        e('div', { style: { width: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: ev => ev.stopPropagation() },
+          e('button', {
+            onClick: ev => { ev.stopPropagation(); openCalendly(it); },
+            title: 'Boek meeting via Calendly',
+            style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, opacity: 0.5, transition: 'opacity .15s', padding: '2px 4px', lineHeight: 1, borderRadius: 4 },
+            onMouseEnter: ev => { ev.currentTarget.style.opacity = '1'; ev.currentTarget.style.background = 'var(--accent)18'; },
+            onMouseLeave: ev => { ev.currentTarget.style.opacity = '0.5'; ev.currentTarget.style.background = 'none'; },
+          }, '📅'))
       );
     };
+
+    // ── Calendly helper — uses salespeople from DB ────────────────────────────
+    const salespeopleDB = d.salespeople || [];
+    const openCalendly = (prospect) => {
+      const person = salespeopleDB.find(sp => sp.name === prospect.assigned);
+      const url = person?.calendly_url || (d.settings || {}).calendly_url_default || '';
+      if (!url) { alert('Geen Calendly URL. Ga naar Salespeople tab om een Calendly URL toe te voegen, of stel een default in via ⚙️ Instellingen.'); return; }
+      if (!window._calendlyLoaded) {
+        window._calendlyLoaded = true;
+        const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://assets.calendly.com/assets/external/widget.css'; document.head.appendChild(css);
+        const scr = document.createElement('script'); scr.src = 'https://assets.calendly.com/assets/external/widget.js'; document.head.appendChild(scr);
+        setTimeout(() => window.Calendly?.initPopupWidget({ url, prefill: { name: prospect.contact || '', email: prospect.email || '', customAnswers: { a1: prospect.company || '' } } }), 600);
+        return;
+      }
+      window.Calendly?.initPopupWidget({ url, prefill: { name: prospect.contact || '', email: prospect.email || '', customAnswers: { a1: prospect.company || '' } } });
+    };
+
+    // ── Settings panel — Meta forms with auto-fetch ───────────────────────────
+    const showSettings = !!s._prospectSettings;
+    const metaForms = (() => { try { return JSON.parse((d.settings || {}).meta_lead_forms || '[]'); } catch(_) { return []; } })();
+    const fetchedMetaForms = s._metaFormsList || null; // null = not fetched yet, [] = fetched empty
+    const pipelineOptions = pipelines.map(p => p.id);
+    const stageOptions = (pid) => (pipelines.find(p => p.id === pid)?.stages || []).map(sg => sg.id);
+    const spNames = ['', ...salespeopleDB.map(sp => sp.name)];
+
+    const saveMetaForms = (forms) => {
+      this.mutLocal(dd => { if (!dd.settings) dd.settings = {}; dd.settings.meta_lead_forms = JSON.stringify(forms); });
+      API.saveSetting('meta_lead_forms', JSON.stringify(forms));
+    };
+    const saveCalendlyDefault = (url) => {
+      this.mutLocal(dd => { if (!dd.settings) dd.settings = {}; dd.settings.calendly_url_default = url; });
+      API.saveSetting('calendly_url_default', url);
+    };
+    const fetchMetaForms = async () => {
+      this.setState({ _metaFormsLoading: true });
+      try {
+        const r = await fetch('/api/whatsapp?source=meta-forms');
+        const data = await r.json();
+        this.setState({ _metaFormsList: data.forms || [], _metaFormsLoading: false, _metaFormsError: data.error || null });
+      } catch(err) {
+        this.setState({ _metaFormsLoading: false, _metaFormsError: err.message });
+      }
+    };
+    const addMetaFormFromFetched = (fetchedForm) => {
+      if (metaForms.find(f => f.form_id === fetchedForm.id)) return;
+      saveMetaForms([...metaForms, { form_id: fetchedForm.id, form_name: fetchedForm.name, pipeline_id: 'meta_ads', stage: 'new_lead', assigned: '', source: 'Meta forms' }]);
+    };
+
+    const settingsPanel = showSettings ? e('div', { style: { padding: '16px 18px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 18 } },
+      e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+        e('span', { style: { fontSize: 13, fontWeight: 700 } }, '⚙️ Instellingen — Prospect CRM'),
+        e('button', { onClick: () => this.setState({ _prospectSettings: false }), style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-mute)', lineHeight: 1 } }, '×')),
+
+      // ── Default Calendly ──
+      e('div', null,
+        e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 } }, '📅 Default Calendly URL'),
+        e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginBottom: 6 } }, 'Fallback-link wanneer de salesperson geen eigen link heeft. Salesperson-links beheer je via "Salespeople" tab.'),
+        e('input', { value: (d.settings || {}).calendly_url_default || '', onChange: ev => saveCalendlyDefault(ev.target.value), placeholder: 'https://calendly.com/yourname/meeting', style: { width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12.5, fontFamily: "'JetBrains Mono'", boxSizing: 'border-box' } })),
+
+      // ── Meta Lead Forms ──
+      e('div', null,
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+          e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, '📋 Meta Lead Forms → Pipeline'),
+          e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+            s._metaFormsLoading
+              ? e('span', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, 'Laden...')
+              : e('button', { onClick: fetchMetaForms, style: { fontSize: 11.5, fontWeight: 700, color: 'oklch(0.82 0.17 145)', background: 'oklch(0.22 0.06 145 / .3)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' } }, '🔄 Haal formulieren op uit Meta'),
+            e('button', { onClick: () => saveMetaForms([...metaForms, { form_id: '', form_name: 'Handmatig', pipeline_id: 'meta_ads', stage: 'new_lead', assigned: '', source: 'Meta forms' }]), style: { fontSize: 11.5, fontWeight: 700, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' } }, '+ Handmatig'))),
+        s._metaFormsError && e('div', { style: { fontSize: 11.5, color: 'var(--down)', marginBottom: 8 } }, 'Fout: ' + s._metaFormsError),
+
+        // Fetched forms from Meta — click to add
+        fetchedMetaForms && fetchedMetaForms.length > 0 && e('div', { style: { marginBottom: 10 } },
+          e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 6, fontWeight: 600 } }, fetchedMetaForms.length + ' formulieren gevonden in Meta — klik om toe te voegen:'),
+          e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
+            fetchedMetaForms.map(ff => {
+              const already = metaForms.some(m => m.form_id === ff.id);
+              return e('button', { key: ff.id, onClick: () => !already && addMetaFormFromFetched(ff), style: { fontSize: 11.5, padding: '4px 10px', borderRadius: 6, border: '1px solid ' + (already ? 'var(--border)' : 'var(--accent)'), background: already ? 'var(--bg-2)' : 'oklch(0.22 0.08 194 / .3)', color: already ? 'var(--text-mute)' : 'var(--accent)', cursor: already ? 'default' : 'pointer', fontWeight: already ? 400 : 600 } }, (already ? '✓ ' : '+ ') + ff.name);
+            }))),
+        fetchedMetaForms && fetchedMetaForms.length === 0 && e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginBottom: 10 } }, 'Geen formulieren gevonden. Controleer of de Meta-verbinding correct is.'),
+
+        // Configured mappings
+        metaForms.length === 0
+          ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Nog geen form mappings. Klik "Haal formulieren op uit Meta" om ze automatisch te laden.')
+          : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+              e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 24px', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.04em', padding: '0 2px', marginBottom: 2 } },
+                e('span', null, 'Formulier'), e('span', null, 'Pipeline'), e('span', null, 'Stage'), e('span', null, 'Toewijzen aan'), e('span', null, '')),
+              metaForms.map((fm, i) => {
+                const stOpts = stageOptions(fm.pipeline_id);
+                return e('div', { key: i, style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 24px', gap: 6, alignItems: 'center' } },
+                  e('div', { style: { fontSize: 11.5, color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, fm.form_name || fm.form_id || '—'),
+                  e('select', { value: fm.pipeline_id, onChange: ev => saveMetaForms(metaForms.map((x, j) => j === i ? { ...x, pipeline_id: ev.target.value, stage: stageOptions(ev.target.value)[0] || '' } : x)), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
+                    pipelineOptions.map(pid => e('option', { key: pid, value: pid }, pipelines.find(p => p.id === pid)?.name || pid))),
+                  e('select', { value: fm.stage, onChange: ev => saveMetaForms(metaForms.map((x, j) => j === i ? { ...x, stage: ev.target.value } : x)), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
+                    stOpts.map(sg => e('option', { key: sg, value: sg }, pipelines.find(p => p.id === fm.pipeline_id)?.stages?.find(s2 => s2.id === sg)?.label || sg))),
+                  e('select', { value: fm.assigned || '', onChange: ev => saveMetaForms(metaForms.map((x, j) => j === i ? { ...x, assigned: ev.target.value } : x)), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
+                    spNames.map(n => e('option', { key: n, value: n }, n || '— Niemand —'))),
+                  e('button', { onClick: () => saveMetaForms(metaForms.filter((_, j) => j !== i)), style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 15, lineHeight: 1 } }, '×'));
+              }))),
+    ) : null;
 
     // ── Status manager panel ──────────────────────────────────────────────────
     const showStatusMgr = s._prospectStatusMgr === activePipelineId;
@@ -2524,6 +2971,7 @@ const ScreenAdmin = {
         e('div', null, UI.Hd('Prospect CRM'), UI.Sub('B2B acquisition pipeline — drag rows between stages', { marginTop: 3 })),
         e('div', { style: { display: 'flex', gap: 8 } },
           UI.Btn('Statuses', () => this.setState({ _prospectStatusMgr: showStatusMgr ? null : activePipelineId }), 'ghost'),
+          UI.Btn('⚙️ Instellingen', () => this.setState({ _prospectSettings: !showSettings }), showSettings ? 'primary' : 'ghost'),
           UI.Btn('+ Add prospect', () => this.openModal('prospectAdd', { pipelineId: activePipelineId, defaultStage: stages[0]?.id || 'nieuwe_leads' }), 'primary'))),
 
       // Pipeline tabs
@@ -2541,6 +2989,9 @@ const ScreenAdmin = {
           },
           style: { background: 'none', border: 'none', borderBottom: '2px solid transparent', marginBottom: -2, padding: '7px 12px', cursor: 'pointer', fontSize: 12, color: 'var(--text-mute)' },
         }, '+ New pipeline')),
+
+      // Settings panel
+      settingsPanel,
 
       // Status manager
       statusMgr,
@@ -3227,7 +3678,7 @@ const ScreenAdmin = {
 
   _admRooster(d, s) {
     const e = React.createElement;
-    const HOUR_START = 7, HOUR_END = 20; // 07:00–20:00 range
+    const HOUR_START = 7, HOUR_END = 21; // 07:00–21:00 range
     const HOURS  = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
     const DAYS   = [0,1,2,3,4,5,6];
     const DAY_S  = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
@@ -3728,13 +4179,15 @@ const ScreenAdmin = {
         for (const pt of Object.values(latestByKey)) {
           const alreadyToday = list.find(t => t.title === pt.title && t.created_by === pt.created_by);
           if (!alreadyToday) {
-            const upsertRes = await fetch(`${SB_URL}/rest/v1/todos`, {
-              method: 'POST',
-              headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-              body: JSON.stringify({ title: pt.title, category: pt.category || null, deadline: pt.deadline || null, notes: pt.notes || null, created_by: pt.created_by, day: targetDay, order_idx: getCarryIdx(pt.created_by), carried_from: pt.day })
+            const newIdx = getCarryIdx(pt.created_by);
+            const carryFrom = pt.carried_from || pt.day;
+            // Move (PATCH) the original task to today so completing it here persists correctly
+            await fetch(`${SB_URL}/rest/v1/todos?id=eq.${pt.id}`, {
+              method: 'PATCH',
+              headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+              body: JSON.stringify({ day: targetDay, order_idx: newIdx, carried_from: carryFrom })
             });
-            const newRow = await upsertRes.json();
-            if (Array.isArray(newRow) && newRow[0]) list.push(newRow[0]);
+            list.push({ ...pt, day: targetDay, order_idx: newIdx, carried_from: carryFrom });
           }
         }
         list.sort((a, b) => (a.order_idx || 0) - (b.order_idx || 0) || a.created_at.localeCompare(b.created_at));
@@ -3819,6 +4272,28 @@ const ScreenAdmin = {
       }
     };
 
+    const saveTodoEdit = async (todo) => {
+      const ek = 'todoEdit_' + todo.id;
+      const { text: existingNoteText } = parsePriority(todo.notes);
+      const newPriority = s[ek + '_pri'] !== undefined ? s[ek + '_pri'] : parsePriority(todo.notes).priority;
+      const newNoteText = s[ek + '_notes'] !== undefined ? s[ek + '_notes'] : existingNoteText;
+      const fields = {
+        title: (s[ek + '_title'] || '').trim() || todo.title,
+        category: s[ek + '_cat'] !== undefined ? (s[ek + '_cat'] || null) : todo.category,
+        deadline: s[ek + '_dl'] !== undefined ? (s[ek + '_dl'] || null) : todo.deadline,
+        notes: encodePriority(newPriority, newNoteText),
+      };
+      await fetch(`${SB_URL}/rest/v1/todos?id=eq.${todo.id}`, {
+        method: 'PATCH',
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(fields)
+      });
+      this.setState(st => ({
+        todosList: (st.todosList || []).map(t => t.id === todo.id ? { ...t, ...fields } : t),
+        [ek + '_open']: false,
+      }));
+    };
+
     const renderColumn = user => {
       const isMe = user.id === myId;
       const col = user.id;
@@ -3842,28 +4317,6 @@ const ScreenAdmin = {
         reorderForUser(list, todos || []);
       };
       const onDragEnd2 = () => { this[dragIdxKey] = null; this[dragOverKey] = null; this.setState({ _tdTick: Date.now() }); };
-
-      const saveTodoEdit = async (todo) => {
-        const ek = 'todoEdit_' + todo.id;
-        const { text: existingNoteText } = parsePriority(todo.notes);
-        const newPriority = s[ek + '_pri'] !== undefined ? s[ek + '_pri'] : parsePriority(todo.notes).priority;
-        const newNoteText = s[ek + '_notes'] !== undefined ? s[ek + '_notes'] : existingNoteText;
-        const fields = {
-          title: (s[ek + '_title'] || '').trim() || todo.title,
-          category: s[ek + '_cat'] !== undefined ? (s[ek + '_cat'] || null) : todo.category,
-          deadline: s[ek + '_dl'] !== undefined ? (s[ek + '_dl'] || null) : todo.deadline,
-          notes: encodePriority(newPriority, newNoteText),
-        };
-        await fetch(`${SB_URL}/rest/v1/todos?id=eq.${todo.id}`, {
-          method: 'PATCH',
-          headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-          body: JSON.stringify(fields)
-        });
-        this.setState(st => ({
-          todosList: (st.todosList || []).map(t => t.id === todo.id ? { ...t, ...fields } : t),
-          [ek + '_open']: false,
-        }));
-      };
 
       const todoRow = (todo, idx, isDone) => {
         const isDragging = this[dragIdxKey] === idx;
@@ -4051,16 +4504,172 @@ const ScreenAdmin = {
         e('div', { style: { flex: 1, overflow: 'auto', padding: '20px 24px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: 1.75, color: '#c9d1d9', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } },
           cs.output || (cs.status === 'running' ? e('span', { style: { color: 'var(--accent)', opacity: 0.7 } }, 'Starting Claude session…') : null)))) : null;
 
+    // \u2500\u2500 Kanban stage columns \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    const STAGES = [
+      { id: 'todo',  label: 'To Do',  color: 'var(--text-mute)',  icon: '\uD83D\uDCCB' },
+      { id: 'bezig', label: 'Bezig',  color: 'var(--info)',       icon: '\uD83D\uDD04' },
+      { id: 'klaar', label: 'Klaar',  color: 'var(--up)',         icon: '\u2705' },
+    ];
+
+    const userFilter = s._tdUser || 'all';
+    const filteredTodos = (todos || []).filter(t => userFilter === 'all' || t.created_by === userFilter);
+
+    // Move a todo to a different stage (or mark done)
+    const moveStage = async (todo, newStage) => {
+      const wasKlaar = !!todo.completed_at;
+      const goingKlaar = newStage === 'klaar';
+      const patch = { stage: newStage };
+      if (goingKlaar && !wasKlaar) { patch.completed_at = new Date().toISOString(); patch.completed_by = myId; }
+      if (!goingKlaar && wasKlaar) { patch.completed_at = null; patch.completed_by = null; }
+      await fetch(`${SB_URL}/rest/v1/todos?id=eq.${todo.id}`, {
+        method: 'PATCH',
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify(patch)
+      });
+      this.setState(st => ({ todosList: (st.todosList || []).map(t => t.id === todo.id ? { ...t, ...patch } : t) }));
+    };
+
+    const stageOf = t => t.completed_at ? 'klaar' : (t.stage || 'todo');
+
+    const renderKanbanCol = (sg) => {
+      const colItems = filteredTodos
+        .filter(t => stageOf(t) === sg.id)
+        .sort((a, b) => priorityOrder(parsePriority(a.notes).priority) - priorityOrder(parsePriority(b.notes).priority) || (a.order_idx || 0) - (b.order_idx || 0));
+
+      const isDropOver = s['_kbOver_' + sg.id];
+
+      const onDragOver = (ev) => { ev.preventDefault(); if (!s['_kbOver_' + sg.id]) this.setState({ ['_kbOver_' + sg.id]: true }); };
+      const onDragLeave = () => this.setState({ ['_kbOver_' + sg.id]: false });
+      const onDrop = (ev) => {
+        ev.preventDefault(); this.setState({ ['_kbOver_' + sg.id]: false });
+        const id = this._kbDragId; this._kbDragId = null;
+        if (!id) return;
+        const todo = (todos || []).find(t => t.id === id);
+        if (todo && stageOf(todo) !== sg.id) moveStage(todo, sg.id);
+      };
+
+      const cardSt = (todo, idx) => {
+        const { priority } = parsePriority(todo.notes);
+        const isUrgent = priority === 'urgent';
+        const isHigh = priority === 'high';
+        const isTop = !isUrgent && !isHigh && idx === 0 && sg.id === 'todo';
+        const priColor = isUrgent ? '#ef4444' : isHigh ? '#f97316' : null;
+        return {
+          display: 'flex', flexDirection: 'column', gap: 6,
+          padding: '10px 12px',
+          borderRadius: 10,
+          background: isUrgent ? 'oklch(0.18 0.05 15 / 0.5)' : isHigh ? 'oklch(0.18 0.05 35 / 0.4)' : isTop ? 'oklch(0.20 0.04 250 / 0.45)' : 'var(--surface)',
+          border: '1px solid ' + (priColor || (isTop ? 'var(--accent)30' : 'var(--border)')),
+          borderLeft: '3px solid ' + (priColor || (isTop ? 'var(--accent)' : sg.color)),
+          cursor: 'grab',
+          boxShadow: isUrgent ? '0 2px 10px rgba(239,68,68,0.15)' : 'none',
+          transition: 'opacity .15s',
+        };
+      };
+
+      const renderCard = (todo, idx) => {
+        const ek = 'todoEdit_' + todo.id;
+        const isEditing = !!s[ek + '_open'];
+        const { priority, text: notesText } = parsePriority(todo.notes);
+        const isUrgent = priority === 'urgent';
+        const isHigh = priority === 'high';
+        const priColor = isUrgent ? '#ef4444' : isHigh ? '#f97316' : null;
+        const userLabel = USERS.find(u => u.id === todo.created_by)?.label || todo.created_by;
+
+        if (isEditing) {
+          const inputStyle2 = { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box' };
+          const curPri = s[ek + '_pri'] !== undefined ? s[ek + '_pri'] : priority;
+          const curNotes = s[ek + '_notes'] !== undefined ? s[ek + '_notes'] : notesText;
+          return e('div', { key: todo.id, style: { ...cardSt(todo, idx), cursor: 'default', gap: 8 } },
+            e('input', { autoFocus: true, value: s[ek + '_title'] !== undefined ? s[ek + '_title'] : todo.title, onChange: ev => this.setState({ [ek + '_title']: ev.target.value }), onKeyDown: ev => { if (ev.key === 'Enter') saveTodoEdit(todo); if (ev.key === 'Escape') this.setState({ [ek + '_open']: false }); }, style: { ...inputStyle2, fontWeight: 700 }, placeholder: 'Task title\u2026' }),
+            e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 5 } },
+              e('input', { placeholder: 'Category', value: s[ek + '_cat'] !== undefined ? s[ek + '_cat'] : (todo.category || ''), onChange: ev => this.setState({ [ek + '_cat']: ev.target.value }), list: 'todo-cats-kb', style: { ...inputStyle2 } }),
+              e('input', { type: 'date', value: s[ek + '_dl'] !== undefined ? s[ek + '_dl'] : (todo.deadline || ''), onChange: ev => this.setState({ [ek + '_dl']: ev.target.value }), style: { ...inputStyle2 } }),
+              e('select', { value: curPri, onChange: ev => this.setState({ [ek + '_pri']: ev.target.value }), style: { ...inputStyle2, cursor: 'pointer' } },
+                e('option', { value: 'normal' }, '\u2B1C Normal'), e('option', { value: 'high' }, '\uD83D\uDFE0 High'), e('option', { value: 'urgent' }, '\uD83D\uDD34 Urgent'))),
+            e('input', { placeholder: 'Notes', value: curNotes, onChange: ev => this.setState({ [ek + '_notes']: ev.target.value }), style: { ...inputStyle2 } }),
+            e('div', { style: { display: 'flex', gap: 6 } },
+              e('button', { onClick: () => saveTodoEdit(todo), style: { padding: '4px 12px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Opslaan'),
+              e('button', { onClick: () => this.setState({ [ek + '_open']: false }), style: { padding: '4px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Annuleren')));
+        }
+
+        return e('div', { key: todo.id,
+          draggable: true,
+          onDragStart: ev => { this._kbDragId = todo.id; ev.stopPropagation(); },
+          onDragEnd: () => { this._kbDragId = null; },
+          style: cardSt(todo, idx) },
+          e('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 8 } },
+            e('div', { onClick: () => checkTodo(todo), style: { width: 18, height: 18, borderRadius: 5, border: todo.completed_at ? 'none' : isUrgent ? '2px solid #ef4444' : isHigh ? '2px solid #f97316' : '2px solid var(--border)', background: todo.completed_at ? 'var(--up)' : 'transparent', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 } },
+              todo.completed_at ? e('svg', { width: 10, height: 10, viewBox: '0 0 24 24', fill: 'none', stroke: '#0a1a1a', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M20 6L9 17l-5-5' })) : null),
+            e('div', { style: { flex: 1, minWidth: 0 } },
+              e('span', { style: { fontSize: 13, fontWeight: 600, color: todo.completed_at ? 'var(--text-mute)' : 'var(--text)', textDecoration: todo.completed_at ? 'line-through' : 'none', textDecorationColor: 'var(--up)', display: 'block', lineHeight: 1.4 } }, todo.title)),
+            e('button', { onClick: () => this.setState({ [ek + '_open']: true }), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 12, padding: '0 3px', flexShrink: 0, opacity: 0.5, lineHeight: 1 } }, '\u270F\uFE0F'),
+            e('button', { onClick: () => deleteTodo(todo.id), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0, opacity: 0.4, lineHeight: 1 } }, '\u00D7')),
+          (priority !== 'normal' || todo.category || todo.deadline || notesText) ? e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, paddingLeft: 26 } },
+            priority !== 'normal' ? e('span', { style: { fontSize: 9.5, fontWeight: 800, padding: '1px 6px', borderRadius: 10, background: (priColor || 'var(--text-mute)') + '22', color: priColor || 'var(--text-mute)', letterSpacing: '.08em' } }, priority === 'urgent' ? '\uD83D\uDD34 URGENT' : '\uD83D\uDFE0 HIGH') : null,
+            catPill(todo.category),
+            deadlinePill(todo.deadline),
+            carriedBadge(todo.carried_from)) : null,
+          notesText ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', paddingLeft: 26, lineHeight: 1.5 } }, notesText) : null,
+          userFilter === 'all' ? e('div', { style: { fontSize: 10, color: 'var(--text-mute)', paddingLeft: 26, marginTop: 2, opacity: 0.7 } }, userLabel) : null);
+      };
+
+      // Quick-add form
+      const addKey = '_kbAdd_' + sg.id;
+      const addForm = s[addKey] ? e('div', { style: { padding: 10, display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--bg-2)', borderRadius: 10, border: '1px solid var(--border)' } },
+        e('input', { placeholder: 'Task title\u2026', value: s[addKey + '_t'] || '', onChange: ev => this.setState({ [addKey + '_t']: ev.target.value }),
+          onKeyDown: ev => { if (ev.key === 'Enter') {
+            const title = (s[addKey + '_t'] || '').trim(); if (!title) return;
+            const priority = s[addKey + '_p'] || 'normal';
+            const notesEncoded = encodePriority(priority, s[addKey + '_n'] || '');
+            const owner = userFilter === 'all' ? myId : userFilter;
+            const allForUser = (todos || []).filter(t => t.created_by === owner && !t.completed_at);
+            const maxIdx = allForUser.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
+            fetch(`${SB_URL}/rest/v1/todos`, { method: 'POST', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ title, notes: notesEncoded, created_by: owner, day, stage: sg.id, order_idx: maxIdx + 1, category: s[addKey + '_c'] || null, deadline: s[addKey + '_d'] || null }) })
+              .then(r => r.json()).then(rows => { if (Array.isArray(rows) && rows[0]) { this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], [addKey]: false, [addKey + '_t']: '', [addKey + '_p']: 'normal', [addKey + '_n']: '', [addKey + '_c']: '', [addKey + '_d']: '' })); } });
+          } if (ev.key === 'Escape') this.setState({ [addKey]: false }); },
+          autoFocus: true, style: { padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' } }),
+        e('div', { style: { display: 'flex', gap: 5 } },
+          e('input', { placeholder: 'Category', value: s[addKey + '_c'] || '', onChange: ev => this.setState({ [addKey + '_c']: ev.target.value }), style: { flex: 1, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+          e('input', { type: 'date', value: s[addKey + '_d'] || '', onChange: ev => this.setState({ [addKey + '_d']: ev.target.value }), style: { width: 120, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+          e('select', { value: s[addKey + '_p'] || 'normal', onChange: ev => this.setState({ [addKey + '_p']: ev.target.value }), style: { padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } },
+            e('option', { value: 'normal' }, '\u2B1C'), e('option', { value: 'high' }, '\uD83D\uDFE0'), e('option', { value: 'urgent' }, '\uD83D\uDD34'))),
+        e('div', { style: { display: 'flex', gap: 5 } },
+          userFilter === 'all' ? e('select', { value: s[addKey + '_u'] || myId, onChange: ev => this.setState({ [addKey + '_u']: ev.target.value }), style: { flex: 1, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } },
+            USERS.map(u => e('option', { key: u.id, value: u.id }, u.label))) : null,
+          e('button', { onClick: () => this.setState({ [addKey]: false }), style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Annuleren'))) : null;
+
+      return e('div', { key: sg.id,
+        onDragOver, onDragLeave, onDrop,
+        style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 200, borderRadius: 14, padding: '4px 2px', background: isDropOver ? (sg.color === 'var(--up)' ? 'oklch(0.20 0.08 145 / .25)' : 'oklch(0.20 0.08 250 / .20)') : 'transparent', transition: 'background .15s', border: isDropOver ? ('1px dashed ' + sg.color) : '1px solid transparent' } },
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px 8px', borderBottom: '2px solid ' + sg.color } },
+          e('span', { style: { fontSize: 14 } }, sg.icon),
+          e('span', { style: { fontWeight: 700, fontSize: 14, color: sg.color } }, sg.label),
+          e('span', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginLeft: 'auto' } }, colItems.length || ''),
+          e('button', { onClick: () => this.setState({ [addKey]: !s[addKey] }), style: { padding: '2px 9px', borderRadius: 6, border: 'none', background: sg.color === 'var(--text-mute)' ? 'var(--surface-2)' : sg.color, color: sg.color === 'var(--text-mute)' ? 'var(--text)' : 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, '+')),
+        addForm,
+        ...colItems.map((todo, idx) => renderCard(todo, idx)));
+    };
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
       claudeModal,
-      e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 24 } },
-        e('button', { onClick: () => navDay(-1), style: { padding: '6px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 18, lineHeight: 1 } }, '\u2039'),
-        e('div', { style: { textAlign: 'center' } },
-          e('div', { style: { fontWeight: 700, fontSize: 16, color: 'var(--text)' } }, fmtDay(day)),
-          day !== today ? e('button', { onClick: () => this.setState({ todosDay: today, todosList: null, _todosLoaded: false }), style: { marginTop: 4, fontSize: 11.5, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 } }, '\u2192 Back to today') : null),
-        e('button', { onClick: () => navDay(1), style: { padding: '6px 16px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 18, lineHeight: 1 } }, '\u203A')),
-      e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' } },
-        ...USERS.map(u => renderColumn(u))));
+      // Header: date nav + user filter
+      e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 16, flexWrap: 'wrap' } },
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+          e('button', { onClick: () => navDay(-1), style: { padding: '5px 13px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 16, lineHeight: 1 } }, '\u2039'),
+          e('div', { style: { textAlign: 'center' } },
+            e('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--text)' } }, fmtDay(day)),
+            day !== today ? e('button', { onClick: () => this.setState({ todosDay: today, todosList: null, _todosLoaded: false }), style: { marginTop: 3, fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 } }, '\u2192 Back to today') : null),
+          e('button', { onClick: () => navDay(1), style: { padding: '5px 13px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 16, lineHeight: 1 } }, '\u203A')),
+        // User filter tabs
+        e('div', { style: { display: 'flex', gap: 4, background: 'var(--surface)', borderRadius: 10, padding: 4, border: '1px solid var(--border)' } },
+          [{ id: 'all', label: 'Iedereen' }, ...USERS].map(u =>
+            e('button', { key: u.id, onClick: () => this.setState({ _tdUser: u.id }),
+              style: { padding: '5px 14px', borderRadius: 7, border: 'none', background: userFilter === u.id ? 'var(--accent)' : 'transparent', color: userFilter === u.id ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: userFilter === u.id ? 700 : 500, fontSize: 12.5, cursor: 'pointer', transition: 'all .15s' } }, u.label)))),
+      e('datalist', { id: 'todo-cats-kb' }, ...allCats.map(c => e('option', { key: c, value: c }))),
+      s.todosLoading ? e('div', { style: { padding: 40, textAlign: 'center', color: 'var(--text-mute)' } }, 'Laden\u2026') :
+      e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, alignItems: 'start' } },
+        ...STAGES.map(sg => renderKanbanCol(sg))));
   },
 
   // ---------------------------------------------------------------------------
@@ -4091,7 +4700,7 @@ const ScreenAdmin = {
     }
 
     const targets = tgts || {};
-    const monthlyTarget = targets._monthly || 0;
+    const monthlyTarget = targets._monthly != null ? targets._monthly : 20000;
     const agentTargets = targets.agents || {};
 
     const saveTargets = async (newData) => {
@@ -4118,16 +4727,28 @@ const ScreenAdmin = {
       saveTargets({ agents: { ...agentTargets, ...updated } });
     };
 
-    // Today's actual dials per agent
-    const dialsToday = s._dialsToday;
-    if (!dialsToday && !s._dialsLoading) {
-      this.setState({ _dialsLoading: true });
-      fetch(`${SB_URL}/rest/v1/dials_hourly?date=eq.${today}&select=agent_id,total_dials`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+    // Day cycling for dials — keyed by date to avoid race conditions
+    const dialsDay = s._dialsDay || today;
+    const dialsByDay = s._dialsByDay || {};
+    const shiftDialsDay = (delta) => {
+      const d2 = new Date(dialsDay + 'T00:00:00');
+      d2.setDate(d2.getDate() + delta);
+      const newDay = d2.toISOString().slice(0, 10);
+      this.setState({ _dialsDay: newDay });
+    };
+
+    // Fetch dials for the selected day if not already loaded
+    const dialsDayLoaded = dialsByDay[dialsDay];
+    const dialsDayLoading = s['_dialsLoading_' + dialsDay];
+    if (dialsDayLoaded === undefined && !dialsDayLoading) {
+      this.setState({ ['_dialsLoading_' + dialsDay]: true });
+      const _fetchDay = dialsDay;
+      fetch(`${SB_URL}/rest/v1/dials_hourly?date=eq.${_fetchDay}&select=agent_id,total_dials`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
         .then(r => r.json()).then(rows => {
           const map = {};
           (rows || []).forEach(r => { map[r.agent_id] = (map[r.agent_id] || 0) + (r.total_dials || 0); });
-          this.setState({ _dialsToday: map, _dialsLoading: false });
-        }).catch(() => this.setState({ _dialsToday: {}, _dialsLoading: false }));
+          this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [_fetchDay]: map }, ['_dialsLoading_' + _fetchDay]: false }));
+        }).catch(() => this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [_fetchDay]: {} }, ['_dialsLoading_' + _fetchDay]: false })));
     }
     // Today's revenue per agent
     const revenueToday = s._revenueToday;
@@ -4144,13 +4765,34 @@ const ScreenAdmin = {
           this.setState({ _revenueToday: map, _revLoading: false });
         }).catch(() => this.setState({ _revenueToday: {}, _revLoading: false }));
     }
-    const dialsMap = s._dialsToday || {};
+    const dialsMap = dialsByDay[dialsDay] || {};
     const revMap = s._revenueToday || {};
 
-    // Total monthly revenue from appointments this month
-    const monthStr = today.slice(0, 7);
-    const monthlyActual = (d.appointments || []).filter(a => a.date_logged && a.date_logged.startsWith(monthStr) && a.status === 'show')
-      .reduce((sum, a) => sum + (a.amount || 0), 0);
+    // Month navigation for target overview
+    const viewMonth = s._viewMonth || today.slice(0, 7);
+    const shiftMonth = (delta) => {
+      const [y, m] = viewMonth.split('-').map(Number);
+      const d2 = new Date(y, m - 1 + delta, 1);
+      this.setState({ _viewMonth: `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}` });
+    };
+    const isCurrentMonth = viewMonth === today.slice(0, 7);
+    const monthStr = viewMonth;
+
+    // Calendar math for selected month
+    const [vmY, vmM] = viewMonth.split('-').map(Number);
+    const daysInMonth = new Date(vmY, vmM, 0).getDate();
+    const dayOfMonth = isCurrentMonth ? parseInt(today.slice(8, 10)) : daysInMonth;
+    const daysLeft = isCurrentMonth ? daysInMonth - dayOfMonth : 0;
+
+    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    const monthlyActual = (d.appointments || []).filter(a => a.dateLog && a.dateLog.startsWith(monthStr) && a.status !== 'cancel' && a.status !== 'no_show')
+      .reduce((sum, a) => sum + cRate(a), 0);
+
+    // EOM forecast: pace based on days elapsed
+    const eomForecast = isCurrentMonth && dayOfMonth > 0 ? Math.round(monthlyActual / dayOfMonth * daysInMonth) : monthlyActual;
+
+    // Sort agents by dials today desc (most active first)
+    const sortedAgents = [...agents].sort((a, b) => (dialsMap[b.id] || 0) - (dialsMap[a.id] || 0));
 
     const inputNum = (val, onChange) => e('input', {
       type: 'number', min: 0, value: val || '', onChange: ev => onChange(Number(ev.target.value) || 0),
@@ -4185,45 +4827,122 @@ const ScreenAdmin = {
 
     const sectionHeader = (label) => e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.08em', textTransform: 'uppercase', padding: '10px 16px 6px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } }, label);
 
+    const fmtEur = (n) => '€' + Math.round(n).toLocaleString('nl-BE');
+    const pct = monthlyTarget > 0 ? Math.min(100, Math.round(monthlyActual / monthlyTarget * 100)) : 0;
+    const hitTarget = monthlyActual >= monthlyTarget && monthlyTarget > 0;
+    const monthLabel = new Date(vmY, vmM - 1, 1).toLocaleString('nl-BE', { month: 'long', year: 'numeric' });
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 24 } },
-      // Monthly grand target
+      // Monthly grand target — hero card
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
-        sectionHeader('📊 Maandelijkse omzet target'),
-        e('div', { style: { padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 } },
-          e('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
-            e('span', { style: { fontSize: 13, color: 'var(--text-mute)', minWidth: 80 } }, 'Target:'),
+        e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px 8px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } },
+          e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.08em', textTransform: 'uppercase' } }, '📊 Maandelijkse omzet target'),
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+            e('button', { onClick: () => shiftMonth(-1), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' } }, '‹'),
+            e('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 110, textAlign: 'center' } }, monthLabel),
+            e('button', { onClick: () => shiftMonth(1), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' } }, '›'),
+            !isCurrentMonth ? e('button', { onClick: () => this.setState({ _viewMonth: today.slice(0, 7) }), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 11, cursor: 'pointer' } }, 'Nu') : null)),
+        e('div', { style: { padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 } },
+          e('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 } },
+            e('div', null,
+              e('div', { style: { fontSize: 36, fontWeight: 800, color: hitTarget ? 'var(--up)' : 'var(--text)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' } }, fmtEur(monthlyActual)),
+              e('div', { style: { fontSize: 13, color: 'var(--text-mute)', marginTop: 4 } }, 'van ' + fmtEur(monthlyTarget) + ' target · ' + pct + '%')),
+            isCurrentMonth
+              ? e('div', { style: { textAlign: 'right' } },
+                  e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 2 } }, 'EOM forecast'),
+                  e('div', { style: { fontSize: 22, fontWeight: 700, color: eomForecast >= monthlyTarget ? 'var(--up)' : 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, fmtEur(eomForecast)),
+                  e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, daysLeft + ' dag' + (daysLeft !== 1 ? 'en' : '') + ' te gaan · dag ' + dayOfMonth + ' van ' + daysInMonth))
+              : e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Afgelopen maand')),
+          e('div', null,
+            e('div', { style: { height: 12, borderRadius: 6, background: 'var(--border)', overflow: 'hidden' } },
+              e('div', { style: { height: '100%', width: pct + '%', background: hitTarget ? 'var(--up)' : 'linear-gradient(90deg, var(--accent), var(--info))', borderRadius: 6, transition: 'width .6s' } })),
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 5 } },
+              e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'MTD: ' + pct + '% van target'),
+              isCurrentMonth ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Dag ' + dayOfMonth + ' van ' + daysInMonth) : null,
+              e('span', { style: { fontSize: 11, color: eomForecast >= monthlyTarget ? 'var(--up)' : 'var(--text-mute)' } }, isCurrentMonth ? 'EOM forecast: ' + fmtEur(eomForecast) : 'Totaal: ' + fmtEur(monthlyActual)))),
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4, borderTop: '1px solid var(--border-soft)' } },
+            e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, 'Target aanpassen:'),
             e('input', { type: 'number', min: 0, value: s._monthlyInput !== undefined ? s._monthlyInput : monthlyTarget,
               onChange: ev => this.setState({ _monthlyInput: ev.target.value }),
               onBlur: ev => { const v = Number(ev.target.value) || 0; this.setState({ _monthlyInput: undefined }); saveTargets({ _monthly: v }); },
-              style: { width: 120, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 15, fontWeight: 700, outline: 'none', textAlign: 'right' } }),
-            e('span', { style: { fontSize: 13, color: 'var(--text-mute)' } }, '€')),
-          e('div', null,
-            e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 } },
-              e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, monthStr),
-              e('span', { style: { fontSize: 14, fontWeight: 700, color: monthlyActual >= monthlyTarget && monthlyTarget > 0 ? 'var(--up)' : 'var(--text)' } }, `€${monthlyActual.toFixed(0)} / €${monthlyTarget.toFixed(0)}`)),
-            e('div', { style: { height: 14, borderRadius: 7, background: 'var(--border)', overflow: 'hidden' } },
-              e('div', { style: { height: '100%', width: (monthlyTarget > 0 ? Math.min(100, monthlyActual / monthlyTarget * 100) : 0) + '%', background: monthlyActual >= monthlyTarget && monthlyTarget > 0 ? 'var(--up)' : 'linear-gradient(90deg, var(--accent), var(--info))', borderRadius: 7, transition: 'width .6s' } }))))),
+              style: { width: 110, padding: '5px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 14, fontWeight: 700, outline: 'none', textAlign: 'right' } }),
+            e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '€')))),
 
       // Per-agent targets
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
-        sectionHeader('🎯 Dagelijkse call agent targets — ' + today),
+        e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.08em', textTransform: 'uppercase', padding: '10px 16px 6px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } },
+          e('span', null, '🎯 Dagelijkse call agent targets'),
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 6, textTransform: 'none', letterSpacing: 0 } },
+            e('button', { onClick: () => shiftDialsDay(-1), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', lineHeight: 1.4 } }, '‹'),
+            e('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 86, textAlign: 'center' } }, dialsDay === today ? 'Vandaag' : dialsDay),
+            e('button', { onClick: () => shiftDialsDay(1), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', lineHeight: 1.4 } }, '›'),
+            dialsDay !== today ? e('button', { onClick: () => this.setState({ _dialsDay: today, _dialsToday: (s._dialsCache || {})[today] || null }), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 11, cursor: 'pointer' } }, 'Vandaag') : null)),
         e('div', { style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, padding: '8px 16px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } },
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase' } }, 'Agent'),
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)', textAlign: 'right' } }, 'Dials target'),
-          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)' } }, 'Dials vandaag'),
-          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textAlign: 'right' } }, 'Omzet target'),
-          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, 'Omzet vandaag'),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)' } }, dialsDay === today ? 'Dials vandaag' : 'Dials ' + dialsDay),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textAlign: 'right' } }, 'Omzet target (€)'),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, dialsDay === today ? 'Omzet vandaag' : 'Omzet ' + dialsDay),
           e('span', null)),
-        ...agents.map(agentRow)),
+        ...sortedAgents.map(agentRow)),
 
-      // CloudTalk account overview
+      // CloudTalk account indeling (editable)
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
         sectionHeader('📞 CloudTalk account indeling'),
-        e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 } },
-          ...Object.entries(CLOUDTALK_ACCOUNTS).map(([acc, names]) =>
-            e('div', { key: acc, style: { padding: '10px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', gap: 10, alignItems: 'center' } },
-              e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent)18', borderRadius: 6, padding: '2px 8px', flexShrink: 0, fontFamily: "'JetBrains Mono'" } }, 'Account ' + acc),
-              e('span', { style: { fontSize: 13, color: 'var(--text)' } }, names.join(' / ')))))));
+        (() => {
+          // Load CT structure from platform_settings
+          if (!s._ctData && !s._ctLoading) {
+            this.setState({ _ctLoading: true });
+            fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.cloudtalk_accounts&select=value`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+              .then(r => r.json()).then(rows => {
+                const val = rows[0]?.value;
+                const data = val && Object.keys(val).length ? val : CLOUDTALK_ACCOUNTS;
+                this.setState({ _ctData: data, _ctLoading: false });
+              }).catch(() => this.setState({ _ctData: CLOUDTALK_ACCOUNTS, _ctLoading: false }));
+          }
+          const ctData = s._ctData || CLOUDTALK_ACCOUNTS;
+          const saveCT = async (newData) => {
+            this.setState({ _ctData: newData });
+            const session = typeof SB !== 'undefined' ? SB.getSession() : null;
+            const token = session?.access_token; if (!token) return;
+            await fetch('/api/db-write', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+              body: JSON.stringify({ method: 'upsert', table: 'platform_settings', conflict: 'key', body: { key: 'cloudtalk_accounts', value: newData } }) });
+          };
+          const addRow = () => {
+            const nextNum = Math.max(0, ...Object.keys(ctData).map(Number)) + 1;
+            saveCT({ ...ctData, [nextNum]: [''] });
+          };
+          const removeRow = (key) => {
+            const copy = { ...ctData }; delete copy[key]; saveCT(copy);
+          };
+          const editCell = (key, idx, val) => {
+            const copy = { ...ctData, [key]: [...(ctData[key] || [])] };
+            copy[key][idx] = val; saveCT(copy);
+          };
+          const addSlot = (key) => saveCT({ ...ctData, [key]: [...(ctData[key] || []), ''] });
+          const removeSlot = (key, idx) => {
+            const arr = (ctData[key] || []).filter((_, i) => i !== idx);
+            saveCT({ ...ctData, [key]: arr });
+          };
+
+          const selectSt = { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', minWidth: 120, cursor: 'pointer' };
+          const ctRows = Object.entries(ctData).sort(([a2], [b2]) => Number(a2) - Number(b2));
+          return e('div', { style: { padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 } },
+            ctRows.map(([key, names]) => {
+              const namesArr = Array.isArray(names) ? names : (names != null ? [String(names)] : []);
+              return e('div', { key, style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent)18', borderRadius: 6, padding: '3px 10px', flexShrink: 0, fontFamily: "'JetBrains Mono'", minWidth: 80, textAlign: 'center' } }, 'Account ' + key),
+                namesArr.map((nm, idx) =>
+                  e('div', { key: idx, style: { display: 'flex', alignItems: 'center', gap: 4 } },
+                    e('select', { value: nm, onChange: ev => editCell(key, idx, ev.target.value), style: selectSt },
+                      e('option', { value: '' }, '— Kies agent —'),
+                      ...agents.map(a => e('option', { key: a.id, value: a.name || a.id }, a.name || a.id))),
+                    namesArr.length > 1 ? e('button', { onClick: () => removeSlot(key, idx), title: 'Verwijder slot', style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 2px' } }, '×') : null)),
+                e('button', { onClick: () => addSlot(key), title: 'Voeg slot toe', style: { padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, '+ slot'),
+                e('button', { onClick: () => removeRow(key), title: 'Verwijder account', style: { padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--down)', fontSize: 12, cursor: 'pointer' } }, '🗑'));
+            }),
+            e('button', { onClick: addRow, style: { alignSelf: 'flex-start', padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginTop: 4 } }, '+ Account toevoegen'));
+        })()));
   },
 
   // ---------------------------------------------------------------------------
@@ -4684,6 +5403,264 @@ const ScreenAdmin = {
         e('summary', { style: { cursor: 'pointer', fontSize: 13.5, fontWeight: 700, color: 'var(--text-dim)', padding: '8px 4px' } }, 'Gesloten tickets (' + closedTickets.length + ')'),
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 } },
           ...closedTickets.map(t => TicketCard(t)))) : null);
+  },
+
+  _admClientSuccess(d, s) {
+    const e = React.createElement;
+    const now = new Date();
+
+    // Build list of last 12 months
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ ym: dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0'), label: dt.toLocaleString('nl-BE', { month: 'long', year: 'numeric' }) });
+    }
+
+    const selMonth = s.csMonth || months[0].ym;
+    const prevMonth = (() => {
+      const idx = months.findIndex(m => m.ym === selMonth);
+      return idx < months.length - 1 ? months[idx + 1].ym : null;
+    })();
+
+    const appts = d.appointments || [];
+    const clients = d.clients || [];
+
+    // For a given month+client: logged = appointments with dateLog in that month
+    // scheduled = appointments with dateAppt in that month
+    // shows = scheduled + status=show
+    const getClientStats = (clientId, ym) => {
+      const logged = appts.filter(a => a.client === clientId && (a.dateLog || '').startsWith(ym));
+      const scheduled = appts.filter(a => a.client === clientId && (a.dateAppt || '').startsWith(ym));
+      const shows = scheduled.filter(a => a.status === 'show');
+      const showRate = scheduled.length ? Math.round(shows.length / scheduled.length * 100) : null;
+      // Revenue from shows (client rate * shows)
+      const cl = clients.find(c => c.id === clientId);
+      let rev = 0;
+      shows.forEach(a => {
+        const sub = a.sub && cl?.subclients ? cl.subclients.find(s => s.id === a.sub) : null;
+        rev += (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0;
+      });
+      return { logged: logged.length, scheduled: scheduled.length, shows: shows.length, showRate, rev };
+    };
+
+    // Only show clients with any appointments in the last 12 months
+    const activeClients = clients.filter(cl => {
+      return months.some(m => {
+        const st = getClientStats(cl.id, m.ym);
+        return st.logged > 0 || st.scheduled > 0;
+      });
+    });
+
+    const cur = selMonth ? activeClients.map(cl => ({ cl, stats: getClientStats(cl.id, selMonth) })).filter(x => x.stats.logged > 0 || x.stats.scheduled > 0) : [];
+    const prev = prevMonth ? activeClients.map(cl => ({ cl, stats: getClientStats(cl.id, prevMonth) })).filter(x => x.stats.logged > 0 || x.stats.scheduled > 0) : [];
+
+    const totalCur = { logged: cur.reduce((s2, x) => s2 + x.stats.logged, 0), scheduled: cur.reduce((s2, x) => s2 + x.stats.scheduled, 0), shows: cur.reduce((s2, x) => s2 + x.stats.shows, 0), rev: cur.reduce((s2, x) => s2 + x.stats.rev, 0) };
+    const totalPrev = { logged: prev.reduce((s2, x) => s2 + x.stats.logged, 0), scheduled: prev.reduce((s2, x) => s2 + x.stats.scheduled, 0), shows: prev.reduce((s2, x) => s2 + x.stats.shows, 0), rev: prev.reduce((s2, x) => s2 + x.stats.rev, 0) };
+    const totalShowRate = totalCur.scheduled ? Math.round(totalCur.shows / totalCur.scheduled * 100) : 0;
+    const prevShowRate = totalPrev.scheduled ? Math.round(totalPrev.shows / totalPrev.scheduled * 100) : 0;
+
+    const delta = (a, b, suffix = '') => {
+      if (!b) return null;
+      const diff = a - b;
+      const sign = diff >= 0 ? '+' : '';
+      return e('span', { style: { fontSize: 12, fontWeight: 700, color: diff >= 0 ? 'var(--up)' : 'var(--down)', marginLeft: 6 } }, sign + diff + suffix);
+    };
+
+    const Stat = (label, val, d2, sub) => e('div', { style: { padding: '16px 20px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', flex: '1 1 140px' } },
+      e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, label),
+      e('div', { style: { display: 'flex', alignItems: 'baseline', gap: 4 } },
+        e('span', { style: { fontSize: 26, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, val),
+        d2),
+      sub ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 3 } }, sub) : null);
+
+    const showRateBar = (rate, prev2) => {
+      const color = rate >= 70 ? 'var(--up)' : rate >= 50 ? 'var(--warn)' : 'var(--down)';
+      return e('div', null,
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 } },
+          e('span', { style: { fontSize: 12, fontWeight: 700, color } }, rate + '%'),
+          prev2 != null ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'prev: ' + prev2 + '%') : null),
+        e('div', { style: { height: 6, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' } },
+          e('div', { style: { width: rate + '%', height: '100%', background: color, borderRadius: 3, transition: 'width .3s' } })));
+    };
+
+    const tableCols = [
+      { label: 'Client', render: x => e('span', { style: { fontWeight: 700, color: 'var(--text)' } }, x.cl.name) },
+      { label: 'Logged', align: 'center', render: x => e('span', { style: { fontWeight: 600, color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' } }, x.stats.logged) },
+      { label: 'Scheduled', align: 'center', render: x => e('span', { style: { fontWeight: 600, color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' } }, x.stats.scheduled) },
+      { label: 'Shows', align: 'center', render: x => e('span', { style: { fontWeight: 700, color: x.stats.shows > 0 ? 'var(--up)' : 'var(--text-mute)', fontVariantNumeric: 'tabular-nums' } }, x.stats.shows) },
+      { label: 'Show rate', align: 'center', render: x => {
+        if (x.stats.scheduled === 0) return e('span', { style: { color: 'var(--text-mute)' } }, '—');
+        const prevStats = prevMonth ? getClientStats(x.cl.id, prevMonth) : null;
+        const prevRate = prevStats && prevStats.scheduled ? Math.round(prevStats.shows / prevStats.scheduled * 100) : null;
+        return e('div', { style: { minWidth: 100 } }, showRateBar(x.stats.showRate, prevRate));
+      }},
+      { label: 'Revenue', align: 'right', render: x => e('span', { style: { fontWeight: 700, color: x.stats.rev > 0 ? 'var(--text)' : 'var(--text-mute)', fontVariantNumeric: 'tabular-nums', fontFamily: "'JetBrains Mono'" } }, x.stats.rev > 0 ? this.euro(x.stats.rev) : '—') },
+    ];
+
+    const allRows = cur.sort((a, b) => b.stats.logged - a.stats.logged);
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+      // Month selector
+      e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+        months.map(m => e('button', { key: m.ym, onClick: () => this.setState({ csMonth: m.ym }),
+          style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (m.ym === selMonth ? 'var(--accent)' : 'var(--border)'), background: m.ym === selMonth ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: m.ym === selMonth ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, m.label))),
+
+      // Summary stats
+      e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
+        Stat('Logged', String(totalCur.logged), delta(totalCur.logged, totalPrev.logged), prevMonth ? 'vs ' + totalPrev.logged + ' prev month' : null),
+        Stat('Scheduled', String(totalCur.scheduled), delta(totalCur.scheduled, totalPrev.scheduled), prevMonth ? 'vs ' + totalPrev.scheduled + ' prev month' : null),
+        Stat('Shows', String(totalCur.shows), delta(totalCur.shows, totalPrev.shows), prevMonth ? 'vs ' + totalPrev.shows + ' prev month' : null),
+        Stat('Show rate', totalShowRate + '%', delta(totalShowRate, prevShowRate, 'pp'), prevMonth ? 'vs ' + prevShowRate + '% prev month' : null),
+        Stat('Revenue', this.euro(totalCur.rev), delta(totalCur.rev, totalPrev.rev), prevMonth ? 'vs ' + this.euro(totalPrev.rev) + ' prev month' : null)),
+
+      // Per-client table
+      UI.C({ padding: 0, overflow: 'hidden' },
+        e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)' } },
+          UI.Hd('Per client — ' + (months.find(m => m.ym === selMonth)?.label || selMonth), { fontSize: 14 })),
+        UI.Table(tableCols, allRows, { min: 560, empty: 'No client data for this month.' })));
+  },
+
+  _admCoaching(d, s) {
+    const e = React.createElement;
+    const CF_URL = SC_DB + '/rest/v1/coaching_feed';
+    const hdrs = { apikey: SC_KEY, Authorization: 'Bearer ' + SC_KEY, 'Content-Type': 'application/json' };
+
+    const loadItems = async () => {
+      const r = await fetch(CF_URL + '?order=created_at.desc&limit=200', { headers: hdrs });
+      const items = await r.json();
+      this.setState({ cfItems: Array.isArray(items) ? items : [], cfLoaded: true });
+    };
+    if (!s.cfLoaded) { loadItems(); return e('div', { style: { padding: 24, color: 'var(--text-mute)' } }, 'Laden…'); }
+
+    const items = s.cfItems || [];
+    const selAgent = s.cfAgent || 'all';
+    const cfDay = s.cfDay || 0;
+    const cfType = s.cfType || 'w';
+    const cfImp = !!s.cfImp;
+    const today = this.iso(this.today());
+
+    const dayLabel = n => n === 0 ? 'Vandaag' : n === 1 ? 'Gisteren' : n + ' dagen geleden';
+    const dayDate = n => { const d2 = new Date(); d2.setDate(d2.getDate() - n); return d2.getFullYear() + '-' + String(d2.getMonth()+1).padStart(2,'0') + '-' + String(d2.getDate()).padStart(2,'0'); };
+    const agents = (d.agents || []).filter(a => a.active !== false);
+
+    const typeColors = { w: { border: 'var(--up)', bg: 'oklch(0.22 0.10 145 / .12)', text: 'var(--up)', label: '🟢 Win' }, c: { border: 'var(--warn)', bg: 'oklch(0.22 0.12 75 / .12)', text: 'var(--warn)', label: '🟡 Coaching' }, a: { border: 'var(--info)', bg: 'oklch(0.22 0.08 255 / .12)', text: 'var(--info)', label: '🔵 Actie' } };
+    const tc = typeColors[cfType] || typeColors.w;
+
+    const doPost = async () => {
+      const txt = (s.cfText || '').trim(); if (!txt) return;
+      const actTxt = cfType === 'a' ? (s.cfActTxt || '').trim() : null;
+      const targetAgent = selAgent === 'all' ? (s.cfPostAgent || 'all') : selAgent;
+      this.setState({ cfPosting: true });
+      await fetch(CF_URL, { method: 'POST', headers: { ...hdrs, Prefer: 'return=representation' }, body: JSON.stringify({ type: cfType, agent_id: targetAgent, text: txt, action_text: actTxt || null, important: cfImp, day_date: today }) });
+      await loadItems();
+      this.setState({ cfPosting: false, cfText: '', cfActTxt: '', cfImp: false });
+    };
+
+    const doToggleImp = async (item) => {
+      await fetch(CF_URL + '?id=eq.' + item.id, { method: 'PATCH', headers: { ...hdrs, Prefer: 'return=minimal' }, body: JSON.stringify({ important: !item.important }) });
+      await loadItems();
+      this.setState({ cfModal: null });
+    };
+
+    const doSaveTxt = async (item, newTxt) => {
+      await fetch(CF_URL + '?id=eq.' + item.id, { method: 'PATCH', headers: { ...hdrs, Prefer: 'return=minimal' }, body: JSON.stringify({ text: newTxt }) });
+      await loadItems();
+      this.setState({ cfModal: null, cfModalTxt: '' });
+    };
+
+    const doDelete = async (item) => {
+      await fetch(CF_URL + '?id=eq.' + item.id, { method: 'DELETE', headers: hdrs });
+      await loadItems();
+      this.setState({ cfModal: null });
+    };
+
+    const agentItems = selAgent === 'all' ? items : items.filter(x => x.agent_id === selAgent || x.agent_id === 'all');
+    const pinned = agentItems.filter(x => x.important);
+    const dayStr = dayDate(cfDay);
+    const dayItems = agentItems.filter(x => !x.important && x.day_date === dayStr).sort((a,b) => b.created_at.localeCompare(a.created_at));
+
+    const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '';
+    const agName = id => { const ag = agents.find(a => a.id === id); return ag ? (ag.name || id).split(' ')[0] : (id === 'all' ? 'Alle agents' : id); };
+
+    const badge = (type) => e('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 8, textTransform: 'uppercase', letterSpacing: '.04em', background: typeColors[type]?.bg || 'var(--surface-2)', color: typeColors[type]?.text || 'var(--text-mute)' } }, typeColors[type]?.label || type);
+
+    const FeedItem = (item, i) => {
+      const isOpen = s.cfModal === item.id;
+      return e('div', { key: item.id, onClick: () => this.setState(isOpen ? { cfModal: null } : { cfModal: item.id, cfModalTxt: item.text }),
+        style: { display: 'flex', gap: 10, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer', background: item.important ? 'oklch(0.20 0.08 45 / .12)' : (isOpen ? 'var(--surface-2)' : 'transparent'), borderLeft: item.important ? '3px solid var(--warn)' : '3px solid transparent', transition: 'background .1s' } },
+        e('div', { style: { width: 2, borderRadius: 1, background: typeColors[item.type]?.border || 'var(--border)', flexShrink: 0, marginTop: 4 } }),
+        e('div', { style: { flex: 1, minWidth: 0 } },
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' } },
+            badge(item.type),
+            selAgent === 'all' ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 600 } }, agName(item.agent_id)) : null,
+            item.important ? e('span', { style: { fontSize: 11, color: 'var(--warn)', fontWeight: 700 } }, '⚑ Vastgepind') : null,
+            e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 'auto' } }, fmtTime(item.created_at))),
+          isOpen
+            ? e('div', { onClick: ev => ev.stopPropagation(), style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                e('textarea', { value: s.cfModalTxt !== undefined ? s.cfModalTxt : item.text, onChange: ev => this.setState({ cfModalTxt: ev.target.value }), rows: 3, style: { width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text)', fontFamily: 'inherit', fontSize: 13, padding: '9px 12px', resize: 'vertical', outline: 'none' } }),
+                item.action_text ? e('div', { style: { fontSize: 12.5, color: 'var(--text-dim)', padding: '8px 11px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border-soft)' } }, '→ Actie: ' + item.action_text) : null,
+                e('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                  e('button', { onClick: () => doSaveTxt(item, s.cfModalTxt || item.text), style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--accent-ink)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' } }, 'Opslaan'),
+                  e('button', { onClick: () => doToggleImp(item), style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (item.important ? 'var(--warn)' : 'var(--border)'), background: item.important ? 'oklch(0.20 0.10 75 / .15)' : 'transparent', color: item.important ? 'var(--warn)' : 'var(--text-mute)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' } }, item.important ? '⚑ Vastpinnen verwijderen' : '⚑ Vastpinnen'),
+                  e('button', { onClick: () => doDelete(item), style: { padding: '6px 14px', borderRadius: 8, border: '1px solid var(--down)', background: 'transparent', color: 'var(--down)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', marginLeft: 'auto' } }, 'Verwijderen')))
+            : e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.55 } }, item.text)));
+    };
+
+    const inps = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--text)', fontFamily: 'inherit', fontSize: 13, padding: '9px 12px', outline: 'none' };
+
+    // Left panel: agent list
+    const AgentList = e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
+      e('div', { style: { padding: '10px 14px', borderBottom: '1px solid var(--border-soft)', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, 'Call agents'),
+      [{ id: 'all', name: 'Alle agents', initials: '⊕' }, ...agents].map((ag, i) => {
+        const isSel = selAgent === ag.id;
+        return e('div', { key: ag.id, onClick: () => this.setState({ cfAgent: ag.id, cfDay: 0, cfLoaded: false }),
+          style: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < agents.length ? '1px solid var(--border-soft)' : 'none', cursor: 'pointer', background: isSel ? 'oklch(0.22 0.06 194 / .2)' : 'transparent' } },
+          e('div', { style: { width: 30, height: 30, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, color: 'var(--accent)', flexShrink: 0 } }, ag.id === 'all' ? '★' : (ag.name || '?')[0]),
+          e('div', null,
+            e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, ag.id === 'all' ? 'Alle agents' : (ag.name || ag.id)),
+            e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, ag.id === 'all' ? 'Gecombineerde feed' : (ag.email || ''))));
+      }));
+
+    // Composer
+    const Composer = e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 } },
+      e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, 'Feedback voor: ',
+        selAgent === 'all'
+          ? e('select', { value: s.cfPostAgent || 'all', onChange: ev => this.setState({ cfPostAgent: ev.target.value }),
+              style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7, color: 'var(--text)', fontFamily: 'inherit', fontSize: 12, padding: '3px 8px', outline: 'none', cursor: 'pointer', textTransform: 'none', letterSpacing: 'normal', fontWeight: 600 } },
+              e('option', { value: 'all' }, 'Alle agents'),
+              agents.map(ag => e('option', { key: ag.id, value: ag.id }, ag.name || ag.id)))
+          : e('span', { style: { color: 'var(--text)', textTransform: 'none', letterSpacing: 'normal', fontWeight: 600, fontSize: 12 } }, agName(selAgent))),
+      e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+        ['w','c','a'].map(t => e('button', { key: t, onClick: () => this.setState({ cfType: t }),
+          style: { padding: '5px 12px', borderRadius: 20, border: '1px solid ' + (cfType === t ? typeColors[t].border : 'var(--border)'), background: cfType === t ? typeColors[t].bg : 'transparent', color: cfType === t ? typeColors[t].text : 'var(--text-mute)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' } }, typeColors[t].label)),
+        e('button', { onClick: () => this.setState({ cfImp: !cfImp }),
+          style: { padding: '5px 12px', borderRadius: 20, border: '1px solid ' + (cfImp ? 'var(--warn)' : 'var(--border)'), background: cfImp ? 'oklch(0.22 0.10 75 / .15)' : 'transparent', color: cfImp ? 'var(--warn)' : 'var(--text-mute)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' } }, '⚑ Belangrijk')),
+      e('textarea', { value: s.cfText || '', onChange: ev => this.setState({ cfText: ev.target.value }), rows: 3, placeholder: cfType === 'w' ? 'Goed bezig vandaag — beschrijf wat er goed ging.' : cfType === 'c' ? 'Wat kan beter? Beschrijf concreet wat je hebt geobserveerd.' : 'Wat heb je gezien? Beschrijf de situatie.', style: { ...inps, resize: 'none', width: '100%' } }),
+      cfType === 'a' ? e('div', null,
+        e('div', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--text-mute)', marginBottom: 4 } }, 'Concrete actie:'),
+        e('input', { type: 'text', value: s.cfActTxt || '', onChange: ev => this.setState({ cfActTxt: ev.target.value }), placeholder: 'bijv. oefen het bezwaar-script op de volgende 3 calls', style: { ...inps, width: '100%' } })) : null,
+      e('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
+        e('button', { onClick: doPost, disabled: !!s.cfPosting, style: { padding: '8px 20px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--accent-ink)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: s.cfPosting ? .6 : 1 } }, s.cfPosting ? 'Plaatsen…' : 'Plaatsen')));
+
+    // Feed
+    const Feed = e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
+      e('div', { style: { padding: '10px 16px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 12 } },
+        e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 } }, selAgent === 'all' ? 'Alle agents' : agName(selAgent)),
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          e('button', { onClick: () => this.setState({ cfDay: cfDay + 1 }), style: { width: 26, height: 26, border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: 'var(--text-mute)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '‹'),
+          e('span', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', minWidth: 90, textAlign: 'center' } }, dayLabel(cfDay)),
+          e('button', { onClick: () => this.setState({ cfDay: Math.max(0, cfDay - 1) }), disabled: cfDay === 0, style: { width: 26, height: 26, border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', color: cfDay === 0 ? 'var(--border)' : 'var(--text-mute)', fontSize: 14, fontWeight: 700, cursor: cfDay === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, '›'))),
+      pinned.length ? e('div', null,
+        e('div', { style: { padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--warn)', textTransform: 'uppercase', letterSpacing: '.06em' } }, '⚑ Vastgepind'),
+        ...pinned.map(FeedItem),
+        dayItems.length ? e('div', { style: { height: 1, background: 'var(--border-soft)', margin: '4px 0' } }) : null) : null,
+      dayItems.length ? e('div', null, ...dayItems.map(FeedItem)) : (!pinned.length ? e('div', { style: { padding: 28, textAlign: 'center', fontSize: 13, color: 'var(--text-mute)' } }, 'Geen feedback voor deze dag.') : null));
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+      e('div', { style: { display: 'flex', gap: 14, alignItems: 'flex-start' } },
+        e('div', { style: { width: 210, flexShrink: 0 } }, AgentList),
+        e('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 } },
+          Composer, Feed)));
   },
 
 };

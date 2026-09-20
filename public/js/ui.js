@@ -34,7 +34,7 @@ const _DatePickerWidget = function({ value, onChange }) {
           const sel = ds === value, tod = ds === todayStr;
           return e('button', { key: di, type: 'button', onClick: () => { onChange(ds); setOpen(false); }, style: { padding: '7px 0', borderRadius: 8, border: tod && !sel ? '1.5px solid var(--accent)' : 'none', background: sel ? 'var(--accent)' : 'none', color: sel ? 'oklch(0.12 0 0)' : 'var(--text)', fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer', textAlign: 'center', fontFamily: "'JetBrains Mono'" } }, day);
         }))),
-      e('div', { onClick: () => setOpen(false), style: { position: 'fixed', inset: 0, zIndex: -1 } })) : null);
+      e('div', { onClick: () => setOpen(false), style: { position: 'fixed', inset: 0, zIndex: 9998 } })) : null);
 };
 
 // UI component builders (all return React elements via React.createElement)

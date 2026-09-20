@@ -122,15 +122,29 @@ async function handleMetaLeads(req, res, rawBody) {
 
       if (!company && !contact && !email) { console.warn('[meta-leads] No usable data, skipping'); continue; }
 
+      // Look up form mapping from platform_settings
+      let pipelineId = 'meta_ads', stage = 'new_lead', assigned = '', mappedSource = 'Meta forms';
+      try {
+        const settRows = await sbGet('platform_settings?key=eq.meta_lead_forms&select=value');
+        const forms = JSON.parse(settRows?.[0]?.value || '[]');
+        const mapping = forms.find(f => String(f.form_id) === String(formId));
+        if (mapping) {
+          pipelineId = mapping.pipeline_id || pipelineId;
+          stage = mapping.stage || stage;
+          assigned = mapping.assigned || assigned;
+          mappedSource = mapping.source || mappedSource;
+        }
+      } catch(err) { console.error('[meta-leads] Form mapping lookup failed:', err.message); }
+
       const row = {
         id: 'p' + Date.now() + Math.floor(Math.random() * 1000),
-        pipeline_id: 'meta_ads', stage: 'new_lead', source: 'Meta forms',
+        pipeline_id: pipelineId, stage, source: mappedSource,
         company: company || contact || 'Unknown', contact, email, phone,
         ad_name: adName, lead_id: String(leadId || ''), ad_id: adId, form_id: formId,
-        assigned: '', status: 'new', notes: '', caller_note: '',
+        assigned, status: 'new', notes: '', caller_note: '',
       };
       await sbInsert('prospects', row);
-      console.log('[meta-leads] Inserted:', row.company);
+      console.log('[meta-leads] Inserted:', row.company, '→', pipelineId, '/', stage);
     }
   }
   return res.status(200).json({ ok: true });
@@ -493,9 +507,39 @@ async function handleMetaSetup(req, res) {
   return res.status(200).json({ pages: pages.map(p => ({ id: p.id, name: p.name })), results });
 }
 
+async function handleMetaForms(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!token) return res.status(500).json({ error: 'WHATSAPP_ACCESS_TOKEN not set' });
+  try {
+    const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${token}&fields=id,name,access_token`);
+    const pagesData = await pagesRes.json();
+    if (pagesData.error) return res.status(200).json({ forms: [], error: pagesData.error.message });
+    const pages = pagesData.data || [];
+    if (pages.length === 0) {
+      return res.status(200).json({ forms: [], error: 'Geen Facebook pagina\'s gevonden via dit token. Zorg dat het WHATSAPP_ACCESS_TOKEN een Facebook User Access Token is met pages_show_list en leads_retrieval permissies (niet een WhatsApp system user token).' });
+    }
+    const forms = [];
+    for (const page of pages) {
+      const pageToken = page.access_token || token;
+      const formsRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/leadgen_forms?access_token=${pageToken}&fields=id,name,status&limit=100`);
+      const formsData = await formsRes.json();
+      if (formsData.data) {
+        for (const f of formsData.data) {
+          forms.push({ id: f.id, name: f.name, status: f.status, page_id: page.id, page_name: page.name });
+        }
+      }
+    }
+    return res.status(200).json({ forms });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 export default async function handler(req, res) {
   const rawBody = await getRawBody(req);
   if (req.query.source === 'meta-setup') return handleMetaSetup(req, res);
+  if (req.query.source === 'meta-forms') return handleMetaForms(req, res);
   if (req.query.source === 'meta') return handleMetaLeads(req, res, rawBody);
   if (req.method === 'GET') return handleGet(req, res);
   if (req.method === 'POST') return handlePost(req, res, rawBody);

@@ -1919,31 +1919,43 @@ const Modals = {
         return [{ id: 'nieuwe_leads', label: 'Nieuwe leads' }, { id: 'first_call', label: 'First Call' }, { id: 'gewonnen', label: 'Gewonnen' }, { id: 'niet_gewonnen', label: 'Niet gewonnen' }];
       })();
       const editingP = !!f.editingProspect;
+      const spList = f.salespeople || [];
+      const spOptions = [{ v: '', l: '— Geen —' }, ...spList.map(sp => ({ v: sp.name, l: sp.name }))];
       if (editingP) {
-        return wrap('Edit prospect — ' + p.company, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-          UI.Grid('1fr 1fr', 10, UI.Field('Company', UI.Input(f.pCompany !== undefined ? f.pCompany : (p.company || ''), v => this.setForm('pCompany', v))), UI.Field('Contact', UI.Input(f.pContact !== undefined ? f.pContact : (p.contact || ''), v => this.setForm('pContact', v)))),
-          UI.Grid('1fr 1fr', 10, UI.Field('Phone', UI.Input(f.pPhone !== undefined ? f.pPhone : (p.phone || ''), v => this.setForm('pPhone', v))), UI.Field('Email', UI.Input(f.pEmail !== undefined ? f.pEmail : (p.email || ''), v => this.setForm('pEmail', v)))),
-          UI.Grid('1fr 1fr', 10, UI.Field('Owner', UI.Input(f.pOwner !== undefined ? f.pOwner : (p.assigned || ''), v => this.setForm('pOwner', v))), UI.Field('Source', UI.Select(f.pSource !== undefined ? f.pSource : (p.source || 'LinkedIn'), v => this.setForm('pSource', v), [{ v: 'LinkedIn', l: 'LinkedIn' }, { v: 'Cold email', l: 'Cold email' }, { v: 'Referral', l: 'Referral' }, { v: 'Meta forms', l: 'Meta forms' }, { v: 'Website', l: 'Website' }, { v: 'Cold call', l: 'Cold call' }]))),
-          UI.Grid('1fr 1fr', 10, UI.Field('Bellen op', UI.Input(f.pCallOn !== undefined ? f.pCallOn : (p.call_on || ''), v => this.setForm('pCallOn', v), '', 'date')), UI.Field('Omzet / Revenue', UI.Input(f.pRevenue !== undefined ? f.pRevenue : (p.revenue || ''), v => this.setForm('pRevenue', v)))),
-          UI.Field('Opmerking beller', UI.Input(f.pCallerNote !== undefined ? f.pCallerNote : (p.caller_note || ''), v => this.setForm('pCallerNote', v))),
-          UI.Field('Opmerkingen / notes', UI.Area(f.pNotes !== undefined ? f.pNotes : (p.notes || ''), v => this.setForm('pNotes', v)))),
-          [UI.Btn('Cancel', () => this.setForm('editingProspect', false), 'soft'),
-           UI.Btn('Save', () => {
+        const g = (key, fallback) => f['p_' + key] !== undefined ? f['p_' + key] : (p[key] || fallback || '');
+        const sf = (key, v) => this.setForm('p_' + key, v);
+        return wrap('Bewerk prospect — ' + p.company, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+          UI.Grid('1fr 1fr', 10, UI.Field('Bedrijf', UI.Input(g('company'), v => sf('company', v))), UI.Field('Contactpersoon', UI.Input(g('contact'), v => sf('contact', v)))),
+          UI.Grid('1fr 1fr', 10, UI.Field('Telefoon', UI.Input(g('phone'), v => sf('phone', v))), UI.Field('E-mail', UI.Input(g('email'), v => sf('email', v)))),
+          UI.Grid('1fr 1fr', 10,
+            UI.Field('Sales persoon', UI.Select(g('assigned'), v => sf('assigned', v), spOptions)),
+            UI.Field('Lead Source', UI.Select(g('lead_source'), v => sf('lead_source', v), [{ v: '', l: '— Geen —' }, { v: 'Cold Calling', l: 'Cold Calling' }, { v: 'Cold Email', l: 'Cold Email' }, { v: 'Meta Ads', l: 'Meta Ads' }, { v: 'Website', l: 'Website' }, { v: 'Direct Inbound', l: 'Direct Inbound' }, { v: 'Referral', l: 'Referral' }]))),
+          UI.Grid('1fr 1fr', 10,
+            UI.Field('Bron (historisch)', UI.Select(g('source'), v => sf('source', v), [{ v: '', l: '— Geen —' }, { v: 'LinkedIn', l: 'LinkedIn' }, { v: 'Cold email', l: 'Cold email' }, { v: 'Referral', l: 'Referral' }, { v: 'Meta forms', l: 'Meta forms' }, { v: 'Website', l: 'Website' }, { v: 'Cold call', l: 'Cold call' }])),
+            UI.Field('Omzet / Revenue', UI.Input(g('revenue'), v => sf('revenue', v)))),
+          UI.Grid('1fr 1fr', 10, UI.Field('Afspraak datum', UI.Input(g('appointment_date'), v => sf('appointment_date', v), '', 'date')), UI.Field('Bellen op', UI.Input(g('call_on'), v => sf('call_on', v), '', 'date'))),
+          UI.Field('Opmerking beller', UI.Input(g('caller_note'), v => sf('caller_note', v))),
+          UI.Field('Opmerkingen / notes', UI.Area(g('notes'), v => sf('notes', v)))),
+          [UI.Btn('Annuleer', () => this.setForm('editingProspect', false), 'soft'),
+           UI.Btn('Opslaan', () => {
+             const g2 = (key, fallback) => f['p_' + key] !== undefined ? f['p_' + key] : (p[key] || fallback || '');
              const updates = {
-               company: f.pCompany !== undefined ? f.pCompany : p.company,
-               contact: f.pContact !== undefined ? f.pContact : (p.contact||''),
-               phone: f.pPhone !== undefined ? f.pPhone : (p.phone||''),
-               email: f.pEmail !== undefined ? f.pEmail : (p.email||''),
-               assigned: f.pOwner !== undefined ? f.pOwner : (p.assigned||''),
-               source: f.pSource !== undefined ? f.pSource : (p.source||''),
-               call_on: f.pCallOn !== undefined ? f.pCallOn : (p.call_on||null),
-               revenue: f.pRevenue !== undefined ? f.pRevenue : (p.revenue||''),
-               caller_note: f.pCallerNote !== undefined ? f.pCallerNote : (p.caller_note||''),
-               notes: f.pNotes !== undefined ? f.pNotes : (p.notes||''),
+               company: g2('company') || p.company,
+               contact: g2('contact'),
+               phone: g2('phone'),
+               email: g2('email'),
+               assigned: g2('assigned'),
+               lead_source: g2('lead_source'),
+               source: g2('source'),
+               appointment_date: g2('appointment_date') || null,
+               call_on: g2('call_on') || null,
+               revenue: g2('revenue'),
+               caller_note: g2('caller_note'),
+               notes: g2('notes'),
              };
              this.updateProspectDetail(p.id, updates);
              this.setState(st => ({ form: { ...st.form, editingProspect: false, prospect: { ...p, ...updates } } }));
-           }, 'primary')], '580px');
+           }, 'primary')], '620px');
       }
       const kv = (label, val) => val ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, label + ': '), e('span', { style: { color: 'var(--text)', fontSize: 13.5 } }, val)) : null;
       return wrap(p.company || 'Prospect', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
@@ -2006,7 +2018,7 @@ const Modals = {
                 this.toast('Fout', 'Analyse mislukt: ' + err.message, 'var(--down)');
               }
             }, 'primary', { opacity: f.transcriptLoading ? 0.6 : 1, pointerEvents: f.transcriptLoading ? 'none' : 'auto' }))) : null,
-        [UI.Btn('Edit', () => this.setForm('editingProspect', true), 'soft'),
+        [UI.Btn('✏️ Bewerken', () => this.setForm('editingProspect', true), 'soft'),
          UI.Btn('🎙 Analyseer gesprek', () => this.setForm('showTranscriptInput', !f.showTranscriptInput), f.showTranscriptInput ? 'soft' : 'ghost'),
          UI.Btn('Follow-up', () => { this.closeModal(); this.openModal('prospectFollowup', { prospect: p }); }, 'ghost'),
          UI.Btn('Create contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, partyType: 'client', company: p.company, contact: p.contact, email: p.email || '' }); }, 'primary')], '600px');
