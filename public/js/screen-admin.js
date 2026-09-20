@@ -2817,8 +2817,7 @@ const ScreenAdmin = {
             }
             const cellColor = col.bold ? 'var(--text)' : 'var(--text-dim)';
             return e('div', { key: col.key,
-              onClick: ev => ev.stopPropagation(),
-              style: { ...cellSt(col), color: cellColor, fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined, cursor: 'default', display: 'flex', alignItems: 'center', gap: 4 },
+              style: { ...cellSt(col), color: cellColor, fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 },
             },
               e('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                 val
