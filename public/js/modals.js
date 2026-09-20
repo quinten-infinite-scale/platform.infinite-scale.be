@@ -101,7 +101,7 @@ const Modals = {
           UI.Hd(title, { fontSize: 18 }),
           e('button', { onClick: () => this.closeModal(), style: { width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', cursor: 'pointer' } },
             e('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, style: { display: 'block', margin: 'auto' } }, e('path', { d: 'M6 6l12 12M18 6 6 18' })))),
-        e('div', { style: { padding: '22px' } }, body),
+        e('div', { style: { padding: '22px', overflowY: 'auto', maxHeight: 'calc(80vh - 130px)' } }, body),
         footer ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 22px', borderTop: '1px solid var(--border-soft)', flexWrap: 'wrap' } }, ...footer) : null)
     });
 
