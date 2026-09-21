@@ -809,7 +809,7 @@ class Component extends DCLogic {
       };
       let rnLeadId = null;
       try {
-        const rnRes = await fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
+        const rnRes = await fetch('/api/renocheck?action=lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
         if (!rnRes.ok) {
           const errText = await rnRes.text();
           console.error('Renocheck API error:', errText);

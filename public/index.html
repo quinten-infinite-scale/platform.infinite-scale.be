@@ -686,7 +686,7 @@ class Component extends DCLogic {
       // Fire Renocheck API in background — appointment is saved regardless of outcome
       const description = intakeData ? [intakeData.info_project||'', intakeData.timing||''].filter(Boolean).join(' — ') : '';
       const rnPayload = { category: f.rnCategory, firstname: f.rnFirst||'', lastname: f.rnLast||'', email: f.rnEmail||'', phonenumber: f.phone, street: f.rnStreet||'', number: f.rnNumber||'', zipcode: f.rnPostal||'', city: f.rnCity||'', ...(description ? { description } : {}), ...(intakeData ? { data: intakeData } : {}) };
-      fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) })
+      fetch('/api/renocheck?action=lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) })
         .then(r => { if (!r.ok) r.text().then(t => this.toast('Renocheck waarschuwing', 'Lead kon niet doorgestuurd worden: ' + t.slice(0, 80), 'var(--warn)')); })
         .catch(() => this.toast('Renocheck waarschuwing', 'Kon Renocheck niet bereiken. Afspraak wél opgeslagen.', 'var(--warn)'));
     }

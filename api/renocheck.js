@@ -1,11 +1,24 @@
-// Daily Renocheck status sync — can be called from n8n cron or manually
-// GET  /api/renocheck-status?mode=check  → returns all Renocheck appts needing status update
-// POST /api/renocheck-status             → runs full sync, updates clientFeedback in Supabase
+// Merged renocheck-lead + renocheck-status into one function to stay under Vercel Hobby 12-function limit.
+// POST /api/renocheck?action=lead   → create a new Renocheck lead
+// GET  /api/renocheck?action=status → list appts needing status update
+// POST /api/renocheck?action=status → run full Renocheck status sync
 
 const RN_AUTH = '9bc5fb0e-2ca3-4779-ae84-4a13bcac6271';
 const RN_BASE = 'https://renocheck.be/api/v2';
 const SB_URL = process.env.SUPABASE_URL;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+const CAT_SLUGS = {
+  'Airco': 'airco',
+  'Thuisbatt': 'thuisbatterijen',
+  'Zonnepanelen': 'zonnepanelen',
+  'Ramen en deuren': 'ramen-deuren',
+  'Keukens': 'keuken',
+  'Badkamers': 'badkamer',
+  'Crepi': 'crepi',
+  'Dak': 'dak-renovatie',
+  'Chapewerken': 'chapewerken',
+};
 
 async function rnGet(path) {
   const r = await fetch(`${RN_BASE}${path}`, {
@@ -32,13 +45,55 @@ async function sbPatch(table, query, body) {
   return r.ok;
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+async function handleLead(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Fetch all Renocheck appointments (client_id = c15) that have clientFeedback with _rn flag
+  const {
+    category, firstname, lastname, email, phonenumber,
+    street, number, zipcode, city, external_id, description, data,
+  } = req.body || {};
+
+  if (!category || !firstname || !phonenumber) {
+    return res.status(400).json({ error: 'Missing required fields: category, firstname, phonenumber' });
+  }
+
+  const category_slug = CAT_SLUGS[category];
+  if (!category_slug) {
+    return res.status(400).json({ error: 'Unknown category: ' + category });
+  }
+
+  const payload = {
+    category: category_slug,
+    full_name: [firstname, lastname || ''].filter(Boolean).join(' '),
+    phone: phonenumber,
+    email: email || '',
+    street: street || '',
+    number: number || '',
+    zipcode: zipcode || '',
+    city: city || '',
+    external_id: external_id || ('IS-' + Date.now()),
+    ...(description ? { description } : {}),
+    ...(data ? { data } : {}),
+  };
+
+  const r = await fetch('https://renocheck.be/api/v2/leads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': RN_AUTH },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await r.text();
+  if (!r.ok) {
+    console.error('renocheck lead error:', r.status, text);
+    return res.status(r.status).json({ error: text });
+  }
+
+  let data2;
+  try { data2 = JSON.parse(text); } catch { data2 = { raw: text }; }
+  return res.status(200).json({ ok: true, data: data2 });
+}
+
+async function handleStatus(req, res) {
   const appts = await sbGet('appointments', '?client_id=eq.c15&select=id,client_feedback,lead_name,sub_client_id&order=date_logged.desc&limit=1000');
   if (!appts || !appts.length) return res.status(200).json({ ok: true, checked: 0, updated: 0 });
 
@@ -47,7 +102,6 @@ export default async function handler(req, res) {
     catch(_) { return false; }
   });
 
-  // Backfill: appointments with _rn but no external_id/rn_id — match by name + category via search
   const backfillAppts = appts.filter(a => {
     try { const fb = JSON.parse(a.client_feedback || '{}'); return fb._rn && !fb.external_id && !fb.rn_id; }
     catch(_) { return false; }
@@ -61,10 +115,6 @@ export default async function handler(req, res) {
   const errors = [];
   let backfilled = 0;
 
-  // Category map: sub_client_id → Renocheck category slug (unused but kept for reference)
-  // const CAT_MAP = { airco: 'airco', thuisbatt: 'thuisbatterijen', ... };
-
-  // Backfill: match old appointments (no external_id/rn_id) by name+category
   for (const appt of backfillAppts) {
     try {
       let fb;
@@ -73,12 +123,10 @@ export default async function handler(req, res) {
       const catSlug = appt.sub_client_id || fb.category || fb.categorie || '';
       if (!name) continue;
 
-      // Try searching Renocheck by name
       const searchResults = await rnGet(`/leads?search=${encodeURIComponent(name)}&limit=20`);
       const candidates = Array.isArray(searchResults) ? searchResults : (searchResults?.data || []);
       if (!candidates.length) continue;
 
-      // Match by name (case-insensitive) and optionally category
       const normalName = name.toLowerCase().trim();
       let match = candidates.find(c => {
         const cName = ((c.name || c.naam || c.first_name || '') + ' ' + (c.last_name || c.achternaam || '')).toLowerCase().trim();
@@ -105,7 +153,7 @@ export default async function handler(req, res) {
       };
       const ok = await sbPatch('appointments', `?id=eq.${appt.id}`, { client_feedback: JSON.stringify(updatedFb) });
       if (ok) backfilled++;
-    } catch(err) { /* skip silently */ }
+    } catch(_) {}
   }
 
   for (const appt of rnAppts) {
@@ -113,11 +161,8 @@ export default async function handler(req, res) {
       let fb;
       try { fb = JSON.parse(appt.client_feedback); } catch(_) { continue; }
 
-      // Look up by external_id or rn_id
       let rnLead = null;
-      if (fb.rn_id) {
-        rnLead = await rnGet(`/leads/${fb.rn_id}`);
-      }
+      if (fb.rn_id) rnLead = await rnGet(`/leads/${fb.rn_id}`);
       if (!rnLead && fb.external_id) {
         const list = await rnGet(`/leads?external_id=${encodeURIComponent(fb.external_id)}`);
         rnLead = Array.isArray(list) ? list[0] : (list?.data?.[0] || null);
@@ -148,4 +193,17 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ ok: true, checked: rnAppts.length, updated, backfilled, errors: errors.length ? errors : undefined });
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const action = req.query?.action || (req.url?.includes('action=') ? new URL('http://x' + req.url).searchParams.get('action') : null);
+
+  if (action === 'lead') return handleLead(req, res);
+  if (action === 'status' || !action) return handleStatus(req, res);
+  return res.status(400).json({ error: 'Unknown action. Use ?action=lead or ?action=status' });
 }
