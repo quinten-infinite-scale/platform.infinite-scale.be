@@ -4636,6 +4636,16 @@ const ScreenAdmin = {
         e('div', { style: { display: 'flex', gap: 5 } },
           userFilter === 'all' ? e('select', { value: s[addKey + '_u'] || myId, onChange: ev => this.setState({ [addKey + '_u']: ev.target.value }), style: { flex: 1, padding: '5px 7px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } },
             USERS.map(u => e('option', { key: u.id, value: u.id }, u.label))) : null,
+          e('button', { onClick: () => {
+            const title = (s[addKey + '_t'] || '').trim(); if (!title) return;
+            const priority = s[addKey + '_p'] || 'normal';
+            const notesEncoded = encodePriority(priority, s[addKey + '_n'] || '');
+            const owner = userFilter === 'all' ? (s[addKey + '_u'] || myId) : userFilter;
+            const allForUser = (todos || []).filter(t => t.created_by === owner && !t.completed_at);
+            const maxIdx = allForUser.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
+            fetch(`${SB_URL}/rest/v1/todos`, { method: 'POST', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ title, notes: notesEncoded, created_by: owner, day, stage: sg.id, order_idx: maxIdx + 1, category: s[addKey + '_c'] || null, deadline: s[addKey + '_d'] || null }) })
+              .then(r => r.json()).then(rows => { if (Array.isArray(rows) && rows[0]) { this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], [addKey]: false, [addKey + '_t']: '', [addKey + '_p']: 'normal', [addKey + '_n']: '', [addKey + '_c']: '', [addKey + '_d']: '' })); } });
+          }, style: { padding: '5px 14px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Opslaan'),
           e('button', { onClick: () => this.setState({ [addKey]: false }), style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Annuleren'))) : null;
 
       return e('div', { key: sg.id,
