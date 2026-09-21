@@ -1127,20 +1127,33 @@ const ScreenAgent = {
 
     const badge = (type) => e('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 8, textTransform: 'uppercase', letterSpacing: '.04em', background: typeColors[type]?.bg || 'var(--surface-2)', color: typeColors[type]?.text || 'var(--text-mute)' } }, typeColors[type]?.label || type);
 
-    const FeedItem = (item) => e('div', { key: item.id,
-      style: { display: 'flex', gap: 10, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', background: item.important ? 'oklch(0.20 0.08 45 / .10)' : 'transparent', borderLeft: item.important ? '3px solid var(--warn)' : '3px solid transparent' } },
-      e('div', { style: { width: 2, borderRadius: 1, background: typeColors[item.type]?.border || 'var(--border)', flexShrink: 0, marginTop: 4 } }),
-      e('div', { style: { flex: 1, minWidth: 0 } },
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' } },
-          badge(item.type),
-          item.important ? e('span', { style: { fontSize: 11, color: 'var(--warn)', fontWeight: 700 } }, '⚑') : null,
-          e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 'auto' } }, new Date(item.created_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }))),
-        e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.55 } }, item.text),
-        item.action_text ? e('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 9, padding: '8px 11px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border-soft)' } },
-          e('div', { onClick: () => doToggleDone(item),
-            style: { width: 18, height: 18, borderRadius: 4, border: '1.5px solid ' + (item.action_done ? 'var(--up)' : 'var(--border)'), background: item.action_done ? 'var(--up)' : 'transparent', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 } },
-            item.action_done ? e('svg', { width: 10, height: 10, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--accent-ink)', strokeWidth: 3.5 }, e('polyline', { points: '20 6 9 17 4 12' })) : null),
-          e('span', { style: { fontSize: 12.5, color: item.action_done ? 'var(--text-mute)' : 'var(--text-dim)', lineHeight: 1.5, textDecoration: item.action_done ? 'line-through' : 'none' } }, item.action_text)) : null));
+    const decodeItem = (item) => { try { if (item.text && item.text.startsWith('{"t":')) { const p = JSON.parse(item.text); return { ...item, _text: p.t || '', _files: p.a || [] }; } } catch(_) {} return { ...item, _text: item.text || '', _files: [] }; };
+
+    const FeedItem = (item) => {
+      const dec = decodeItem(item);
+      return e('div', { key: item.id,
+        style: { display: 'flex', gap: 10, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', background: item.important ? 'oklch(0.20 0.08 45 / .10)' : 'transparent', borderLeft: item.important ? '3px solid var(--warn)' : '3px solid transparent' } },
+        e('div', { style: { width: 2, borderRadius: 1, background: typeColors[item.type]?.border || 'var(--border)', flexShrink: 0, marginTop: 4 } }),
+        e('div', { style: { flex: 1, minWidth: 0 } },
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' } },
+            badge(item.type),
+            item.important ? e('span', { style: { fontSize: 11, color: 'var(--warn)', fontWeight: 700 } }, '⚑') : null,
+            dec._files.length > 0 ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, '📎 ' + dec._files.length) : null,
+            e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 'auto' } }, new Date(item.created_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }))),
+          e('div', { style: { fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.55 } }, dec._text),
+          dec._files.length > 0 ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 } },
+            dec._files.map((f, i) => f.kind === 'audio'
+              ? e('div', { key: i, style: { background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border-soft)', padding: '8px 12px' } },
+                  e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 5 } }, '🎙 ' + f.name),
+                  e('audio', { controls: true, src: f.url, style: { width: '100%', height: 32 } }))
+              : e('a', { key: i, href: f.url, target: '_blank', rel: 'noopener', style: { display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-soft)', maxWidth: 260 } },
+                  e('img', { src: f.url, alt: f.name, style: { width: '100%', display: 'block', maxHeight: 180, objectFit: 'cover' } })))) : null,
+          item.action_text ? e('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 9, padding: '8px 11px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border-soft)' } },
+            e('div', { onClick: () => doToggleDone(item),
+              style: { width: 18, height: 18, borderRadius: 4, border: '1.5px solid ' + (item.action_done ? 'var(--up)' : 'var(--border)'), background: item.action_done ? 'var(--up)' : 'transparent', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 } },
+              item.action_done ? e('svg', { width: 10, height: 10, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--accent-ink)', strokeWidth: 3.5 }, e('polyline', { points: '20 6 9 17 4 12' })) : null),
+            e('span', { style: { fontSize: 12.5, color: item.action_done ? 'var(--text-mute)' : 'var(--text-dim)', lineHeight: 1.5, textDecoration: item.action_done ? 'line-through' : 'none' } }, item.action_text)) : null));
+    };
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
       // Progress header

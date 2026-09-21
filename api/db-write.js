@@ -14,8 +14,10 @@ const ALLOWED_TABLES = new Set([
   'tickets', 'recruits', 'prospects', 'contracts', 'events', 'notifications',
   'agent_schedules', 'activity_log', 'platform_settings', 'presence',
   'invoice_states', 'whatsapp_messages', 'client_whatsapp_templates',
-  'dials', 'dials_hourly', 'profiles',
+  'dials', 'dials_hourly', 'profiles', 'coaching_feed',
 ]);
+
+const ALLOWED_BUCKETS = new Set(['contracts', 'coaching']);
 
 export const config = { api: { bodyParser: false } };
 
@@ -206,19 +208,37 @@ TRANSCRIPT:\n${transcript}`;
   // Storage upload: detected by x-file-path header
   const filePath = req.headers['x-file-path'];
   if (filePath) {
-    // Sanitise the path to prevent path traversal
     const safePath = filePath.replace(/\.\./g, '').replace(/^\/+/, '');
+    const rawBucket = (req.headers['x-bucket'] || 'contracts').replace(/[^a-z0-9-]/g, '');
+    const bucket = ALLOWED_BUCKETS.has(rawBucket) ? rawBucket : 'contracts';
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const buffer = Buffer.concat(chunks);
-    const r = await fetch(`${SB_URL}/storage/v1/object/contracts/${safePath}`, {
+    const contentType = req.headers['content-type'] || 'application/octet-stream';
+
+    // Auto-create bucket if it doesn't exist (idempotent)
+    await fetch(`${SB_URL}/storage/v1/bucket`, {
       method: 'POST',
-      headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': req.headers['content-type'] || 'application/pdf' },
+      headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: bucket, name: bucket, public: true }),
+    }).catch(() => {});
+
+    const r = await fetch(`${SB_URL}/storage/v1/object/${bucket}/${safePath}`, {
+      method: 'POST',
+      headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': contentType },
       body: buffer,
     });
     const text = await r.text();
-    if (!r.ok) return res.status(r.status).json({ ok: false, error: text });
-    return res.status(200).json({ ok: true, url: `${SB_URL}/storage/v1/object/public/contracts/${safePath}` });
+    if (!r.ok) {
+      // If already exists, try PUT (update)
+      const r2 = await fetch(`${SB_URL}/storage/v1/object/${bucket}/${safePath}`, {
+        method: 'PUT',
+        headers: { 'apikey': SERVICE_KEY, 'Authorization': `Bearer ${SERVICE_KEY}`, 'Content-Type': contentType },
+        body: buffer,
+      });
+      if (!r2.ok) return res.status(r2.status).json({ ok: false, error: await r2.text() });
+    }
+    return res.status(200).json({ ok: true, url: `${SB_URL}/storage/v1/object/public/${bucket}/${safePath}` });
   }
 
   // JSON body for DB writes
