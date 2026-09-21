@@ -2021,6 +2021,21 @@ const Modals = {
         [UI.Btn('✏️ Bewerken', () => this.setForm('editingProspect', true), 'soft'),
          UI.Btn('🎙 Analyseer gesprek', () => this.setForm('showTranscriptInput', !f.showTranscriptInput), f.showTranscriptInput ? 'soft' : 'ghost'),
          UI.Btn('Follow-up', () => { this.closeModal(); this.openModal('prospectFollowup', { prospect: p }); }, 'ghost'),
+         UI.Btn('📅 Kennismaking', () => {
+           const sps = f.salespeople || [];
+           const person = sps.find(sp => sp.name === p.assigned);
+           const url = person?.calendly_url || '';
+           if (!url) { alert('Geen Calendly URL voor ' + (p.assigned || 'de salesperson') + '. Stel dit in via de Salespeople tab.'); return; }
+           const prefill = { name: p.contact || '', email: p.email || '', customAnswers: { a1: p.company || '' } };
+           if (!window._calendlyLoaded) {
+             window._calendlyLoaded = true;
+             const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://assets.calendly.com/assets/external/widget.css'; document.head.appendChild(css);
+             const scr = document.createElement('script'); scr.src = 'https://assets.calendly.com/assets/external/widget.js'; document.head.appendChild(scr);
+             setTimeout(() => window.Calendly?.initPopupWidget({ url, prefill }), 600);
+             return;
+           }
+           window.Calendly?.initPopupWidget({ url, prefill });
+         }, 'primary', { background: '#00a86b' }),
          UI.Btn('Create contract', () => { this.closeModal(); this.openModal('wizard', { step: 0, partyType: 'client', company: p.company, contact: p.contact, email: p.email || '' }); }, 'primary')], '600px');
     }
 
