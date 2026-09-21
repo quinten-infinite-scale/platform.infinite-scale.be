@@ -4762,30 +4762,14 @@ const ScreenAdmin = {
     if (dialsDayLoaded === undefined && !dialsDayLoading) {
       this.setState({ ['_dialsLoading_' + dialsDay]: true });
       const _fetchDay = dialsDay;
-      fetch(`${SB_URL}/rest/v1/dials_hourly?date=eq.${_fetchDay}&select=agent_id,total_dials`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+      fetch(`${SB_URL}/rest/v1/dials_hourly?dial_date=eq.${_fetchDay}&select=agent_id,count`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
         .then(r => r.json()).then(rows => {
           const map = {};
-          (rows || []).forEach(r => { map[r.agent_id] = (map[r.agent_id] || 0) + (r.total_dials || 0); });
+          (rows || []).forEach(r => { map[r.agent_id] = (map[r.agent_id] || 0) + (r.count || 0); });
           this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [_fetchDay]: map }, ['_dialsLoading_' + _fetchDay]: false }));
         }).catch(() => this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [_fetchDay]: {} }, ['_dialsLoading_' + _fetchDay]: false })));
     }
-    // Today's revenue per agent
-    const revenueToday = s._revenueToday;
-    if (!revenueToday && !s._revLoading) {
-      this.setState({ _revLoading: true });
-      const cfg = typeof Config !== 'undefined' ? Config : null;
-      fetch(`${SB_URL}/rest/v1/appointments?date_logged=eq.${today}&status=in.(show,cancel)&select=agent_id,status,client_id,sub_client_id,amount`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
-        .then(r => r.json()).then(rows => {
-          const map = {};
-          (rows || []).forEach(r => {
-            const amt = r.amount || 0;
-            if (r.status === 'show') map[r.agent_id] = (map[r.agent_id] || 0) + amt;
-          });
-          this.setState({ _revenueToday: map, _revLoading: false });
-        }).catch(() => this.setState({ _revenueToday: {}, _revLoading: false }));
-    }
     const dialsMap = dialsByDay[dialsDay] || {};
-    const revMap = s._revenueToday || {};
 
     // Month navigation for target overview
     const viewMonth = s._viewMonth || today.slice(0, 7);
@@ -4830,7 +4814,9 @@ const ScreenAdmin = {
     const agentRow = (agent) => {
       const t = agentTargets[agent.id] || {};
       const dialsActual = dialsMap[agent.id] || 0;
-      const revActual = revMap[agent.id] || 0;
+      const revActual = (d.appointments || [])
+        .filter(a => a.dateLog === dialsDay && a.status === 'show' && a.agentId === agent.id)
+        .reduce((sum, a) => sum + cRate(a), 0);
       const isCopied = s._copiedAgent === agent.id;
       return e('div', { key: agent.id, style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)' } },
         e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, agent.name || agent.id),

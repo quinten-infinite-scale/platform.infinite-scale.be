@@ -236,11 +236,21 @@ class Component extends DCLogic {
       if (role !== 'admin') return;
 
       // Refresh admin targets dials_hourly cache for today
-      const dialsHourlyToday = await SB.get('dials_hourly', `?date=eq.${todayDialsDate}&select=agent_id,total_dials`).catch(() => null);
+      const dialsHourlyToday = await SB.get('dials_hourly', `?dial_date=eq.${todayDialsDate}&select=agent_id,hour,count`).catch(() => null);
       if (dialsHourlyToday) {
+        // Build per-day totals for targets screen: { agent_id: total }
         const hMap = {};
-        (dialsHourlyToday || []).forEach(r => { hMap[r.agent_id] = (hMap[r.agent_id] || 0) + (r.total_dials || 0); });
+        (dialsHourlyToday || []).forEach(r => { hMap[r.agent_id] = (hMap[r.agent_id] || 0) + (r.count || 0); });
         this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [todayDialsDate]: hMap } }));
+        // Build per-hour structure for stats hourly chart: { agent_id: { date: { hour: count } } }
+        this.mutLocal(dd => {
+          if (!dd.dialsHourly) dd.dialsHourly = {};
+          (dialsHourlyToday || []).forEach(r => {
+            if (!dd.dialsHourly[r.agent_id]) dd.dialsHourly[r.agent_id] = {};
+            if (!dd.dialsHourly[r.agent_id][todayDialsDate]) dd.dialsHourly[r.agent_id][todayDialsDate] = {};
+            dd.dialsHourly[r.agent_id][todayDialsDate][r.hour] = r.count;
+          });
+        });
       }
 
       // Every 2 minutes: full refresh of current-month appointments so status/rate changes
