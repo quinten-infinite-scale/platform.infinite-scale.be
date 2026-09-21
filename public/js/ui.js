@@ -2,6 +2,7 @@
 const _DatePickerWidget = function({ value, onChange }) {
   const e = React.createElement;
   const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
   const todayStr = new Date().toISOString().slice(0, 10);
   const initMonth = value ? value.slice(0, 7) : todayStr.slice(0, 7);
   const [month, setMonth] = React.useState(initMonth);
@@ -16,7 +17,13 @@ const _DatePickerWidget = function({ value, onChange }) {
   while (cells.length % 7) cells.push(null);
   const rows = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
   const btnBase = { background: 'none', border: 'none', cursor: 'pointer', borderRadius: 6, padding: '4px 8px', color: 'var(--text-dim)', fontSize: 17, lineHeight: 1 };
-  return e('div', { style: { position: 'relative' } },
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (ev) => { if (ref.current && !ref.current.contains(ev.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler, true);
+    return () => document.removeEventListener('mousedown', handler, true);
+  }, [open]);
+  return e('div', { ref, style: { position: 'relative' } },
     e('button', { type: 'button', onClick: () => setOpen(o => !o), style: { width: '100%', padding: '10px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: value ? 'var(--text)' : 'var(--text-dim)', fontSize: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'Manrope'" } },
       e('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, style: { flexShrink: 0, opacity: 0.7 } }, e('rect', { x: 3, y: 4, width: 18, height: 18, rx: 2, ry: 2 }), e('path', { d: 'M16 2v4M8 2v4M3 10h18' })),
       displayVal || 'Selecteer datum…'),
@@ -33,8 +40,7 @@ const _DatePickerWidget = function({ value, onChange }) {
           const ds = yr + '-' + String(mo).padStart(2,'0') + '-' + String(day).padStart(2,'0');
           const sel = ds === value, tod = ds === todayStr;
           return e('button', { key: di, type: 'button', onClick: () => { onChange(ds); setOpen(false); }, style: { padding: '7px 0', borderRadius: 8, border: tod && !sel ? '1.5px solid var(--accent)' : 'none', background: sel ? 'var(--accent)' : 'none', color: sel ? 'oklch(0.12 0 0)' : 'var(--text)', fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer', textAlign: 'center', fontFamily: "'JetBrains Mono'" } }, day);
-        }))),
-      e('div', { onClick: () => setOpen(false), style: { position: 'fixed', inset: 0, zIndex: 9998 } })) : null);
+        })))) : null);
 };
 
 // UI component builders (all return React elements via React.createElement)

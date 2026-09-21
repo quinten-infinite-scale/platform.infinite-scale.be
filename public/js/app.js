@@ -353,8 +353,11 @@ class Component extends DCLogic {
         const rawTodos = await SB.get('todos', `?day=eq.${day}&order=order_idx.asc,created_at.asc`).catch(() => null);
         if (rawTodos) {
           const curList = this.state.todosList;
-          const hasChanges = !curList || rawTodos.length !== curList.length || rawTodos.some(t => { const c = curList.find(x => x.id === t.id); return !c || c.completed_at !== t.completed_at || c.order_idx !== t.order_idx || c.title !== t.title; });
-          if (hasChanges) this.setState({ todosList: rawTodos, _todosLoaded: true });
+          // Never re-add items deleted locally — only sync updates to existing items and add genuinely new ones from other users
+          const deletedIds = this.state._deletedTodoIds || [];
+          const filtered = rawTodos.filter(t => !deletedIds.includes(t.id));
+          const hasChanges = !curList || filtered.some(t => { const c = curList.find(x => x.id === t.id); return !c || c.completed_at !== t.completed_at || c.order_idx !== t.order_idx || c.title !== t.title; }) || curList.some(t => !filtered.find(x => x.id === t.id) && !deletedIds.includes(t.id));
+          if (hasChanges) this.setState({ todosList: filtered, _todosLoaded: true });
         }
       }
     } catch (e) {}
@@ -1290,7 +1293,9 @@ class Component extends DCLogic {
       manager: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['settings', 'Instellingen', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
     };
     const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
-    out.nav = (navDefs[s.role] || []).map(([key, label, icon]) => {
+    const _rp = (d.settings || {}).role_permissions;
+    const _rolePerms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
+    out.nav = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false)).map(([key, label, icon]) => {
       const active = s.route === key;
       return { label, icon, badge: (badges[s.role] && badges[s.role][key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') };
     });

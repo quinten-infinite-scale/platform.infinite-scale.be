@@ -82,6 +82,7 @@ const ScreenAdmin = {
     if (r === 'salespeople') return this._admSalespeople(d, s);
     if (r === 'managers') return this._admManagers(d, s);
     if (r === 'settings') { const session = typeof SB !== 'undefined' ? SB.getSession() : null; return this._settings(d, s, { name: (session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Admin'), email: session?.user?.email || 'quinten@infinite-scale.be' }); }
+    if (r === 'rights') return this._admRights(d, s);
     return e('div', null, '');
   },
 
@@ -4175,20 +4176,24 @@ const ScreenAdmin = {
           return ++carryIdxByUser[userId];
         };
 
+        const toCarry = [];
         for (const pt of Object.values(latestByKey)) {
           const alreadyToday = list.find(t => t.title === pt.title && t.created_by === pt.created_by);
           if (!alreadyToday) {
             const newIdx = getCarryIdx(pt.created_by);
             const carryFrom = pt.carried_from || pt.day;
-            // Move (PATCH) the original task to today so completing it here persists correctly
-            await fetch(`${SB_URL}/rest/v1/todos?id=eq.${pt.id}`, {
-              method: 'PATCH',
-              headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-              body: JSON.stringify({ day: targetDay, order_idx: newIdx, carried_from: carryFrom })
-            });
+            toCarry.push({ pt, newIdx, carryFrom });
             list.push({ ...pt, day: targetDay, order_idx: newIdx, carried_from: carryFrom });
           }
         }
+        // Parallelize all PATCH requests instead of sequential awaits
+        await Promise.all(toCarry.map(({ pt, newIdx, carryFrom }) =>
+          fetch(`${SB_URL}/rest/v1/todos?id=eq.${pt.id}`, {
+            method: 'PATCH',
+            headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            body: JSON.stringify({ day: targetDay, order_idx: newIdx, carried_from: carryFrom })
+          }).catch(() => {})
+        ));
         list.sort((a, b) => (a.order_idx || 0) - (b.order_idx || 0) || a.created_at.localeCompare(b.created_at));
       }
       this.setState({ todosList: list, todosLoading: false, _todosLoaded: true });
@@ -4234,8 +4239,12 @@ const ScreenAdmin = {
     };
 
     const deleteTodo = async id => {
+      // Optimistically remove and track so the poll doesn't re-add it
+      this.setState(st => ({
+        todosList: (st.todosList || []).filter(t => t.id !== id),
+        _deletedTodoIds: [...(st._deletedTodoIds || []), id]
+      }));
       await fetch(`${SB_URL}/rest/v1/todos?id=eq.${id}`, { method: 'DELETE', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } });
-      this.setState(st => ({ todosList: (st.todosList || []).filter(t => t.id !== id) }));
     };
 
     const addTodoFor = async ownerId => {
@@ -4809,12 +4818,13 @@ const ScreenAdmin = {
       style: { width: 80, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', textAlign: 'right' }
     });
 
-    const progressBar = (actual, target, color) => {
+    const progressBar = (actual, target, color, fmt) => {
       const pct = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : 0;
+      const f = fmt || (v => String(v));
       return e('div', { style: { flex: 1 } },
         e('div', { style: { height: 8, borderRadius: 4, background: 'var(--border)', overflow: 'hidden' } },
           e('div', { style: { height: '100%', width: pct + '%', background: pct >= 100 ? 'var(--up)' : color || 'var(--accent)', borderRadius: 4, transition: 'width .5s' } })),
-        e('div', { style: { fontSize: 10.5, color: pct >= 100 ? 'var(--up)' : 'var(--text-mute)', marginTop: 2, fontWeight: 600 } }, `${actual} / ${target || '—'} (${pct}%)`));
+        e('div', { style: { fontSize: 10.5, color: pct >= 100 ? 'var(--up)' : 'var(--text-mute)', marginTop: 2, fontWeight: 600 } }, `${f(actual)} / ${target ? f(target) : '—'} (${pct}%)`));
     };
 
     const agentRow = (agent) => {
@@ -4826,8 +4836,10 @@ const ScreenAdmin = {
         e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, agent.name || agent.id),
         inputNum(t.dials, v => setAgentTarget(agent.id, 'dials', v)),
         progressBar(dialsActual, t.dials, 'var(--info)'),
-        inputNum(t.revenue, v => setAgentTarget(agent.id, 'revenue', v)),
-        progressBar(revActual, t.revenue, 'var(--accent)'),
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+          e('span', { style: { fontSize: 13, color: 'var(--text-mute)', fontWeight: 600 } }, '€'),
+          inputNum(t.revenue, v => setAgentTarget(agent.id, 'revenue', v))),
+        progressBar(revActual, t.revenue, 'var(--accent)', v => '€' + v),
         e('button', {
           onClick: () => { copyTarget(agent.id); this.setState({ _copiedAgent: agent.id }); setTimeout(() => this.setState({ _copiedAgent: null }), 1500); },
           title: 'Kopieer targets naar alle andere agents',
@@ -5672,6 +5684,128 @@ const ScreenAdmin = {
         e('div', { style: { width: 210, flexShrink: 0 } }, AgentList),
         e('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 } },
           Composer, Feed)));
+  },
+
+  _admRights(d, s) {
+    const e = React.createElement;
+
+    // All possible routes with labels and descriptions
+    const ALL_ROUTES = {
+      dashboard:    ['Dashboard',       'Overzicht van activiteit, dials, omzet en KPIs'],
+      appointments: ['Afspraken',       'Lijst van alle geplande en afgehandelde afspraken'],
+      apptadmin:    ['Afspraken beheer','Afspraken aanmaken, bewerken en verwijderen als admin'],
+      clients:      ['Klanten',         'Klantbeheer: overzicht, details en configuratie'],
+      agents:       ['Agents',          'Agentbeheer: profielen, targets en prestaties'],
+      coaching:     ['Coaching',        'Feedbackschermen en coachingsoverzicht per agent'],
+      stats:        ['Statistieken',    'Grafieken en rapportages van belprestaties'],
+      billing:      ['Facturatie',      'Facturen, tarieven en betalingsoverzicht'],
+      todos:        ['Taken',           'Takenlijst en dagplanning voor agents'],
+      salespeople:  ['Verkopers',       'Beheer van verkopers en hun prestaties'],
+      managers:     ['Managers',        'Beheer van managers en hun teams'],
+      settings:     ['Instellingen',    'Profielinstellingen, wachtwoord en taalvoorkeur'],
+    };
+
+    // Default ON routes per role (routes in navDefs)
+    const ROLE_DEFAULTS = {
+      agent:      ['dashboard', 'appointments', 'coaching', 'todos', 'settings'],
+      client:     ['dashboard', 'appointments', 'billing', 'settings'],
+      agency:     ['dashboard', 'appointments', 'agents', 'billing', 'settings'],
+      salesperson:['appointments', 'settings'],
+      manager:    ['dashboard', 'appointments', 'agents', 'coaching', 'settings'],
+    };
+
+    // Routes available per role (what can be toggled)
+    const ROLE_ROUTES = {
+      agent:      ['dashboard', 'appointments', 'coaching', 'stats', 'todos', 'settings'],
+      client:     ['dashboard', 'appointments', 'stats', 'billing', 'settings'],
+      agency:     ['dashboard', 'appointments', 'agents', 'stats', 'billing', 'settings'],
+      salesperson:['dashboard', 'appointments', 'clients', 'stats', 'settings'],
+      manager:    ['dashboard', 'appointments', 'apptadmin', 'agents', 'coaching', 'stats', 'billing', 'todos', 'salespeople', 'settings'],
+    };
+
+    const ROLE_LABELS = {
+      agent: 'Agent', client: 'Klant', agency: "Bureau", salesperson: 'Verkoper', manager: 'Manager',
+    };
+
+    const ROLE_DESCS = {
+      agent:       'Belt leads en verwerkt afspraken. Ziet eigen dashboard en coaching.',
+      client:      'Opdrachtgever die afspraken ontvangt. Ziet zijn eigen overzicht en facturen.',
+      agency:      'Bureau dat meerdere klanten beheert. Heeft toegang tot agents en facturatie.',
+      salesperson: 'Verwerkt leads vanuit afspraken. Beperkt zicht zonder billing of agents.',
+      manager:     'Teamleider met breed zicht. Kan coaching, targets en rapportages bekijken.',
+    };
+
+    const _rp = (d.settings || {}).role_permissions;
+    const perms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
+
+    const isOn = (role, route) => {
+      const defaults = ROLE_DEFAULTS[role] || [];
+      const explicit = perms[role] && perms[role][route];
+      if (explicit === false) return false;
+      if (explicit === true) return true;
+      return defaults.includes(route);
+    };
+
+    const toggle = async (role, route, val) => {
+      const newPerms = JSON.parse(JSON.stringify(perms));
+      if (!newPerms[role]) newPerms[role] = {};
+      const defaultOn = (ROLE_DEFAULTS[role] || []).includes(route);
+      if (val === defaultOn) {
+        delete newPerms[role][route];
+      } else {
+        newPerms[role][route] = val;
+      }
+      this.mutLocal(dd => { if (!dd.settings) dd.settings = {}; dd.settings.role_permissions = newPerms; });
+      try {
+        await SB.upsert('platform_settings', 'key', { key: 'role_permissions', value: JSON.stringify(newPerms) });
+        this.toast('Rechten', 'Opgeslagen', 'var(--accent)');
+      } catch(ex) {
+        this.toast('Fout', String(ex), 'var(--down)');
+      }
+    };
+
+    // iOS toggle styles injected once
+    const toggleStyle = `
+.is-toggle { position:relative; display:inline-block; width:44px; height:26px; flex-shrink:0; }
+.is-toggle input { opacity:0; width:0; height:0; position:absolute; }
+.is-toggle .slider { position:absolute; inset:0; border-radius:13px; background:#ccc; transition:.2s; cursor:pointer; }
+.is-toggle .slider:before { content:''; position:absolute; width:20px; height:20px; left:3px; bottom:3px; border-radius:50%; background:#fff; transition:.2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.is-toggle input:checked + .slider { background:#34C759; }
+.is-toggle input:checked + .slider:before { transform:translateX(18px); }
+@media(prefers-color-scheme:dark){ .is-toggle .slider { background:#555; } }
+`;
+
+    const Toggle = (on, onChange) =>
+      e('label', { className: 'is-toggle' },
+        e('input', { type: 'checkbox', checked: on, onChange: ev => onChange(ev.target.checked) }),
+        e('span', { className: 'slider' }));
+
+    const RoleSection = (role) => {
+      const routes = ROLE_ROUTES[role] || [];
+      return e('div', { key: role, style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 0 } },
+        e('div', { style: { marginBottom: 14 } },
+          e('div', { style: { fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 2 } }, ROLE_LABELS[role]),
+          e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, ROLE_DESCS[role])),
+        routes.map((route, i) => {
+          const [label, desc] = ALL_ROUTES[route] || [route, ''];
+          const on = isOn(role, route);
+          const isLast = i === routes.length - 1;
+          return e('div', { key: route, style: { display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0', borderTop: '1px solid var(--border-soft)', ...(isLast ? {} : {}) } },
+            Toggle(on, val => toggle(role, route, val)),
+            e('div', { style: { flex: 1, minWidth: 0 } },
+              e('div', { style: { fontSize: 13.5, fontWeight: 600, color: on ? 'var(--text)' : 'var(--text-mute)' } }, label),
+              e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 1 } }, desc)));
+        }));
+    };
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 680 } },
+      e('style', null, toggleStyle),
+      e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 } },
+        e('button', { onClick: () => this.go('settings'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 20, lineHeight: 1, padding: '4px 8px 4px 0', display: 'flex', alignItems: 'center' } }, '←'),
+        e('div', null,
+          e('div', { style: { fontSize: 17, fontWeight: 700, color: 'var(--text)' } }, 'Rechtenbeheer'),
+          e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Bepaal per accounttype welke pagina\'s zichtbaar zijn. Wijzigingen worden direct opgeslagen.'))),
+      ...Object.keys(ROLE_ROUTES).map(RoleSection));
   },
 
 };

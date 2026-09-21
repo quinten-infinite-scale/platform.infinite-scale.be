@@ -130,9 +130,9 @@ const ScreenAgent = {
           e('div', { style: { height: '100%', width: pctVal + '%', background: pctVal >= 100 ? 'var(--up)' : color, borderRadius: 5, transition: 'width .4s' } })),
         e('div', { style: { fontSize: 11, color: pctVal >= 100 ? 'var(--up)' : 'var(--text-mute)', marginTop: 3, fontWeight: 600 } }, target ? pctVal + '% van target' : 'Geen target ingesteld'));
 
-    const targetsWidget = (dialTarget > 0 || revTarget > 0) ? e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', display: 'flex', gap: 24, flexWrap: 'wrap' } },
+    const targetsWidget = e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', display: 'flex', gap: 24, flexWrap: 'wrap' } },
       targetBar('Dials vandaag', dialsT, dialTarget, dialPct, 'var(--info)', v => String(v)),
-      targetBar('Omzet vandaag', moneyT, revTarget, revPct, 'var(--accent)', v => '€' + Math.round(v))) : null;
+      targetBar('Omzet vandaag', moneyT, revTarget, revPct, 'var(--accent)', v => '€' + Math.round(v)));
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       targetsWidget,

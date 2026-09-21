@@ -34,7 +34,11 @@ const ScreenShared = {
         UI.Grid('2fr 1fr', 12,
           UI.Field('API key', UI.Input(f.apikey || '', v => this.setForm('apikey', v), nl ? 'Plak API-sleutel…' : 'Paste API key…')),
           UI.Field(nl ? 'Bron' : 'Source', UI.Select(f.crm || cl?.crm || 'monday', v => this.setForm('crm', v), [{ v: 'monday', l: 'Monday' }, { v: 'gohighlevel', l: 'GoHighLevel' }, { v: 'teamleader', l: 'Team Leader' }, { v: 'hubspot', l: 'HubSpot' }, { v: 'sheets', l: 'Google Sheets' }]))),
-        e('div', { style: { marginTop: 12 } }, UI.Btn(nl ? 'Verbinden' : 'Connect', () => this.toast('CRM', nl ? 'Integratie opgeslagen' : 'Integration saved (API key stored on server)', 'var(--accent)'), 'primary'))) : null);
+        e('div', { style: { marginTop: 12 } }, UI.Btn(nl ? 'Verbinden' : 'Connect', () => this.toast('CRM', nl ? 'Integratie opgeslagen' : 'Integration saved (API key stored on server)', 'var(--accent)'), 'primary'))) : null,
+      isAdmin ? UI.C({},
+        UI.Hd(nl ? 'Rechtenbeheer' : 'Rights management', { fontSize: 15, marginBottom: 6 }),
+        UI.Sub(nl ? 'Beheer welke pagina\'s elk accounttype kan zien.' : 'Manage which pages each account type can see.', { marginBottom: 12 }),
+        UI.Btn(nl ? 'Rechten beheren →' : 'Manage rights →', () => this.go('rights'), 'soft')) : null);
   },
 
   _apptToolbar(d, s, opts) {
