@@ -129,6 +129,16 @@ const Modals = {
       if (isRenocheckAppt && ap.clientFeedback) {
         try { rnData = JSON.parse(ap.clientFeedback); if (!rnData._rn) rnData = null; } catch { rnData = null; }
       }
+      // Renocheck platform status banner (geweigerd / accepted / pending)
+      const rnStatusBanner = rnData && rnData.platform_status ? (() => {
+        const isGew = rnData.geweigerd || rnData.platform_status === 'geweigerd' || rnData.platform_status === 'refused' || rnData.platform_status === 'rejected';
+        const isOk = rnData.platform_status === 'accepted' || rnData.platform_status === 'approved';
+        const color = isGew ? 'var(--down)' : isOk ? 'var(--up)' : 'var(--warn)';
+        const label = isGew ? 'Geweigerd door Renocheck' : isOk ? 'Geaccepteerd door Renocheck' : 'Status: ' + rnData.platform_status;
+        return e('div', { style: { padding: '10px 14px', borderRadius: 10, background: isGew ? 'oklch(0.22 0.08 0 / .25)' : isOk ? 'oklch(0.22 0.08 152 / .25)' : 'oklch(0.22 0.06 60 / .25)', border: '1px solid ' + color, marginBottom: 4 } },
+          e('div', { style: { fontSize: 12, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: rnData.platform_comment ? 4 : 0 } }, label),
+          rnData.platform_comment ? e('div', { style: { fontSize: 13, color: 'var(--text)', lineHeight: 1.5 } }, rnData.platform_comment) : null);
+      })() : null;
       const feedbackVal = f.feedbackDraft !== undefined ? f.feedbackDraft : (ap.clientFeedback || '');
       const feedbackSection = isRenocheckAppt
         ? (rnData ? e('div', null,
@@ -330,6 +340,7 @@ const Modals = {
         : [UI.Btn('Close', () => this.closeModal(), 'soft')];
 
       return wrap('Appointment details', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+        rnStatusBanner,
         e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
           UI.statusPill(ap.status),
           e('span', { style: { fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 18, color: 'var(--text)' } }, ap.lead),

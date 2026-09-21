@@ -782,6 +782,7 @@ class Component extends DCLogic {
         if (intakeData.info_project) parts.push('Info: ' + intakeData.info_project);
         return parts.join(' | ');
       })() : '';
+      const rnExternalId = 'IS-' + Date.now();
       const rnPayload = {
         category: f.rnCategory,
         firstname: f.rnFirst || '',
@@ -792,9 +793,11 @@ class Component extends DCLogic {
         number: f.rnNumber || '',
         zipcode: f.rnPostal || '',
         city: f.rnCity || '',
+        external_id: rnExternalId,
         ...(description ? { description } : {}),
         ...(intakeData ? { data: intakeData } : {}),
       };
+      let rnLeadId = null;
       try {
         const rnRes = await fetch('/api/renocheck-lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
         if (!rnRes.ok) {
@@ -804,6 +807,7 @@ class Component extends DCLogic {
           this.toast('Renocheck fout', 'Lead kon niet naar Renocheck gestuurd worden: ' + errText.slice(0, 80), 'var(--down)');
           return;
         }
+        try { const rnJson = await rnRes.json(); rnLeadId = rnJson?.data?.id || rnJson?.id || null; } catch(_) {}
       } catch (err) {
         console.error('Renocheck fetch failed:', err);
         this.setState(s => ({ form: { ...s.form, apptSubmitting: false } }));
@@ -811,7 +815,7 @@ class Component extends DCLogic {
         return;
       }
       const rnRev = (RN_RATES[f.rnCategory] || {}).revenue || 0;
-      clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', ...(intakeData ? { data: intakeData } : {}) });
+      clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', external_id: rnExternalId, ...(rnLeadId ? { rn_id: rnLeadId } : {}), ...(intakeData ? { data: intakeData } : {}) });
     }
 
     const dateAppt = f.dateAppt + (f.apptTime ? 'T' + f.apptTime : '');

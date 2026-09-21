@@ -16,7 +16,8 @@
     { "path": "/api/sync-dials", "schedule": "0 15 * * *" },
     { "path": "/api/sync-dials", "schedule": "0 16 * * *" },
     { "path": "/api/sync-dials", "schedule": "0 17 * * *" },
-    { "path": "/api/sync-dials", "schedule": "0 18 * * *" }
+    { "path": "/api/sync-dials", "schedule": "0 18 * * *" },
+    { "path": "/api/renocheck-status", "schedule": "0 7 * * *" }
   ],
   "cleanUrls": true,
   "trailingSlash": false,

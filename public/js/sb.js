@@ -22,23 +22,36 @@ const SB = (() => {
     // Refresh if token expires in less than 5 minutes
     if (expiresAt && nowSec < expiresAt - 300) return true;
     if (!_session.refresh_token) return false;
-    const r = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify({ refresh_token: _session.refresh_token }),
-    });
-    if (!r.ok) { _session = null; localStorage.removeItem('is_session'); return false; }
-    const d = await r.json();
-    if (d.access_token) { _saveSession(d); return true; }
-    return false;
+    try {
+      const r = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ refresh_token: _session.refresh_token }),
+      });
+      if (!r.ok) {
+        // Only clear session on explicit auth failures (401/403), not transient network errors
+        if (r.status === 401 || r.status === 403) {
+          _session = null; localStorage.removeItem('is_session');
+        }
+        return false;
+      }
+      const d = await r.json();
+      if (d.access_token) { _saveSession(d); return true; }
+      return false;
+    } catch(e) {
+      // Network failure — keep session in memory so next request can retry
+      return _session?.access_token ? true : false;
+    }
   }
 
   function _saveSession(d) {
     if (!d.expires_at && d.expires_in) {
       d.expires_at = Math.floor(Date.now() / 1000) + d.expires_in;
     }
+    // Store when the session was last saved so we can enforce a 30-day hard limit
+    if (!d._saved_at) d._saved_at = Math.floor(Date.now() / 1000);
     _session = d;
-    localStorage.setItem('is_session', JSON.stringify(d));
+    try { localStorage.setItem('is_session', JSON.stringify(d)); } catch(e) {}
   }
 
   async function signIn(email, password) {
@@ -66,7 +79,17 @@ const SB = (() => {
   function loadSession() {
     try {
       const saved = localStorage.getItem('is_session');
-      if (saved) _session = JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Enforce 30-day hard limit from first save
+        const savedAt = parsed._saved_at || 0;
+        const thirtyDays = 30 * 24 * 60 * 60;
+        if (savedAt && Math.floor(Date.now() / 1000) - savedAt > thirtyDays) {
+          localStorage.removeItem('is_session');
+          return null;
+        }
+        _session = parsed;
+      }
     } catch (e) {}
     return _session;
   }
