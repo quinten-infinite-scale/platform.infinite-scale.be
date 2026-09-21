@@ -4703,7 +4703,8 @@ const ScreenAdmin = {
       this.setState({ _targetsLoading: true });
       fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.agent_targets&select=value`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
         .then(r => r.json()).then(rows => {
-          const val = rows[0]?.value || {};
+          let val = rows[0]?.value || {};
+          if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) { val = {}; } }
           this.setState({ _targetsData: val, _targetsLoading: false });
         }).catch(() => this.setState({ _targetsData: {}, _targetsLoading: false }));
     }
@@ -4904,7 +4905,8 @@ const ScreenAdmin = {
             this.setState({ _ctLoading: true });
             fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.cloudtalk_accounts&select=value`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
               .then(r => r.json()).then(rows => {
-                const val = rows[0]?.value;
+                let val = rows[0]?.value;
+                if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) { val = null; } }
                 const data = val && Object.keys(val).length ? val : CLOUDTALK_ACCOUNTS;
                 this.setState({ _ctData: data, _ctLoading: false });
               }).catch(() => this.setState({ _ctData: CLOUDTALK_ACCOUNTS, _ctLoading: false }));

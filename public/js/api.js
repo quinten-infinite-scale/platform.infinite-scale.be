@@ -214,7 +214,7 @@ const API = {
       activityLog: activityLog || [],
       contractEvents: [],
       leaderPeriod: 'daily',
-      settings: Object.fromEntries((platformSettings || []).map(r => [r.key, r.value])),
+      settings: Object.fromEntries((platformSettings || []).map(r => { let v = r.value; if (typeof v === 'string') { try { v = JSON.parse(v); } catch(e) {} } return [r.key, v]; })),
       presence: presenceRows || [],
       invoiceStates: invoiceStatesMap,
       whatsappMessages: whatsappMessagesRows || [],

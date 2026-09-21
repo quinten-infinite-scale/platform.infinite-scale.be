@@ -106,8 +106,15 @@ const ScreenAgent = {
       return { name: c.name, cnt };
     }).filter(x => x.cnt > 0);
 
-    // Load targets for this agent
-    const agentTargets = (d.settings && d.settings.agent_targets && d.settings.agent_targets.agents) || {};
+    // Load targets for this agent — lazy fetch as fallback in case platform_settings RLS blocks agent reads
+    if (s._agentTargets === undefined && !s._agentTargetsLoading) {
+      this.setState({ _agentTargetsLoading: true });
+      fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.agent_targets&select=value`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+        .then(r => r.json()).then(rows => { let v = rows[0]?.value || {}; if (typeof v === 'string') { try { v = JSON.parse(v); } catch(e) { v = {}; } } this.setState({ _agentTargets: v, _agentTargetsLoading: false }); })
+        .catch(() => this.setState({ _agentTargets: {}, _agentTargetsLoading: false }));
+    }
+    const agentTargetsRaw = s._agentTargets !== undefined ? s._agentTargets : ((d.settings && d.settings.agent_targets) || {});
+    const agentTargets = agentTargetsRaw.agents || {};
     const myTargets = agentTargets[me.id] || {};
     const dialTarget = myTargets.dials || 0;
     const revTarget = myTargets.revenue || 0;
