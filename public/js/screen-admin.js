@@ -4872,7 +4872,7 @@ const ScreenAdmin = {
       const t = agentTargets[agent.id] || {};
       const dialsActual = dialsMap[agent.id] || 0;
       const revActual = (d.appointments || [])
-        .filter(a => a.dateLog === dialsDay && a.status === 'show' && a.agent === agent.id)
+        .filter(a => a.dateLog && a.dateLog.startsWith(viewMonth) && a.status === 'show' && a.agent === agent.id)
         .reduce((sum, a) => sum + cRate(a), 0);
       const isCopied = s._copiedAgent === agent.id;
       return e('div', { key: agent.id, style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)' } },
@@ -4947,9 +4947,35 @@ const ScreenAdmin = {
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)', textAlign: 'right' } }, 'Dials target'),
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)' } }, dialsDay === today ? 'Dials vandaag' : 'Dials ' + dialsDay),
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textAlign: 'right' } }, 'Omzet target (€)'),
-          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, dialsDay === today ? 'Omzet vandaag' : 'Omzet ' + dialsDay),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, 'Omzet ' + monthLabel),
           e('span', null)),
         ...sortedAgents.map(agentRow)),
+
+      // Admin-only: platform revenue per agent this month
+      e('div', { style: { background: 'var(--surface)', border: '1px solid oklch(0.45 0.12 25 / .35)', borderRadius: 14, overflow: 'hidden' } },
+        e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px 8px', background: 'oklch(0.22 0.04 25 / .25)', borderBottom: '1px solid oklch(0.35 0.08 25 / .4)' } },
+          e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'oklch(0.78 0.12 25)', letterSpacing: '.08em', textTransform: 'uppercase' } }, '💰 Platform omzet per agent — ' + monthLabel),
+          e('span', { style: { fontSize: 11, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Alleen zichtbaar voor admins')),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr 1fr', gap: 0 } },
+          e('div', { style: { display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr 1fr', gap: 12, padding: '7px 16px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)', gridColumn: '1/-1' } },
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase' } }, 'Agent'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)' } }, 'Shows'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--up)' } }, 'IS Omzet (client)'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--down)' } }, 'Agent kost'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, 'Marge')),
+          ...sortedAgents.map(ag => {
+            const agShows = (d.appointments || []).filter(a => a.dateLog && a.dateLog.startsWith(viewMonth) && a.status === 'show' && a.agent === ag.id);
+            const isOmzet = agShows.reduce((s, a) => s + cRate(a), 0);
+            const agKost = agShows.reduce((s, a) => s + (a.agentRate != null ? a.agentRate : (rnAgentPay(a) ?? (((d.agents||[]).find(g=>g.id===ag.id)||{}).rates||{})[a.client] ?? 0)), 0);
+            const marge = isOmzet - agKost;
+            const margeClr = marge > 0 ? 'var(--up)' : marge < 0 ? 'var(--down)' : 'var(--text-mute)';
+            return e('div', { key: ag.id, style: { display: 'grid', gridTemplateColumns: '140px 1fr 1fr 1fr 1fr', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--border-soft)', gridColumn: '1/-1', alignItems: 'center' } },
+              e('div', { style: { fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, ag.name || ag.id),
+              e('div', { style: { fontSize: 13, fontVariantNumeric: 'tabular-nums' } }, agShows.length),
+              e('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--up)', fontVariantNumeric: 'tabular-nums' } }, this.euro(isOmzet)),
+              e('div', { style: { fontSize: 13, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' } }, this.euro(agKost)),
+              e('div', { style: { fontSize: 13, fontWeight: 700, color: margeClr, fontVariantNumeric: 'tabular-nums' } }, this.euro(marge)));
+          }))),
 
       // CloudTalk account indeling (editable)
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },

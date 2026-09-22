@@ -20,16 +20,16 @@ const CT_SECRET = process.env.CLOUDTALK_API_SECRET || '';
 const SB_URL    = 'https://database.infinite-scale.be';
 
 // Map CloudTalk agent email (lowercase) → platform agent ID
-// Updated 2026-09-01: CloudTalk agents were migrated to generic callagent accounts
+// Updated 2026-09-22: callagent7 reassigned from Jimmy to Tinne Jacobs
 const AGENT_MAP = {
-  'senne.db@infinite-scale.be':      'a1',   // Senne De Braekeler (confirmed by call volume)
-  'quinten@infinite-scale.be':       'a11',  // Quinten Eeckhoudt (confirmed)
-  'callagent@infinite-scale.be':     'a4',   // Bram Sanders (confirmed by Aug volume match)
-  'callagent1@infinite-scale.be':    'a9',   // Lothar (confirmed by Aug volume match)
-  'callagent2@infinite-scale.be':    'a12',  // Rick Hoekstra (confirmed by exact match)
+  'senne.db@infinite-scale.be':      'a1',   // Senne De Braekeler
+  'quinten@infinite-scale.be':       'a11',  // Quinten Eeckhoudt
+  'callagent@infinite-scale.be':     'a4',   // Bram Sanders
+  'callagent1@infinite-scale.be':    'a9',   // Lothar
+  'callagent2@infinite-scale.be':    'a12',  // Rick Hoekstra
   'callagent4@infinite-scale.be':    'a15',  // Rabih Ibrahim
-  'callagent5@infinite-scale.be':    'a16',  // Romy Zwiers
-  'callagent7@infinite-scale.be':    'a14',  // Jimmy Verschut (confirmed by exact match)
+  'callagent5@infinite-scale.be':    'a16',  // Romy Zwiers (+ Lisa De Coninck shares this account)
+  'callagent7@infinite-scale.be':    'a23',  // Tinne Jacobs (replaced Jimmy on this account)
 };
 
 function basicAuth() {
