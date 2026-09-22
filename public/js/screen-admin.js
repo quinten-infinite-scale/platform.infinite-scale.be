@@ -4875,7 +4875,7 @@ const ScreenAdmin = {
         .filter(a => a.dateLog === dialsDay && a.status === 'show' && a.agent === agent.id);
       const revActual = dayShows.reduce((sum, a) => sum + cRate(a), 0);
       const agKost = dayShows.reduce((sum, a) => sum + (a.agentRate != null ? a.agentRate : (rnAgentPay(a) ?? (((d.agents||[]).find(g=>g.id===agent.id)||{}).rates||{})[a.client] ?? 0)), 0);
-      const isMarge = isAdmin && revActual > 0;
+      const isMarge = revActual > 0;
       const isCopied = s._copiedAgent === agent.id;
       return e('div', { key: agent.id, style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)' } },
         e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, agent.name || agent.id),
