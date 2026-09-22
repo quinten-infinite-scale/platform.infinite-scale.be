@@ -4872,7 +4872,7 @@ const ScreenAdmin = {
       const t = agentTargets[agent.id] || {};
       const dialsActual = dialsMap[agent.id] || 0;
       const revActual = (d.appointments || [])
-        .filter(a => a.dateLog === dialsDay && a.status === 'show' && a.agent === agent.id)
+        .filter(a => a.dateLog && a.dateLog.startsWith(viewMonth) && a.status === 'show' && a.agent === agent.id)
         .reduce((sum, a) => sum + cRate(a), 0);
       const isCopied = s._copiedAgent === agent.id;
       return e('div', { key: agent.id, style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)' } },
@@ -4947,7 +4947,7 @@ const ScreenAdmin = {
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)', textAlign: 'right' } }, 'Dials target'),
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--info)' } }, dialsDay === today ? 'Dials vandaag' : 'Dials ' + dialsDay),
           e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', textAlign: 'right' } }, 'Omzet target (€)'),
-          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, dialsDay === today ? 'Omzet vandaag' : 'Omzet ' + dialsDay),
+          e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)' } }, 'Omzet ' + monthLabel),
           e('span', null)),
         ...sortedAgents.map(agentRow)),
 
