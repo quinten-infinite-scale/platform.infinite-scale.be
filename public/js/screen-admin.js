@@ -4802,9 +4802,10 @@ const ScreenAdmin = {
     const dialsDay = s._dialsDay || today;
     const dialsByDay = s._dialsByDay || {};
     const shiftDialsDay = (delta) => {
-      const d2 = new Date(dialsDay + 'T00:00:00');
-      d2.setDate(d2.getDate() + delta);
+      const d2 = new Date(dialsDay + 'T12:00:00Z');
+      d2.setUTCDate(d2.getUTCDate() + delta);
       const newDay = d2.toISOString().slice(0, 10);
+      if (newDay > today) return;
       this.setState({ _dialsDay: newDay });
     };
 
