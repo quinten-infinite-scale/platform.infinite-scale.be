@@ -1935,6 +1935,16 @@ const Modals = {
       if (editingP) {
         const g = (key, fallback) => f['p_' + key] !== undefined ? f['p_' + key] : (p[key] || fallback || '');
         const sf = (key, v) => this.setForm('p_' + key, v);
+        // Pipeline options from settings
+        let allPipelines = [];
+        try {
+          const raw = (this.state?.data?.settings || {}).prospect_pipelines;
+          if (raw) allPipelines = JSON.parse(raw);
+        } catch(_) {}
+        const pipelineOpts = allPipelines.map(pl => ({ v: pl.id, l: pl.name || pl.id }));
+        const selectedPipelineId = g('pipeline_id', p.pipeline_id || 'manuele');
+        const selectedPipeline = allPipelines.find(pl => pl.id === selectedPipelineId);
+        const stageOpts = (selectedPipeline?.stages || []).map(sg => ({ v: sg.id, l: sg.label || sg.id }));
         return wrap('Bewerk prospect — ' + p.company, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
           UI.Grid('1fr 1fr', 10, UI.Field('Bedrijf', UI.Input(g('company'), v => sf('company', v))), UI.Field('Contactpersoon', UI.Input(g('contact'), v => sf('contact', v)))),
           UI.Grid('1fr 1fr', 10, UI.Field('Telefoon', UI.Input(g('phone'), v => sf('phone', v))), UI.Field('E-mail', UI.Input(g('email'), v => sf('email', v)))),
@@ -1944,6 +1954,9 @@ const Modals = {
           UI.Grid('1fr 1fr', 10,
             UI.Field('Bron (historisch)', UI.Select(g('source'), v => sf('source', v), [{ v: '', l: '— Geen —' }, { v: 'LinkedIn', l: 'LinkedIn' }, { v: 'Cold email', l: 'Cold email' }, { v: 'Referral', l: 'Referral' }, { v: 'Meta forms', l: 'Meta forms' }, { v: 'Website', l: 'Website' }, { v: 'Cold call', l: 'Cold call' }])),
             UI.Field('Omzet / Revenue', UI.Input(g('revenue'), v => sf('revenue', v)))),
+          pipelineOpts.length > 0 ? UI.Grid('1fr 1fr', 10,
+            UI.Field('Pipeline', UI.Select(selectedPipelineId, v => { sf('pipeline_id', v); sf('stage', ''); }, pipelineOpts)),
+            stageOpts.length > 0 ? UI.Field('Fase / Stage', UI.Select(g('stage', p.stage || ''), v => sf('stage', v), stageOpts)) : e('div', null)) : null,
           UI.Grid('1fr 1fr', 10, UI.Field('Afspraak datum', UI.Input(g('appointment_date'), v => sf('appointment_date', v), '', 'date')), UI.Field('Bellen op', UI.Input(g('call_on'), v => sf('call_on', v), '', 'date'))),
           UI.Field('Opmerking beller', UI.Input(g('caller_note'), v => sf('caller_note', v))),
           UI.Field('Opmerkingen / notes', UI.Area(g('notes'), v => sf('notes', v)))),
@@ -1958,6 +1971,8 @@ const Modals = {
                assigned: g2('assigned'),
                lead_source: g2('lead_source'),
                source: g2('source'),
+               pipeline_id: g2('pipeline_id', p.pipeline_id),
+               stage: g2('stage', p.stage),
                appointment_date: g2('appointment_date') || null,
                call_on: g2('call_on') || null,
                revenue: g2('revenue'),

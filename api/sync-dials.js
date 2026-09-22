@@ -204,8 +204,8 @@ export default async function handler(req, res) {
         rows.push({ agent_id: platId, dial_date: date, count });
 
         if (!skipHourly) {
-          // Hourly breakdown (9am–maxLocalHour local time)
-          for (let h = 9; h <= maxLocalHour; h++) {
+          // Hourly breakdown (8am–maxLocalHour local time)
+          for (let h = 8; h <= maxLocalHour; h++) {
             const utcH = (h - offset + 24) % 24;
             const hCount = await fetchAgentHourCount(ctId, date, utcH);
             hourlyRows.push({ agent_id: platId, dial_date: date, hour: h, count: hCount });

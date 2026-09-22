@@ -2261,13 +2261,40 @@ const ScreenAdmin = {
     const addingFeedback = !!s._eodFbOpen;
     const inputSt = { padding: '7px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' };
 
+    const uploadEodFile = async (file) => {
+      const session = SB.getSession();
+      if (!session?.access_token) return null;
+      const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const ext = file.name.split('.').pop().toLowerCase();
+      try {
+        const r = await fetch('/api/db-write', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': file.type || 'application/octet-stream', 'x-file-path': safeName, 'x-bucket': 'coaching' },
+          body: file,
+        });
+        if (!r.ok) return null;
+        const j = await r.json();
+        return j.ok ? { url: j.url, name: file.name, kind: ext === 'mp3' ? 'audio' : 'image' } : null;
+      } catch { return null; }
+    };
+
     const saveFeedback = async () => {
       const agentId = s._eodFbAgent;
       const score = parseInt(s._eodFbScore || '');
       const text = (s._eodFbText || '').trim();
       const date = s._eodFbDate || todayStr;
       if (!agentId || isNaN(score) || score < 0 || score > 100 || !text) return;
-      const row = { agent_id: agentId, score, feedback: text, report_date: date, created_by: myEmail };
+      this.setState({ _eodFbSaving: true, _eodFbUploadErr: null });
+      // Upload any attached files
+      const pendingFiles = s._eodFbFiles || [];
+      const uploaded = [];
+      for (const f of pendingFiles) {
+        const att = await uploadEodFile(f);
+        if (att) uploaded.push(att);
+        else { this.setState({ _eodFbSaving: false, _eodFbUploadErr: 'Upload van bijlage mislukt.' }); return; }
+      }
+      const feedbackText = uploaded.length > 0 ? JSON.stringify({ t: text, a: uploaded }) : text;
+      const row = { agent_id: agentId, score, feedback: feedbackText, report_date: date, created_by: myEmail };
       const r = await fetch(`${SB_URL}/rest/v1/manager_agent_feedback`, {
         method: 'POST',
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -2276,7 +2303,9 @@ const ScreenAdmin = {
       const rows = await r.json().catch(() => []);
       if (Array.isArray(rows) && rows[0]) {
         this.mutLocal(dd => { if (!dd.managerFeedback) dd.managerFeedback = []; dd.managerFeedback.unshift(rows[0]); });
-        this.setState({ _eodFbOpen: false, _eodFbAgent: null, _eodFbScore: '', _eodFbText: '', _eodFbDate: todayStr });
+        this.setState({ _eodFbOpen: false, _eodFbSaving: false, _eodFbAgent: null, _eodFbScore: '', _eodFbText: '', _eodFbDate: todayStr, _eodFbFiles: [] });
+      } else {
+        this.setState({ _eodFbSaving: false });
       }
     };
 
@@ -2298,9 +2327,22 @@ const ScreenAdmin = {
         e('input', { type: 'date', value: s._eodFbDate || todayStr, onChange: ev => this.setState({ _eodFbDate: ev.target.value }), style: inputSt }),
         e('input', { type: 'number', min: 0, max: 100, placeholder: 'Score', value: s._eodFbScore || '', onChange: ev => this.setState({ _eodFbScore: ev.target.value }), style: { ...inputSt, textAlign: 'center' } })),
       e('textarea', { placeholder: 'Feedback voor de agent…', value: s._eodFbText || '', onChange: ev => this.setState({ _eodFbText: ev.target.value }), rows: 3, style: { ...inputSt, resize: 'vertical', width: '100%', boxSizing: 'border-box' } }),
+      e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+        e('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer', fontWeight: 600 } },
+          '📎 Bijlage',
+          e('input', { type: 'file', accept: '.mp3,image/jpeg,image/png,image/webp', multiple: true, style: { display: 'none' },
+            onChange: ev => {
+              const files = Array.from(ev.target.files || []);
+              this.setState(prev => ({ _eodFbFiles: [...(prev._eodFbFiles || []), ...files] }));
+              ev.target.value = '';
+            }})),
+        (s._eodFbFiles || []).map((f, i) => e('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 7, background: 'var(--surface)', border: '1px solid var(--border-soft)', fontSize: 11.5, color: 'var(--text-mute)' } },
+          f.type.startsWith('audio') ? '🎙' : '🖼', f.name.slice(0, 20),
+          e('span', { onClick: () => this.setState(prev => ({ _eodFbFiles: (prev._eodFbFiles || []).filter((_, j) => j !== i) })), style: { cursor: 'pointer', color: 'var(--down)', fontWeight: 700, marginLeft: 2, fontSize: 13 } }, '×')))),
+      s._eodFbUploadErr ? e('div', { style: { fontSize: 12, color: 'var(--down)' } }, s._eodFbUploadErr) : null,
       e('div', { style: { display: 'flex', gap: 8 } },
-        e('button', { onClick: saveFeedback, style: { padding: '6px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' } }, 'Opslaan'),
-        e('button', { onClick: () => this.setState({ _eodFbOpen: false }), style: { padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12.5, cursor: 'pointer' } }, 'Annuleren'))) : null;
+        e('button', { onClick: saveFeedback, disabled: !!s._eodFbSaving, style: { padding: '6px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', opacity: s._eodFbSaving ? .6 : 1 } }, s._eodFbSaving ? 'Opslaan…' : 'Opslaan'),
+        e('button', { onClick: () => this.setState({ _eodFbOpen: false, _eodFbFiles: [], _eodFbUploadErr: null }), style: { padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12.5, cursor: 'pointer' } }, 'Annuleren'))) : null;
 
     // Group feedback by date
     const fbDates = [...new Set(feedback.map(r => r.report_date))].sort((a, b) => b.localeCompare(a));
@@ -2385,13 +2427,22 @@ const ScreenAdmin = {
               e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
                 dayFb.map((fb, i) => {
                   const agent = activeAgents.find(a => a.id === fb.agent_id);
+                  let fbText = fb.feedback || ''; let fbFiles = [];
+                  try { if (fbText.startsWith('{"t":')) { const p2 = JSON.parse(fbText); fbText = p2.t || ''; fbFiles = p2.a || []; } } catch(_) {}
                   return e('div', { key: fb.id, style: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', borderTop: i > 0 ? '1px solid var(--border-soft)' : 'none', background: 'var(--bg-1)' } },
                     e('div', { style: { minWidth: 48, height: 48, borderRadius: 10, background: scoreColor(fb.score) + '22', border: '2px solid ' + scoreColor(fb.score), display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', flexShrink: 0 } },
                       e('span', { style: { fontSize: 17, fontWeight: 800, color: scoreColor(fb.score), fontFamily: "'JetBrains Mono'" } }, fb.score),
                       e('span', { style: { fontSize: 8, color: scoreColor(fb.score), fontWeight: 600, letterSpacing: '.05em' } }, '/100')),
                     e('div', { style: { flex: 1, minWidth: 0 } },
                       e('div', { style: { fontWeight: 700, fontSize: 13, marginBottom: 3, color: 'var(--text)' } }, agent?.name || fb.agent_id),
-                      e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.6 } }, fb.feedback)),
+                      e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.6 } }, fbText),
+                      fbFiles.length > 0 ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 } },
+                        fbFiles.map((f2, fi) => f2.kind === 'audio'
+                          ? e('div', { key: fi, style: { background: 'var(--surface)', borderRadius: 7, border: '1px solid var(--border-soft)', padding: '6px 10px' } },
+                              e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 4 } }, '🎙 ' + f2.name),
+                              e('audio', { controls: true, src: f2.url, style: { width: '100%', height: 30 } }))
+                          : e('a', { key: fi, href: f2.url, target: '_blank', rel: 'noopener', style: { display: 'block', borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border-soft)', maxWidth: 220 } },
+                              e('img', { src: f2.url, alt: f2.name, style: { width: '100%', display: 'block', maxHeight: 140, objectFit: 'cover' } })))) : null),
                     e('button', { onClick: () => deleteFeedback(fb.id), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 15, padding: '2px', opacity: 0.4, flexShrink: 0 } }, '×'));
                 })));
           }))),
@@ -4757,20 +4808,25 @@ const ScreenAdmin = {
       this.setState({ _dialsDay: newDay });
     };
 
-    // Fetch dials for the selected day if not already loaded
+    // For today: use preloaded dials table data (most accurate daily total).
+    // For other days: fetch from dials table (daily total per agent).
     const dialsDayLoaded = dialsByDay[dialsDay];
     const dialsDayLoading = s['_dialsLoading_' + dialsDay];
-    if (dialsDayLoaded === undefined && !dialsDayLoading) {
+    if (dialsDay === today) {
+      // Use d.dials which is refreshed every poll cycle from the dials table
+    } else if (dialsDayLoaded === undefined && !dialsDayLoading) {
       this.setState({ ['_dialsLoading_' + dialsDay]: true });
       const _fetchDay = dialsDay;
-      fetch(`${SB_URL}/rest/v1/dials_hourly?dial_date=eq.${_fetchDay}&select=agent_id,count`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+      fetch(`${SB_URL}/rest/v1/dials?dial_date=eq.${_fetchDay}&select=agent_id,count`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
         .then(r => r.json()).then(rows => {
           const map = {};
-          (rows || []).forEach(r => { map[r.agent_id] = (map[r.agent_id] || 0) + (r.count || 0); });
+          (rows || []).forEach(r => { map[r.agent_id] = r.count || 0; });
           this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [_fetchDay]: map }, ['_dialsLoading_' + _fetchDay]: false }));
         }).catch(() => this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [_fetchDay]: {} }, ['_dialsLoading_' + _fetchDay]: false })));
     }
-    const dialsMap = dialsByDay[dialsDay] || {};
+    const dialsMap = dialsDay === today
+      ? Object.keys(d.dials || {}).reduce((m, agId) => { m[agId] = (d.dials[agId] || {})[today] || 0; return m; }, {})
+      : (dialsByDay[dialsDay] || {});
 
     // Month navigation for target overview
     const viewMonth = s._viewMonth || today.slice(0, 7);
@@ -4816,7 +4872,7 @@ const ScreenAdmin = {
       const t = agentTargets[agent.id] || {};
       const dialsActual = dialsMap[agent.id] || 0;
       const revActual = (d.appointments || [])
-        .filter(a => a.dateLog === dialsDay && a.status === 'show' && a.agentId === agent.id)
+        .filter(a => a.dateLog === dialsDay && a.status === 'show' && a.agent === agent.id)
         .reduce((sum, a) => sum + cRate(a), 0);
       const isCopied = s._copiedAgent === agent.id;
       return e('div', { key: agent.id, style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)' } },
@@ -5538,18 +5594,27 @@ const ScreenAdmin = {
     // cRate — same billing logic used everywhere
     const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e2) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
 
-    // Period selector: dag / week / maand
+    // Period selector: dag / week / maand (maand supports prev/next navigation)
     const period = s._opaPeriod || 'week';
+    const opaMonth = s._opaMonth || today.slice(0, 7);
+    const shiftOpaMonth = (delta) => {
+      const [y, m] = opaMonth.split('-').map(Number);
+      const d2 = new Date(y, m - 1 + delta, 1);
+      this.setState({ _opaMonth: `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`, _opaPeriod: 'maand' });
+    };
 
     // Date range helpers
     const weekStart = (() => { const d2 = new Date(today); d2.setDate(d2.getDate() - d2.getDay() + 1); return d2.toISOString().slice(0,10); })();
-    const monthStart = today.slice(0, 7) + '-01';
+    const [omY, omM] = opaMonth.split('-').map(Number);
+    const monthStart = opaMonth + '-01';
+    const monthEnd = new Date(omY, omM, 0).toISOString().slice(0,10);
+    const monthLabel = new Date(omY, omM - 1, 1).toLocaleString('nl-BE', { month: 'long', year: 'numeric' });
 
     const inPeriod = (appt) => {
       const dl = appt.dateLog || '';
       if (period === 'dag') return dl === today;
       if (period === 'week') return dl >= weekStart && dl <= today;
-      if (period === 'maand') return dl >= monthStart && dl <= today;
+      if (period === 'maand') return dl >= monthStart && dl <= monthEnd;
       return false;
     };
 
@@ -5559,13 +5624,13 @@ const ScreenAdmin = {
     const agentShows = {};
     (d.appointments || []).filter(a => a.status === 'show' && inPeriod(a)).forEach(a => {
       const rev = cRate(a);
-      agentRev[a.agentId] = (agentRev[a.agentId] || 0) + rev;
-      agentAppts[a.agentId] = (agentAppts[a.agentId] || 0) + 1;
+      agentRev[a.agent] = (agentRev[a.agent] || 0) + rev;
+      agentAppts[a.agent] = (agentAppts[a.agent] || 0) + 1;
     });
     (d.appointments || []).filter(a => inPeriod(a) && (a.status === 'show' || a.status === 'no_show')).forEach(a => {
-      agentShows[a.agentId] = (agentShows[a.agentId] || { s: 0, ns: 0 });
-      if (a.status === 'show') agentShows[a.agentId].s++;
-      else agentShows[a.agentId].ns++;
+      agentShows[a.agent] = (agentShows[a.agent] || { s: 0, ns: 0 });
+      if (a.status === 'show') agentShows[a.agent].s++;
+      else agentShows[a.agent].ns++;
     });
 
     const rows = [...agents]
@@ -5583,19 +5648,21 @@ const ScreenAdmin = {
         e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text)', minWidth: 52, textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, EUR(val)));
     };
 
-    const periodLabel = { dag: 'Vandaag', week: 'Deze week', maand: 'Deze maand' };
-
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
       // Period tabs
-      e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+      e('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
         e('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)', flex: 1 } }, 'OPA — Omzet per Agent'),
-        ['dag', 'week', 'maand'].map(p => e('button', { key: p, onClick: () => this.setState({ _opaPeriod: p }),
-          style: { padding: '5px 14px', borderRadius: 20, border: '1px solid ' + (period === p ? 'var(--accent)' : 'var(--border)'), background: period === p ? 'var(--accent)' : 'transparent', color: period === p ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' } }, periodLabel[p]))),
+        ['dag', 'week'].map(p => e('button', { key: p, onClick: () => this.setState({ _opaPeriod: p }),
+          style: { padding: '5px 14px', borderRadius: 20, border: '1px solid ' + (period === p ? 'var(--accent)' : 'var(--border)'), background: period === p ? 'var(--accent)' : 'transparent', color: period === p ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' } }, { dag: 'Vandaag', week: 'Deze week' }[p])),
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 0, borderRadius: 20, border: '1px solid ' + (period === 'maand' ? 'var(--accent)' : 'var(--border)'), background: period === 'maand' ? 'var(--accent)' : 'transparent', overflow: 'hidden' } },
+          e('button', { onClick: () => shiftOpaMonth(-1), style: { padding: '5px 10px', background: 'transparent', border: 'none', color: period === 'maand' ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 13, cursor: 'pointer', lineHeight: 1 } }, '‹'),
+          e('button', { onClick: () => this.setState({ _opaPeriod: 'maand', _opaMonth: opaMonth }), style: { padding: '5px 2px', background: 'transparent', border: 'none', color: period === 'maand' ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minWidth: 110, textAlign: 'center' } }, monthLabel),
+          e('button', { onClick: () => shiftOpaMonth(1), disabled: opaMonth >= today.slice(0, 7), style: { padding: '5px 10px', background: 'transparent', border: 'none', color: period === 'maand' ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 13, cursor: opaMonth >= today.slice(0, 7) ? 'default' : 'pointer', opacity: opaMonth >= today.slice(0, 7) ? 0.4 : 1, lineHeight: 1 } }, '›'))),
 
       // Summary card
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' } },
         e('div', null,
-          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 } }, periodLabel[period]),
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 } }, { dag: 'Vandaag', week: 'Deze week', maand: monthLabel }[period] || period),
           e('div', { style: { fontSize: 32, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' } }, EUR(totalRev))),
         e('div', { style: { fontSize: 13, color: 'var(--text-mute)' } },
           e('div', null, rows.length + ' actieve agent' + (rows.length !== 1 ? 's' : '')),
@@ -5652,35 +5719,44 @@ const ScreenAdmin = {
 
     const uploadFile = async (file) => {
       const session = SB.getSession();
-      if (!session?.access_token) return null;
+      if (!session?.access_token) { console.warn('coaching upload: no session'); return null; }
       const ext = file.name.split('.').pop().toLowerCase();
       const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const r = await fetch('/api/db-write', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': file.type || 'application/octet-stream', 'x-file-path': safeName, 'x-bucket': 'coaching' },
-        body: file,
-      });
-      if (!r.ok) return null;
-      const j = await r.json();
-      return j.ok ? { url: j.url, name: file.name, kind: ext === 'mp3' ? 'audio' : 'image' } : null;
+      try {
+        const r = await fetch('/api/db-write', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': file.type || 'application/octet-stream', 'x-file-path': safeName, 'x-bucket': 'coaching' },
+          body: file,
+        });
+        if (!r.ok) { console.error('coaching upload HTTP error', r.status); return null; }
+        const j = await r.json();
+        if (!j.ok) { console.error('coaching upload API error', j); return null; }
+        return { url: j.url, name: file.name, kind: ext === 'mp3' ? 'audio' : 'image' };
+      } catch (err) { console.error('coaching upload exception', err); return null; }
     };
 
     const doPost = async () => {
       const txt = (s.cfText || '').trim(); if (!txt) return;
       const actTxt = cfType === 'a' ? (s.cfActTxt || '').trim() : null;
       const targetAgent = selAgent === 'all' ? (s.cfPostAgent || 'all') : selAgent;
-      this.setState({ cfPosting: true });
+      this.setState({ cfPosting: true, cfUploadErr: null });
       // Upload any pending files
       const pendingFiles = s.cfFiles || [];
       const uploaded = [];
+      let uploadFailed = false;
       for (const f of pendingFiles) {
         const att = await uploadFile(f);
         if (att) uploaded.push(att);
+        else uploadFailed = true;
+      }
+      if (uploadFailed && pendingFiles.length > 0) {
+        this.setState({ cfPosting: false, cfUploadErr: 'Upload van bijlage mislukt. Controleer of je ingelogd bent en probeer opnieuw.' });
+        return;
       }
       const postText = uploaded.length > 0 ? JSON.stringify({ t: txt, a: uploaded }) : txt;
       await fetch(CF_URL, { method: 'POST', headers: { ...hdrs, Prefer: 'return=representation' }, body: JSON.stringify({ type: cfType, agent_id: targetAgent, text: postText, action_text: actTxt || null, important: cfImp, day_date: today }) });
       await loadItems();
-      this.setState({ cfPosting: false, cfText: '', cfActTxt: '', cfImp: false, cfFiles: [] });
+      this.setState({ cfPosting: false, cfText: '', cfActTxt: '', cfImp: false, cfFiles: [], cfUploadErr: null });
     };
 
     const doToggleImp = async (item) => {
@@ -5792,6 +5868,7 @@ const ScreenAdmin = {
         (s.cfFiles || []).map((f, i) => e('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border-soft)', fontSize: 12, color: 'var(--text-mute)' } },
           f.type.startsWith('audio') ? '🎙' : '🖼', f.name.slice(0, 22),
           e('span', { onClick: () => this.setState(prev => ({ cfFiles: (prev.cfFiles || []).filter((_, j) => j !== i) })), style: { cursor: 'pointer', color: 'var(--down)', fontWeight: 700, marginLeft: 2 } }, '×')))),
+      s.cfUploadErr ? e('div', { style: { padding: '8px 12px', borderRadius: 8, background: 'oklch(0.28 0.06 25 / .25)', border: '1px solid var(--down)', fontSize: 12.5, color: 'var(--down)' } }, s.cfUploadErr) : null,
       e('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
         e('button', { onClick: doPost, disabled: !!s.cfPosting, style: { padding: '8px 20px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--accent-ink)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: s.cfPosting ? .6 : 1 } }, s.cfPosting ? 'Plaatsen…' : 'Plaatsen')));
 
