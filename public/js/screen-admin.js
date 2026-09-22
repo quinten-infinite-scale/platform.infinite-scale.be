@@ -4873,7 +4873,7 @@ const ScreenAdmin = {
       const t = agentTargets[agent.id] || {};
       const dialsActual = dialsMap[agent.id] || 0;
       const dayShows = (d.appointments || [])
-        .filter(a => a.dateLog === dialsDay && a.status === 'show' && a.agent === agent.id);
+        .filter(a => a.dateLog === dialsDay && a.agent === agent.id);
       const revActual = dayShows.reduce((sum, a) => sum + cRate(a), 0);
       const agKost = dayShows.reduce((sum, a) => sum + (a.agentRate != null ? a.agentRate : (rnAgentPay(a) ?? (((d.agents||[]).find(g=>g.id===agent.id)||{}).rates||{})[a.client] ?? 0)), 0);
       const isMarge = revActual > 0;
