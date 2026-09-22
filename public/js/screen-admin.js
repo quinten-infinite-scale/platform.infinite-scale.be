@@ -713,7 +713,7 @@ const ScreenAdmin = {
                         const clBillable = clAppts.filter(a => a.status !== 'cancel' && a.status !== 'no_show');
                         const clPending = clBillable.filter(a => !a.invoiced);
                         const clIsInvoiced = clPending.length === 0 && clBillable.length > 0;
-                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
+                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
                         const clTotal = clBillable.reduce((s2, r) => s2 + apptRate(r), 0);
                         const clPendingTotal = clPending.reduce((s2, r) => s2 + apptRate(r), 0);
                         const openCount = clPending.filter(a => a.status === 'open').length;
@@ -1776,7 +1776,7 @@ const ScreenAdmin = {
         const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
         const cl = d.clients.find(c => c.id === r.client);
         const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
-        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
+        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const catPay = rnAgentPay(r); if (catPay != null) return catPay; return 0; } } catch {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
         return e('div', { style: { textAlign: 'right' } },
           UI.Mono(displayAmt ? this.euro(displayAmt) : '—', { fontWeight: 700, color: displayAmt ? 'var(--text)' : 'var(--text-mute)' }),
           agentRate ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, 'Agent: ' + this.euro(agentRate) + (r.agentRate != null ? ' ✱' : '')) : null,
@@ -1947,7 +1947,7 @@ const ScreenAdmin = {
                   const cl = d.clients.find(c => c.id === r.client);
                   const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
                   const ag = d.agents.find(a => a.id === r.agent);
-                  const clientRate = (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0;
+                  const clientRate = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
                   const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
                   rows.push([r.dateAppt || '', r.dateLog || '', r.lead || '', r.phone || '', ag ? ag.name : '', cl ? cl.name : '', sub ? sub.name : '', r.status || '', clientRate, agentRate]);
                 });
