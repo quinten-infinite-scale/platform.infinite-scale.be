@@ -4872,11 +4872,10 @@ const ScreenAdmin = {
     const agentRow = (agent) => {
       const t = agentTargets[agent.id] || {};
       const dialsActual = dialsMap[agent.id] || 0;
-      const dayShows = (d.appointments || [])
+      const dayAppts = (d.appointments || [])
         .filter(a => a.dateLog === dialsDay && a.agent === agent.id);
-      const revActual = dayShows.reduce((sum, a) => sum + cRate(a), 0);
-      const agKost = dayShows.reduce((sum, a) => sum + (a.agentRate != null ? a.agentRate : (rnAgentPay(a) ?? (((d.agents||[]).find(g=>g.id===agent.id)||{}).rates||{})[a.client] ?? 0)), 0);
-      const isMarge = revActual > 0;
+      const agRates = ((d.agents||[]).find(g=>g.id===agent.id)||{}).rates||{};
+      const revActual = dayAppts.reduce((sum, a) => sum + (a.agentRate != null ? a.agentRate : (rnAgentPay(a) ?? agRates[a.sub] ?? agRates[a.client] ?? 0)), 0);
       const isCopied = s._copiedAgent === agent.id;
       return e('div', { key: agent.id, style: { display: 'grid', gridTemplateColumns: '140px 90px 1fr 90px 1fr 70px', gap: 12, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--border-soft)' } },
         e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, agent.name || agent.id),
@@ -4885,10 +4884,7 @@ const ScreenAdmin = {
         e('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
           e('span', { style: { fontSize: 13, color: 'var(--text-mute)', fontWeight: 600 } }, '€'),
           inputNum(t.revenue, v => setAgentTarget(agent.id, 'revenue', v))),
-        e('div', null,
-          progressBar(revActual, t.revenue, 'var(--accent)', v => '€' + v),
-          isMarge ? e('div', { style: { fontSize: 10, color: 'var(--text-mute)', marginTop: 2, fontVariantNumeric: 'tabular-nums' } },
-            'IS marge: ' + this.euro(revActual - agKost) + ' · kost: ' + this.euro(agKost)) : null),
+        progressBar(revActual, t.revenue, 'var(--accent)', v => '€' + v),
         e('button', {
           onClick: () => { copyTarget(agent.id); this.setState({ _copiedAgent: agent.id }); setTimeout(() => this.setState({ _copiedAgent: null }), 1500); },
           title: 'Kopieer targets naar alle andere agents',
