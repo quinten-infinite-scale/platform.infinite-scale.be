@@ -673,7 +673,8 @@ class Component extends DCLogic {
     const row = { name: f.name, type, status: 'starting', crm: f.crm || 'none', crm_on: f.crm && f.crm !== 'none', kickoff: this.iso(this.today()), rate, contact_person: f.name, email: f.email || '', company: f.name, bill_status: 'pending', subclients: [] };
     const res = await API.createClient(row);
     if (res) {
-      const norm = { ...row, id: res[0]?.id || 'c' + Date.now(), agents: [], clients: [], crmOn: row.crm_on, contactPerson: row.contact_person, billStatus: row.bill_status };
+      const clientId = res[0]?.id || 'c' + Date.now();
+      const norm = { ...row, id: clientId, agents: [], clients: [], crmOn: row.crm_on, contactPerson: row.contact_person, billStatus: row.bill_status };
       this.mutLocal(d => d.clients.push(norm));
       // If linking this new client to an existing agency, add it to that agency's subclients
       if (type === 'direct' && f.linkAgency) {
@@ -684,9 +685,11 @@ class Component extends DCLogic {
           await API.updateClient(f.linkAgency, { subclients: newSubs });
         }
       }
+      // Auto-invite: create auth account and send password setup email
+      if (row.email) this._inviteClient(row.email, row.name, clientId);
     }
     this.closeModal();
-    this.toast('Created', 'Client added & email sent', 'var(--up)');
+    this.toast('Client aangemaakt', f.email ? 'Account aangemaakt & uitnodiging verzonden' : 'Client toegevoegd', 'var(--up)');
   }
 
   async createAgent(f) {
@@ -695,6 +698,36 @@ class Component extends DCLogic {
     if (res) { const norm = { ...row, id: res[0]?.id || 'a' + Date.now(), clients: [], rates: {}, lifetime: 0 }; this.mutLocal(d => d.agents.push(norm)); }
     this.closeModal();
     this.toast('Created', 'Agent added & email sent', 'var(--up)');
+  }
+
+  // Fire-and-forget: create auth account + send invite email for a client
+  _inviteClient(email, name, clientId) {
+    const token = SB.getSession()?.access_token;
+    if (!token || !email) return;
+    fetch('/api/invite-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ email, name, clientId }),
+    }).then(r => r.json()).then(d => {
+      if (!d.ok) console.warn('[invite-client] failed:', d);
+    }).catch(err => console.warn('[invite-client] error:', err));
+  }
+
+  async resendInvite(clientId) {
+    const cl = this.state.data.clients.find(x => x.id === clientId);
+    if (!cl || !cl.email) { this.toast('Fout', 'Geen e-mailadres gevonden voor deze client', 'var(--down)'); return; }
+    const token = SB.getSession()?.access_token;
+    if (!token) return;
+    this.toast('Bezig…', 'Uitnodiging wordt verzonden', 'var(--accent)');
+    const r = await fetch('/api/invite-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ email: cl.email, name: cl.name, clientId }),
+    });
+    const d = await r.json();
+    if (d.ok && d.emailSent) this.toast('Verstuurd ✓', 'Uitnodiging opnieuw gestuurd naar ' + cl.email, 'var(--up)');
+    else if (d.ok) this.toast('Account aangemaakt', 'E-mail kon niet worden verstuurd — check Resend', 'var(--warn)');
+    else this.toast('Fout', d.error || 'Uitnodiging mislukt', 'var(--down)');
   }
 
   async toggleAgent(id, active) {
@@ -1052,17 +1085,10 @@ class Component extends DCLogic {
       const norm = { ...row, id: clientId, agents: [], clients: [], crmOn: false, contactPerson: row.contact_person, billStatus: row.bill_status };
       this.mutLocal(d => d.clients.push(norm));
       this._logActivity('client_created', 'Client aangemaakt vanuit contract: ' + name);
-      // Link profile_id if an auth account already exists for this email
-      // (handles case where prospect created account before admin pressed Convert to Client)
-      if (row.email) {
-        fetch('/api/create-account', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: row.email, party: name, party_type: 'client', link_only: true }),
-        }).catch(() => {});
-      }
+      // Auto-invite: create auth account and send password setup email (or link if account already exists)
+      if (row.email) this._inviteClient(row.email, name, clientId);
       this.closeModal();
-      this.toast('Client aangemaakt ✓', name + ' toegevoegd als client', 'var(--up)');
+      this.toast('Client aangemaakt ✓', name + (row.email ? ' — uitnodiging wordt verzonden' : ' toegevoegd'), 'var(--up)');
       await this._loadData(false);
       this.openModal('clientProfile', { id: clientId });
     } else {
