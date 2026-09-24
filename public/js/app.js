@@ -372,6 +372,18 @@ class Component extends DCLogic {
         }
       }
 
+      // Refresh prospects periodically so changes from other sessions are visible
+      const nowMs = Date.now();
+      const onProspects = this.state.route === 'prospects';
+      const prospectInterval = onProspects ? 30000 : 120000;
+      if (!this._lastProspectRefresh || (nowMs - this._lastProspectRefresh) > prospectInterval) {
+        this._lastProspectRefresh = nowMs;
+        const rawProspects = await SB.get('prospects', '?order=created_at.desc').catch(() => null);
+        if (rawProspects) {
+          this.mutLocal(dd => { dd.prospects = rawProspects; });
+        }
+      }
+
       // Refresh todos for current day if on todos screen
       if (this.state.route === 'todos') {
         const todayStr = new Date().toISOString().slice(0, 10);
@@ -597,8 +609,15 @@ class Component extends DCLogic {
   }
 
   async moveProspect(id, stage) {
+    const prev = (this.state.data.prospects.find(x => x.id === id) || {}).stage;
     this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p) p.stage = stage; });
-    await API.updateProspectStage(id, stage);
+    const ok = await API.updateProspectStage(id, stage);
+    if (!ok) {
+      this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p && prev) p.stage = prev; });
+      this.toast('Fout', 'Stage kon niet worden opgeslagen', 'var(--down)');
+    } else {
+      this._lastProspectRefresh = Date.now();
+    }
   }
 
   async addProspect(f) {
@@ -611,8 +630,13 @@ class Component extends DCLogic {
       call_on: f.call_on || null, revenue: f.revenue || '',
       next_action: 'Qualify', next_date: this.iso(this.today()),
     };
-    this.mutLocal(d => d.prospects.unshift({ id: 'p' + Date.now(), ...row }));
-    await API.addProspect(row);
+    const tempId = 'p' + Date.now();
+    this.mutLocal(d => d.prospects.unshift({ id: tempId, ...row }));
+    const res = await API.addProspect({ id: tempId, ...row });
+    // Replace the temp prospect with the real DB row (same ID, but ensures consistency)
+    if (res && res.id && res.id !== tempId) {
+      this.mutLocal(d => { const idx = d.prospects.findIndex(x => x.id === tempId); if (idx >= 0) d.prospects[idx].id = res.id; });
+    }
     this.closeModal();
     this.toast('Prospect', 'Added to pipeline', 'var(--accent)');
   }
@@ -1242,7 +1266,9 @@ class Component extends DCLogic {
 
   async updateProspectDetail(id, data) {
     this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p) Object.assign(p, data); });
-    await API.updateProspect(id, data);
+    const ok = await API.updateProspect(id, data);
+    if (!ok) this.toast('Fout', 'Prospect kon niet worden opgeslagen', 'var(--down)');
+    else this._lastProspectRefresh = Date.now();
   }
 
   async saveSettings() {

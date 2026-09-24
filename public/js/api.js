@@ -438,7 +438,8 @@ const API = {
   },
 
   async addProspect(data) {
-    const result = await SB.post('prospects', { id: 'p' + Date.now(), ...data });
+    const payload = data.id ? data : { id: 'p' + Date.now(), ...data };
+    const result = await SB.post('prospects', payload);
     return Array.isArray(result) ? result[0] : result;
   },
 
