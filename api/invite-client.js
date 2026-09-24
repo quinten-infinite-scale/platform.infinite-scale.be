@@ -95,7 +95,7 @@ export default async function handler(req, res) {
     const linkData = await linkR.json();
     const hashedToken = linkData.hashed_token;
     if (hashedToken) {
-      setupUrl = `https://platform.infinite-scale.be/api/auth-redirect?token=${encodeURIComponent(hashedToken)}&type=recovery&new=1`;
+      setupUrl = `https://platform.infinite-scale.be/api/create-account?action=auth-redirect&token=${encodeURIComponent(hashedToken)}&type=recovery&new=1`;
     }
   }
 

@@ -1,8 +1,35 @@
+const SB_URL_CONST = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://database.infinite-scale.be';
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // GET ?action=auth-redirect&token=HASHED&type=recovery&new=1
+  // Exchanges a Supabase hashed_token for a real JWT and redirects to the platform reset-password page.
+  if (req.method === 'GET') {
+    const { action, token, type = 'recovery', new: isNew } = req.query || {};
+    if (action !== 'auth-redirect' || !token) return res.status(400).send('Missing action or token');
+    try {
+      const verifyUrl = `${SB_URL_CONST}/auth/v1/verify?token=${encodeURIComponent(token)}&type=${type}`;
+      const verifyR = await fetch(verifyUrl, { method: 'GET', headers: { apikey: ANON_KEY }, redirect: 'manual' });
+      const location = verifyR.headers.get('location') || '';
+      const hashIdx = location.indexOf('#');
+      if (hashIdx === -1) return res.redirect(302, `https://platform.infinite-scale.be/reset-password?error=link_expired`);
+      const params = new URLSearchParams(location.slice(hashIdx + 1));
+      const at = params.get('access_token');
+      const rt = params.get('refresh_token') || '';
+      if (!at) return res.redirect(302, `https://platform.infinite-scale.be/reset-password?error=link_expired`);
+      const dest = new URLSearchParams({ access_token: at, refresh_token: rt, type, ...(isNew ? { new: '1' } : {}) });
+      return res.redirect(302, `https://platform.infinite-scale.be/reset-password#${dest.toString()}`);
+    } catch (err) {
+      console.error('auth-redirect crash:', err);
+      return res.redirect(302, `https://platform.infinite-scale.be/reset-password?error=server_error`);
+    }
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { email, password, phone, party, party_type, link_only, force_recreate, fix_corrupted, generate_link } = req.body || {};
