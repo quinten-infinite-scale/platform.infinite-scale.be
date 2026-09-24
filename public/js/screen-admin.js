@@ -4270,7 +4270,8 @@ const ScreenAdmin = {
             list.push({ ...pt, day: targetDay, order_idx: newIdx, carried_from: carryFrom });
           }
         }
-        // Parallelize all PATCH requests instead of sequential awaits
+        // Move the canonical row to today, then soft-delete any older duplicates of the same title+user
+        const deletedAt = new Date().toISOString();
         await Promise.all(toCarry.map(({ pt, newIdx, carryFrom }) =>
           fetch(`${SB_URL}/rest/v1/todos?id=eq.${pt.id}`, {
             method: 'PATCH',
@@ -4278,10 +4279,21 @@ const ScreenAdmin = {
             body: JSON.stringify({ day: targetDay, order_idx: newIdx, carried_from: carryFrom })
           }).catch(() => {})
         ));
+        // Soft-delete any stale duplicate rows (same created_by+title, different id) left over from past carry-overs
+        const idsToKeep = new Set(Object.values(latestByKey).map(t => t.id));
+        const staleIds = allPast.filter(pt => !idsToKeep.has(pt.id)).map(pt => pt.id);
+        if (staleIds.length) {
+          await Promise.all(staleIds.map(sid =>
+            fetch(`${SB_URL}/rest/v1/todos?id=eq.${sid}`, {
+              method: 'PATCH',
+              headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+              body: JSON.stringify({ completed_at: deletedAt, completed_by: '__deleted__' }),
+            }).catch(() => {})
+          ));
+        }
         list.sort((a, b) => (a.order_idx || 0) - (b.order_idx || 0) || a.created_at.localeCompare(b.created_at));
       }
-      const _dIds = this.state._deletedTodoIds || [];
-      const filteredList = _dIds.length ? list.filter(t => !_dIds.includes(t.id)) : list;
+      const filteredList = list.filter(t => t.completed_by !== '__deleted__');
       this.setState({ todosList: filteredList, todosLoading: false, _todosLoaded: true });
     };
 
@@ -4325,12 +4337,12 @@ const ScreenAdmin = {
     };
 
     const deleteTodo = async id => {
-      // Optimistically remove and track so the poll doesn't re-add it
-      this.setState(st => ({
-        todosList: (st.todosList || []).filter(t => t.id !== id),
-        _deletedTodoIds: [...(st._deletedTodoIds || []), id]
-      }));
-      await fetch(`${SB_URL}/rest/v1/todos?id=eq.${id}`, { method: 'DELETE', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } });
+      this.setState(st => ({ todosList: (st.todosList || []).filter(t => t.id !== id) }));
+      await fetch(`${SB_URL}/rest/v1/todos?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ completed_at: new Date().toISOString(), completed_by: '__deleted__' }),
+      });
     };
 
     const addTodoFor = async ownerId => {

@@ -394,10 +394,8 @@ class Component extends DCLogic {
         const rawTodos = await SB.get('todos', `?day=eq.${day}&order=order_idx.asc,created_at.asc`).catch(() => null);
         if (rawTodos) {
           const curList = this.state.todosList;
-          // Never re-add items deleted locally — only sync updates to existing items and add genuinely new ones from other users
-          const deletedIds = this.state._deletedTodoIds || [];
-          const filtered = rawTodos.filter(t => !deletedIds.includes(t.id));
-          const hasChanges = !curList || filtered.some(t => { const c = curList.find(x => x.id === t.id); return !c || c.completed_at !== t.completed_at || c.order_idx !== t.order_idx || c.title !== t.title; }) || curList.some(t => !filtered.find(x => x.id === t.id) && !deletedIds.includes(t.id));
+          const filtered = rawTodos.filter(t => t.completed_by !== '__deleted__');
+          const hasChanges = !curList || filtered.some(t => { const c = curList.find(x => x.id === t.id); return !c || c.completed_at !== t.completed_at || c.order_idx !== t.order_idx || c.title !== t.title; }) || curList.some(t => !filtered.find(x => x.id === t.id));
           if (hasChanges) this.setState({ todosList: filtered, _todosLoaded: true });
         }
       }
