@@ -55,7 +55,18 @@ export default async function handler(req, res) {
       return isNaN(n) ? m : Math.max(m, n);
     }, 0);
     const newClientId = 'c' + (maxNum + 1);
-    const rate = contract.value ? Math.round(parseFloat(contract.value)) : 45;
+    // Parse rate from contract HTML (looks for "€ NNN" near "per afspraak" / "per gehouden afspraak")
+    let rate = contract.value ? Math.round(parseFloat(contract.value)) : 0;
+    let setupFee = 0;
+    if (contract.contract_html) {
+      const text = contract.contract_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      const rateMatch = text.match(/(?:per\s+(?:gehouden\s+)?afspraak)[^€]*€\s*([\d.,]+)/i) ||
+                        text.match(/€\s*([\d.,]+)[^€\n]{0,60}(?:per\s+(?:gehouden\s+)?afspraak)/i);
+      if (rateMatch) rate = Math.round(parseFloat(rateMatch[1].replace(/\./g, '').replace(',', '.')));
+      const setupMatch = text.match(/[Oo]pstartkost[^€]*€\s*([\d.,]+)/i);
+      if (setupMatch) setupFee = Math.round(parseFloat(setupMatch[1].replace(/\./g, '').replace(',', '.')));
+    }
+    if (!rate) rate = 45; // last-resort default
     const today = new Date().toISOString().slice(0, 10);
     const newClientR = await fetch(`${SB_URL}/rest/v1/clients`, {
       method: 'POST',
@@ -70,6 +81,7 @@ export default async function handler(req, res) {
         crm_on: false,
         kickoff: today,
         rate,
+        setup_fee: setupFee || null,
         contact_person: resolvedName,
         company: resolvedName,
         bill_status: 'pending',
