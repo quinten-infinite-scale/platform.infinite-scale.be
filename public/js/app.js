@@ -197,8 +197,22 @@ class Component extends DCLogic {
   _startPolling() {
     if (this._pollTimer) clearInterval(this._pollTimer);
     if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
+    if (this._syncDialsTimer) clearInterval(this._syncDialsTimer);
     this._pollTimer = setInterval(() => this._poll(), 5000);
     this._heartbeatTimer = setInterval(() => this._updatePresence(this.state.route), 30000);
+    // Trigger CloudTalk → Supabase dials sync every 2 minutes (admin only)
+    this._syncDialsTimer = setInterval(() => this._triggerDialsSync(), 120000);
+  }
+
+  async _triggerDialsSync() {
+    if (this.state.role !== 'admin') return;
+    const session = SB.loadSession();
+    if (!session || !session.access_token) return;
+    try {
+      await fetch('/api/sync-dials?no_hourly=true', {
+        headers: { 'Authorization': 'Bearer ' + session.access_token },
+      });
+    } catch (e) { /* silent */ }
   }
 
   async _poll() {
@@ -304,7 +318,9 @@ class Component extends DCLogic {
           };
           const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
           const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
-          if (!doFullRefresh) this.mutLocal(dd => dd.appointments.unshift(appt)); // full refresh already added it
+          // Add to local state unless MTD full refresh already covered this appointment's month
+          const coveredByMtd = doFullRefresh && (appt.dateLog || '').startsWith(ym2);
+          if (!coveredByMtd) this.mutLocal(dd => { if (!dd.appointments.find(a => a.id === appt.id)) dd.appointments.unshift(appt); });
           this._pushAdminNotif(`${agentName} booked ${appt.lead} for ${clientName}`, 'appt', { route: 'apptadmin', modal: 'appointmentDetail', modalForm: { id: appt.id } });
           this.toast('New appointment', `${agentName} · ${appt.lead} · ${clientName}`, 'var(--info)');
         }
@@ -466,8 +482,21 @@ class Component extends DCLogic {
       a.dealCommission = fields.deal_commission;
       a.dealAmount = fields.deal_amount;
     });
-    console.log('[saveApptEdits] fields:', JSON.stringify({deal_amount: fields.deal_amount, deal_commission: fields.deal_commission, eApptDealAmount: f.eApptDealAmount, eApptCommission: f.eApptCommission}));
     const ok = await API.patchAppointment(id, fields);
+    if (ok) {
+      // Re-apply local update: doFullRefresh may have run during the PATCH and overwritten optimistic state
+      this.mutLocal(dd => {
+        const a = dd.appointments.find(x => x.id === id); if (!a) return;
+        a.lead = fields.lead_name; a.phone = fields.phone;
+        a.client = fields.client_id; a.sub = fields.sub_client_id || '';
+        a.agent = fields.agent_id; a.amount = fields.amount;
+        a.dateAppt = fields.date_appt; a.dateLog = fields.date_logged;
+        a.agentRate = fields.agent_rate;
+        a.dealCommission = fields.deal_commission;
+        a.dealAmount = fields.deal_amount;
+      });
+      this._lastFullApptRefresh = Date.now(); // delay next full refresh so this update isn't immediately overwritten
+    }
     this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptTime: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
     if (ok && ok.ok !== false) this.toast('Saved ✓', 'Appointment updated', 'var(--up)');
     else this.toast('Fout', 'Opslaan mislukt', 'var(--down)');
@@ -485,6 +514,9 @@ class Component extends DCLogic {
     const amount = status === 'show' ? clientRate : 0;
     this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
     await API.setApptStatus(id, status, amount);
+    // Re-apply after API call: doFullRefresh may have run during the await and overwritten optimistic state
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
+    this._lastFullApptRefresh = Date.now();
     const m = { show: 'Marked as Show', no_show: 'Marked as No-show', cancel: 'Marked as Cancelled' };
     this._logActivity('appointment_updated', 'Set appointment status → ' + status + (ap ? ' — Lead: ' + ap.lead : ''));
     this.toast('Updated', m[status] || 'Status updated', status === 'show' ? 'var(--up)' : 'var(--down)');
@@ -493,6 +525,9 @@ class Component extends DCLogic {
   async saveApptFeedback(id, feedback) {
     this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.clientFeedback = feedback; });
     await API.saveApptFeedback(id, feedback);
+    // Re-apply: clientFeedback is in the poll select, doFullRefresh can overwrite it during the await
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.clientFeedback = feedback; });
+    this._lastFullApptRefresh = Date.now();
     this.toast('Saved', 'Feedback saved', 'var(--accent)');
   }
 
