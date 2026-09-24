@@ -32,6 +32,56 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // POST ?action=invite-client — create auth account + send onboarding email (admin auth required)
+  if ((req.query?.action || req.body?.action) === 'invite-client') {
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    const SERVICE_KEY_IC = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const RESEND_KEY_IC = process.env.RESEND_API_KEY;
+    if (!SERVICE_KEY_IC) return res.status(500).json({ error: 'Service key not configured' });
+    const authHeader2 = req.headers['authorization'] || '';
+    const tok2 = authHeader2.startsWith('Bearer ') ? authHeader2.slice(7) : '';
+    if (!tok2) return res.status(401).json({ error: 'Unauthorized' });
+    const userR2 = await fetch(`${SB_URL_CONST}/auth/v1/user`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${tok2}` } });
+    if (!userR2.ok) return res.status(401).json({ error: 'Unauthorized' });
+    const authUser2 = await userR2.json();
+    const profileR2 = await fetch(`${SB_URL_CONST}/rest/v1/profiles?id=eq.${authUser2.id}&select=role&limit=1`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}` } });
+    const profiles2 = await profileR2.json();
+    if (!profiles2?.[0] || profiles2[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { email: icEmail, name: icName, clientId: icClientId } = req.body || {};
+    if (!icEmail) return res.status(400).json({ error: 'email required' });
+    const sbH2 = { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}`, 'Content-Type': 'application/json' };
+    let icUserId;
+    const cr2 = await fetch(`${SB_URL_CONST}/auth/v1/admin/users`, { method: 'POST', headers: sbH2, body: JSON.stringify({ email: icEmail, email_confirm: true }) });
+    const cd2 = await cr2.json();
+    if (cr2.ok && cd2.id) { icUserId = cd2.id; }
+    else {
+      const lr2 = await fetch(`${SB_URL_CONST}/auth/v1/admin/users?email=${encodeURIComponent(icEmail)}`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}` } });
+      icUserId = (await lr2.json())?.users?.[0]?.id;
+      if (!icUserId) return res.status(500).json({ error: 'Could not create or find user', detail: cd2 });
+    }
+    await fetch(`${SB_URL_CONST}/rest/v1/profiles`, { method: 'POST', headers: { ...sbH2, Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: icUserId, name: icName || icEmail.split('@')[0], email: icEmail, role: 'client' }) });
+    if (icClientId) {
+      await fetch(`${SB_URL_CONST}/rest/v1/clients?id=eq.${icClientId}`, { method: 'PATCH', headers: { ...sbH2, Prefer: 'return=minimal' }, body: JSON.stringify({ profile_id: icUserId, email: icEmail }) });
+    } else {
+      const clR2 = await fetch(`${SB_URL_CONST}/rest/v1/clients?email=eq.${encodeURIComponent(icEmail)}&limit=1`, { headers: sbH2 });
+      const cls2 = await clR2.json();
+      if (cls2?.[0]?.id) await fetch(`${SB_URL_CONST}/rest/v1/clients?id=eq.${cls2[0].id}`, { method: 'PATCH', headers: { ...sbH2, Prefer: 'return=minimal' }, body: JSON.stringify({ profile_id: icUserId }) });
+    }
+    let icSetupUrl;
+    const icLinkR = await fetch(`${SB_URL_CONST}/auth/v1/admin/generate_link`, { method: 'POST', headers: sbH2, body: JSON.stringify({ type: 'recovery', email: icEmail }) });
+    if (icLinkR.ok) { const ld2 = await icLinkR.json(); if (ld2.hashed_token) icSetupUrl = `https://platform.infinite-scale.be/api/create-account?action=auth-redirect&token=${encodeURIComponent(ld2.hashed_token)}&type=recovery&new=1`; }
+    if (!icSetupUrl) return res.status(500).json({ error: 'Failed to generate setup link', userId: icUserId });
+    if (!RESEND_KEY_IC || RESEND_KEY_IC === 're_placeholder') return res.status(200).json({ ok: true, userId: icUserId, setupUrl: icSetupUrl, emailSent: false });
+    const icDisplayName = icName || icEmail.split('@')[0];
+    const icHtml = `<div style="background:#0a0e1a;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><div style="max-width:540px;margin:0 auto;padding:40px 24px;"><div style="margin-bottom:32px;"><span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#67dcdf;font-weight:700;">Infinite Scale</span></div><h1 style="margin:0 0 12px;font-size:28px;font-weight:700;color:#f0f4ff;letter-spacing:-.02em;line-height:1.15;">Welkom, ${icDisplayName}!</h1><p style="margin:0 0 32px;font-size:15px;color:#8090b0;line-height:1.7;">Je account op het Infinite Scale platform is aangemaakt. Klik hieronder om je wachtwoord in te stellen.</p><a href="${icSetupUrl}" style="display:inline-block;padding:15px 36px;border-radius:12px;background:#67dcdf;color:#071314;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:-.01em;">Wachtwoord instellen →</a><div style="margin-top:36px;padding:18px 20px;border-radius:12px;background:#111827;border:1px solid #1f2d3d;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#4a5a7a;letter-spacing:.08em;text-transform:uppercase;">Jouw inloggegevens</p><p style="margin:0 0 4px;font-size:13px;color:#a0b0d0;">Platform: <a href="https://platform.infinite-scale.be" style="color:#67dcdf;text-decoration:none;">platform.infinite-scale.be</a></p><p style="margin:0;font-size:13px;color:#a0b0d0;">E-mail: <strong style="color:#f0f4ff;">${icEmail}</strong></p></div><p style="margin-top:32px;font-size:12px;color:#2d3d55;line-height:1.6;">Deze link is 24 uur geldig. Vragen? Mail naar <a href="mailto:quinten@infinite-scale.be" style="color:#3d5070;text-decoration:none;">quinten@infinite-scale.be</a></p></div></div>`;
+    try {
+      const er2 = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND_KEY_IC}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'Infinite Scale <platform@infinite-scale.be>', to: [icEmail], subject: 'Welkom bij Infinite Scale — stel je wachtwoord in', html: icHtml }) });
+      const ed2 = await er2.json();
+      if (!er2.ok) return res.status(200).json({ ok: true, userId: icUserId, emailSent: false, emailError: ed2?.message });
+      return res.status(200).json({ ok: true, userId: icUserId, emailSent: true });
+    } catch (e2) { return res.status(200).json({ ok: true, userId: icUserId, emailSent: false, emailError: e2.message }); }
+  }
+
   const { email, password, phone, party, party_type, link_only, force_recreate, fix_corrupted, generate_link } = req.body || {};
   if (!email) return res.status(400).json({ error: 'email required' });
   if (!link_only && !generate_link && !password) return res.status(400).json({ error: 'password required' });

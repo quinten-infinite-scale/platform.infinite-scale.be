@@ -704,7 +704,7 @@ class Component extends DCLogic {
   _inviteClient(email, name, clientId) {
     const token = SB.getSession()?.access_token;
     if (!token || !email) return;
-    fetch('/api/invite-client', {
+    fetch('/api/create-account?action=invite-client', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ email, name, clientId }),
@@ -719,7 +719,7 @@ class Component extends DCLogic {
     const token = SB.getSession()?.access_token;
     if (!token) return;
     this.toast('Bezig…', 'Uitnodiging wordt verzonden', 'var(--accent)');
-    const r = await fetch('/api/invite-client', {
+    const r = await fetch('/api/create-account?action=invite-client', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ email: cl.email, name: cl.name, clientId }),

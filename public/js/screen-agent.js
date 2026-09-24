@@ -1,6 +1,6 @@
 // Agent screens: dashboard, log, appointments, eod, payments, clients, stats, settings
 const RN_AGENT_RATE = {25:8, 40:12, 50:15, 55:15, 70:15, 80:20};
-const RN_CAT_RATE = {'Airco':8,'Thuisbatt':12,'Zonnepanelen':15,'Ramen en deuren':15,'Keukens':15,'Badkamers':15,'Crepi':15,'Dak':20,'Chapewerken':12};
+const RN_CAT_RATE = {'Airco':12,'Thuisbatt':12,'Zonnepanelen':15,'Ramen en deuren':15,'Keukens':15,'Badkamers':15,'Crepi':15,'Dak':20,'Chapewerken':12};
 const RN_CAT_CLIENT_RATE = {'Airco':25,'Thuisbatt':40,'Zonnepanelen':50,'Keukens':55,'Badkamers':55,'Ramen en deuren':70,'Crepi':70,'Dak':80,'Chapewerken':25};
 function rnAgentPay(r) {
   try {
@@ -777,7 +777,7 @@ const ScreenAgent = {
     // Fetch CloudTalk dials lazily when this tab is first rendered
     if (!s._ctLoaded && !s._ctLoading) {
       this.setState({ _ctLoading: true });
-      fetch('/api/cloudtalk-stats').then(r => r.json()).then(j => {
+      fetch('/api/webhook-cloudtalk').then(r => r.json()).then(j => {
         this.setState({ _ctLoaded: true, _ctLoading: false, _ctToday: j.today, _ctWeek: j.week, _ctMonth: j.month, _ctErr: j.ok ? null : (j.error || 'error') });
       }).catch(err => {
         this.setState({ _ctLoaded: true, _ctLoading: false, _ctErr: err.message });

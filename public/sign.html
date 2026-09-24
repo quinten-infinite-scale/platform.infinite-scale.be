@@ -444,10 +444,10 @@ ${sigBlock}
 
       // Auto-onboard: create client account + send invite email with password setup link
       if (email && partyType === 'client') {
-        fetch('/api/onboard-after-sign', {
+        fetch('/api/save-contract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sign_token: token, email, name, party_type: partyType }),
+          body: JSON.stringify({ action: 'onboard-after-sign', sign_token: token, email, name, party_type: partyType }),
         }).catch(() => {});
       }
 
