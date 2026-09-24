@@ -5663,6 +5663,7 @@ const ScreenAdmin = {
     const agentRev = {};
     const agentAppts = {};
     const agentShows = {};
+    const agentBooked = {};
     (d.appointments || []).filter(a => a.status === 'show' && inPeriod(a)).forEach(a => {
       const rev = cRate(a);
       agentRev[a.agent] = (agentRev[a.agent] || 0) + rev;
@@ -5673,11 +5674,14 @@ const ScreenAdmin = {
       if (a.status === 'show') agentShows[a.agent].s++;
       else agentShows[a.agent].ns++;
     });
+    (d.appointments || []).filter(a => inPeriod(a) && a.status === 'open').forEach(a => {
+      agentBooked[a.agent] = (agentBooked[a.agent] || 0) + 1;
+    });
 
     const rows = [...agents]
-      .map(ag => ({ ag, rev: agentRev[ag.id] || 0, appts: agentAppts[ag.id] || 0, shows: agentShows[ag.id] || { s: 0, ns: 0 } }))
-      .filter(r => r.rev > 0 || r.appts > 0)
-      .sort((a, b) => b.rev - a.rev);
+      .map(ag => ({ ag, rev: agentRev[ag.id] || 0, appts: agentAppts[ag.id] || 0, shows: agentShows[ag.id] || { s: 0, ns: 0 }, booked: agentBooked[ag.id] || 0 }))
+      .filter(r => r.rev > 0 || r.appts > 0 || r.booked > 0)
+      .sort((a, b) => b.rev - a.rev || b.booked - a.booked);
 
     const totalRev = rows.reduce((s2, r) => s2 + r.rev, 0);
     const EUR = v => '€' + Math.round(v).toLocaleString('nl-BE');
@@ -5707,22 +5711,23 @@ const ScreenAdmin = {
           e('div', { style: { fontSize: 32, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' } }, EUR(totalRev))),
         e('div', { style: { fontSize: 13, color: 'var(--text-mute)' } },
           e('div', null, rows.length + ' actieve agent' + (rows.length !== 1 ? 's' : '')),
-          e('div', null, rows.reduce((s2, r) => s2 + r.shows.s, 0) + ' shows · ' + rows.reduce((s2, r) => s2 + r.shows.ns, 0) + ' no-shows'))),
+          e('div', null, rows.reduce((s2, r) => s2 + r.shows.s, 0) + ' shows · ' + rows.reduce((s2, r) => s2 + r.shows.ns, 0) + ' no-shows · ' + rows.reduce((s2, r) => s2 + r.booked, 0) + ' gepland'))),
 
       // Per-agent leaderboard
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
-        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
-          e('div', null, '#'), e('div', null, 'Agent'), e('div', null, 'Omzet'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Conv%')),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
+          e('div', null, '#'), e('div', null, 'Agent'), e('div', null, 'Omzet'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%')),
         rows.length === 0
           ? e('div', { style: { padding: '32px 16px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen data voor deze periode.')
           : rows.map((r, i) => {
             const showRate = (r.shows.s + r.shows.ns) > 0 ? Math.round(r.shows.s / (r.shows.s + r.shows.ns) * 100) : 0;
-            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
+            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
               e('div', { style: { fontSize: 13, fontWeight: 700, color: i < 3 ? ['var(--warn)', 'var(--text-mute)', 'var(--text-mute)'][i] : 'var(--text-mute)', textAlign: 'center' } }, i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1),
               e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.ag.name || r.ag.id),
               pctBar(r.rev, totalRev),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.shows.s),
-              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: showRate >= 70 ? 'var(--up)' : showRate >= 50 ? 'var(--warn)' : 'var(--down)', textAlign: 'right' } }, showRate + '%'));
+              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: r.booked > 0 ? 'var(--accent)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.booked || '—'),
+              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: showRate >= 70 ? 'var(--up)' : showRate >= 50 ? 'var(--warn)' : 'var(--down)', textAlign: 'right' } }, (r.shows.s + r.shows.ns) > 0 ? showRate + '%' : '—'));
           })));
   },
 
