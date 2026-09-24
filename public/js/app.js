@@ -1,6 +1,9 @@
 // Version tag (for reference only — cache busting handled by ?v= query params on JS files)
 // const CURRENT_V = '20260921g';
 
+// Renocheck client billing rates — must match RN_CAT_CLIENT_RATE in screen-agent.js
+const _RN_CLIENT_RATE = {'Airco':25,'Thuisbatt':40,'Zonnepanelen':50,'Keukens':55,'Badkamers':55,'Ramen en deuren':70,'Crepi':70,'Dak':80,'Chapewerken':25};
+
 // Main application controller — thin delegation layer over modules
 class Component extends DCLogic {
   constructor(props) {
@@ -518,12 +521,26 @@ class Component extends DCLogic {
     const d = this.state.data;
     const ap = d.appointments.find(x => x.id === id);
     const cl = ap ? d.clients.find(c => c.id === ap.client) : null;
-    let clientRate = (cl || {}).rate || 0;
-    if (ap && ap.sub && cl && cl.subclients) {
-      const sc = cl.subclients.find(s => s.id === ap.sub || s.name === ap.sub);
-      if (sc) clientRate = sc.rate || clientRate;
-    }
-    const amount = status === 'show' ? clientRate : 0;
+    const amount = (() => {
+      if (status !== 'show') return 0;
+      // Renocheck: rate comes from clientFeedback category
+      try {
+        const fb = ap?.clientFeedback ? JSON.parse(ap.clientFeedback) : null;
+        if (fb && fb._rn) {
+          if (fb.category && _RN_CLIENT_RATE[fb.category] != null) return _RN_CLIENT_RATE[fb.category];
+          if (fb.revenue != null) return fb.revenue;
+          return 0;
+        }
+      } catch {}
+      // closeFee clients (deal-based)
+      if (cl && cl.closeFee) return ap?.quoteApproved ? cl.closeFee : 0;
+      // Subclient rate, else client rate
+      if (ap?.sub && cl?.subclients) {
+        const sc = cl.subclients.find(s => s.id === ap.sub || s.name === ap.sub);
+        if (sc && sc.rate != null) return sc.rate;
+      }
+      return (cl && cl.rate) || 0;
+    })();
     this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
     await API.setApptStatus(id, status, amount);
     // Re-apply after API call: doFullRefresh may have run during the await and overwritten optimistic state

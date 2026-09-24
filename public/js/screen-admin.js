@@ -1763,7 +1763,7 @@ const ScreenAdmin = {
         }, e('option', { value: 'open' }, 'Open'), e('option', { value: 'show' }, 'Show'), e('option', { value: 'no_show' }, 'No-show'), e('option', { value: 'cancel' }, 'Cancel'));
       } },
       { label: 'Factuur', align: 'center', render: r => {
-        if (r.status === 'cancel' || r.status === 'no_show') return e('span', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, '—');
+        if (r.status === 'cancel' || r.status === 'no_show' || r.status === 'open') return e('span', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, '—');
         return e('select', {
           value: r.invoiced ? 'invoiced' : 'pending',
           onChange: async ev => { const inv = ev.target.value === 'invoiced'; this.mutLocal(dd => { const f = dd.appointments.find(x => x.id === r.id); if (f) f.invoiced = inv; }); try { await SB.patch('appointments', `?id=eq.${r.id}`, { invoiced: inv }); } catch(e) { this.mutLocal(dd => { const f = dd.appointments.find(x => x.id === r.id); if (f) f.invoiced = !inv; }); this.toast('Fout', 'Factuurstatus kon niet worden opgeslagen', 'var(--down)'); } },
@@ -1776,7 +1776,7 @@ const ScreenAdmin = {
         const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
         const cl = d.clients.find(c => c.id === r.client);
         const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
-        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const catPay = rnAgentPay(r); if (catPay != null) return catPay; return 0; } } catch {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
+        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; return 0; } } catch {} if (cl && cl.closeFee) return r.quoteApproved ? cl.closeFee : 0; if (sub && sub.rate != null) return sub.rate; return (cl && cl.rate) || 0; })();
         return e('div', { style: { textAlign: 'right' } },
           UI.Mono(displayAmt ? this.euro(displayAmt) : '—', { fontWeight: 700, color: displayAmt ? 'var(--text)' : 'var(--text-mute)' }),
           agentRate ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, 'Agent: ' + this.euro(agentRate) + (r.agentRate != null ? ' ✱' : '')) : null,
