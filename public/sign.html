@@ -132,33 +132,22 @@
     <div id="state-onboarding">
       <div class="card-bar" style="background:linear-gradient(90deg,var(--up),#22c55e);"></div>
       <div class="card-body">
-        <!-- Step 1: signed confirmation + account setup -->
+        <!-- Step 1: signed confirmation + check email -->
         <div id="onboard-step-1">
           <div class="state-icon ok" style="margin:0 0 16px;">✓</div>
           <p class="eyebrow" style="color:var(--up);">Ondertekend &amp; opgeslagen</p>
-          <h1 style="margin-bottom:10px;">Stel uw account in</h1>
-          <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:24px;">
-            Uw contract is ondertekend. Maak nu uw account aan op het Infinite Scale platform om uw afspraken, facturen en rapporten te bekijken.
+          <h1 style="margin-bottom:10px;">Controleer uw e-mail</h1>
+          <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:20px;">
+            Uw contract is ondertekend. We hebben een e-mail gestuurd naar:
           </p>
           <div style="background:var(--bg);border:1px solid rgba(103,220,223,0.15);border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px;color:var(--muted);">
-            <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:3px;">Inloggen met</span>
+            <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:3px;">Uitnodiging verstuurd naar</span>
             <span id="onboard-email" style="font-weight:700;color:var(--text);font-size:14px;"></span>
           </div>
-          <div class="field">
-            <label>Kies een wachtwoord</label>
-            <input id="onboard-pw" type="password" placeholder="Minimaal 8 tekens" autocomplete="new-password" />
-          </div>
-          <div class="field">
-            <label>Bevestig wachtwoord</label>
-            <input id="onboard-pw2" type="password" placeholder="Herhaal wachtwoord" autocomplete="new-password" />
-          </div>
-          <div class="field">
-            <label>Telefoonnummer (optioneel)</label>
-            <input id="onboard-phone" type="tel" placeholder="+32 …" autocomplete="tel" />
-          </div>
-          <div id="onboard-error" style="display:none;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--down);margin-bottom:14px;"></div>
-          <button class="btn-primary" id="btn-create-account" onclick="createAccount()">Account aanmaken →</button>
-          <button class="btn-soft" style="margin-top:8px;" onclick="downloadPdf()">Contract downloaden (PDF)</button>
+          <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:24px;">
+            Klik op de link in de e-mail om uw wachtwoord in te stellen en in te loggen op het platform.
+          </p>
+          <button class="btn-soft" onclick="downloadPdf()">Contract downloaden (PDF)</button>
         </div>
 
         <!-- Step 2: account created success -->
@@ -452,14 +441,17 @@ ${sigBlock}
 
       const email = contractData.email;
       const partyType = contractData.party_type || 'client';
-      if (email) {
-        fetch('/api/send-email', {
+
+      // Auto-onboard: create client account + send invite email with password setup link
+      if (email && partyType === 'client') {
+        fetch('/api/onboard-after-sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: email, subject: 'Welkom bij Infinite Scale — stel uw account in', html: buildWelcomeEmail(name, partyType, email, token) }),
+          body: JSON.stringify({ sign_token: token, email, name, party_type: partyType }),
         }).catch(() => {});
       }
 
+      // Show success screen — account setup link sent by email
       const emailEl = document.getElementById('onboard-email');
       if (emailEl) emailEl.textContent = email || '';
       show('state-onboarding');
