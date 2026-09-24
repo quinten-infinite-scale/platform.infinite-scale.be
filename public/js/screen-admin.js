@@ -2888,15 +2888,22 @@ const ScreenAdmin = {
           const st = { ...cellSt(col), color: 'var(--text-dim)', fontWeight: 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined };
           return e('div', { key: col.key, style: st }, val || e('span', { style: { color: 'var(--border-soft)' } }, '—'));
         }),
-        // Calendly book button (always last)
-        e('div', { style: { width: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }, onClick: ev => ev.stopPropagation() },
-          e('button', {
-            onClick: ev => { ev.stopPropagation(); openCalendly(it); },
-            title: 'Boek meeting via Calendly',
-            style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, opacity: 0.5, transition: 'opacity .15s', padding: '2px 4px', lineHeight: 1, borderRadius: 4 },
-            onMouseEnter: ev => { ev.currentTarget.style.opacity = '1'; ev.currentTarget.style.background = 'var(--accent)18'; },
-            onMouseLeave: ev => { ev.currentTarget.style.opacity = '0.5'; ev.currentTarget.style.background = 'none'; },
-          }, '📅'))
+        // Calendly book button (always last) — shows meeting time badge when booked
+        e('div', { style: { width: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }, onClick: ev => ev.stopPropagation() },
+          it.calendly_event_start
+            ? e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 } },
+                e('span', { style: { fontSize: 9, fontWeight: 700, color: '#4ade80', background: '#4ade8022', border: '1px solid #4ade8055', borderRadius: 3, padding: '1px 4px', whiteSpace: 'nowrap', lineHeight: 1.4, cursor: 'default' },
+                  title: 'Meeting gepland: ' + new Date(it.calendly_event_start).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) },
+                  new Date(it.calendly_event_start).toLocaleDateString('nl-BE', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(it.calendly_event_start).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })),
+                e('button', { onClick: ev => { ev.stopPropagation(); openCalendly(it); }, title: 'Herplan via Calendly',
+                  style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, opacity: 0.5, padding: '0 2px', lineHeight: 1, borderRadius: 4 } }, '↺'))
+            : e('button', {
+                onClick: ev => { ev.stopPropagation(); openCalendly(it); },
+                title: 'Boek meeting via Calendly',
+                style: { background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, opacity: 0.5, transition: 'opacity .15s', padding: '2px 4px', lineHeight: 1, borderRadius: 4 },
+                onMouseEnter: ev => { ev.currentTarget.style.opacity = '1'; ev.currentTarget.style.background = 'var(--accent)18'; },
+                onMouseLeave: ev => { ev.currentTarget.style.opacity = '0.5'; ev.currentTarget.style.background = 'none'; },
+              }, '📅'))
       );
     };
 
@@ -2910,10 +2917,35 @@ const ScreenAdmin = {
         window._calendlyLoaded = true;
         const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://assets.calendly.com/assets/external/widget.css'; document.head.appendChild(css);
         const scr = document.createElement('script'); scr.src = 'https://assets.calendly.com/assets/external/widget.js'; document.head.appendChild(scr);
+        window._calendlyProspectId = prospect.id;
         setTimeout(() => window.Calendly?.initPopupWidget({ url, prefill: { name: prospect.contact || '', email: prospect.email || '', customAnswers: { a1: prospect.company || '' } } }), 600);
         return;
       }
       window.Calendly?.initPopupWidget({ url, prefill: { name: prospect.contact || '', email: prospect.email || '', customAnswers: { a1: prospect.company || '' } } });
+      // Listen for booking confirmation from Calendly popup
+      if (!window._calendlyListenerAdded) {
+        window._calendlyListenerAdded = true;
+        window.addEventListener('message', (ev) => {
+          if (ev.data?.event === 'calendly.event_scheduled') {
+            const uri = ev.data.payload?.event?.uri || '';
+            const startTime = ev.data.payload?.event?.start_time || null;
+            const prospectId = window._calendlyProspectId;
+            if (prospectId) {
+              this.mutLocal(dd => {
+                const p = dd.prospects.find(x => x.id === prospectId);
+                if (p) {
+                  p.calendly_event_uri = uri;
+                  p.calendly_event_start = startTime;
+                  p.next_action_type = 'meeting';
+                  if (startTime) p.next_action_date = startTime.slice(0, 10);
+                }
+              });
+              this._lastProspectRefresh = Date.now(); // don't overwrite immediately
+            }
+          }
+        });
+      }
+      window._calendlyProspectId = prospect.id;
     };
 
     // ── Settings panel — Meta forms with auto-fetch ───────────────────────────
@@ -4248,7 +4280,9 @@ const ScreenAdmin = {
         ));
         list.sort((a, b) => (a.order_idx || 0) - (b.order_idx || 0) || a.created_at.localeCompare(b.created_at));
       }
-      this.setState({ todosList: list, todosLoading: false, _todosLoaded: true });
+      const _dIds = this.state._deletedTodoIds || [];
+      const filteredList = _dIds.length ? list.filter(t => !_dIds.includes(t.id)) : list;
+      this.setState({ todosList: filteredList, todosLoading: false, _todosLoaded: true });
     };
 
     if (!s._todosLoaded && !s.todosLoading) loadDay(day);

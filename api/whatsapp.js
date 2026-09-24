@@ -56,8 +56,10 @@ function getRawBody(req) {
 }
 
 function verifyMetaSignature(rawBody, signatureHeader) {
-  const appSecret = process.env.WHATSAPP_APP_SECRET;
-  if (!appSecret || !signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
+  // META_APP_SECRET is preferred (separate Meta Lead Ads app); falls back to WHATSAPP_APP_SECRET
+  const appSecret = process.env.META_APP_SECRET || process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) { console.warn('[meta] No META_APP_SECRET or WHATSAPP_APP_SECRET env var — skipping signature check'); return true; }
+  if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
   const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
   try { return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader)); } catch { return false; }
 }
