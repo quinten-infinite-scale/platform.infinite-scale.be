@@ -133,22 +133,13 @@ export default async function handler(req, res) {
   const linkR = await fetch(`${SB_URL}/auth/v1/admin/generate_link`, {
     method: 'POST',
     headers: sbH,
-    body: JSON.stringify({ type: 'recovery', email: resolvedEmail, redirect_to: 'https://platform.infinite-scale.be/reset-password' }),
+    body: JSON.stringify({ type: 'recovery', email: resolvedEmail }),
   });
   if (linkR.ok) {
     const linkData = await linkR.json();
-    const actionLink = linkData.action_link || '';
-    const hashMatch = actionLink.match(/[?#](.+)$/);
-    if (hashMatch) {
-      const params = new URLSearchParams(hashMatch[1]);
-      const at = params.get('access_token') || params.get('token');
-      const rt = params.get('refresh_token') || '';
-      if (at) {
-        setupUrl = `https://platform.infinite-scale.be/reset-password#access_token=${at}&refresh_token=${rt}&type=recovery&new=1`;
-      }
-    }
-    if (!setupUrl && linkR.hashed_token) {
-      setupUrl = `${SB_URL}/auth/v1/verify?token=${linkR.hashed_token}&type=recovery&redirect_to=https://platform.infinite-scale.be/reset-password`;
+    const hashedToken = linkData.hashed_token;
+    if (hashedToken) {
+      setupUrl = `https://platform.infinite-scale.be/api/auth-redirect?token=${encodeURIComponent(hashedToken)}&type=recovery&new=1`;
     }
   }
 

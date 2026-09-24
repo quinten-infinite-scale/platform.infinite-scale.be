@@ -84,28 +84,18 @@ export default async function handler(req, res) {
     }
   }
 
-  // Step 4: Generate password setup link (recovery type → reset-password.html)
+  // Step 4: Generate password setup link via platform redirect (never exposes database.infinite-scale.be)
   let setupUrl;
   const linkR = await fetch(`${SB_URL}/auth/v1/admin/generate_link`, {
     method: 'POST',
     headers: sbH,
-    body: JSON.stringify({ type: 'recovery', email, redirect_to: 'https://platform.infinite-scale.be/reset-password' }),
+    body: JSON.stringify({ type: 'recovery', email }),
   });
   if (linkR.ok) {
     const linkData = await linkR.json();
-    const actionLink = linkData.action_link || '';
-    // Extract tokens — Supabase may redirect through its own domain; rebuild correct URL
-    const hashMatch = actionLink.match(/[?#](.+)$/);
-    if (hashMatch) {
-      const params = new URLSearchParams(hashMatch[1]);
-      const at = params.get('access_token') || params.get('token');
-      const rt = params.get('refresh_token') || '';
-      if (at) {
-        setupUrl = `https://platform.infinite-scale.be/reset-password#access_token=${at}&refresh_token=${rt}&type=recovery&new=1`;
-      }
-    }
-    if (!setupUrl && linkData.hashed_token) {
-      setupUrl = `${SB_URL}/auth/v1/verify?token=${linkData.hashed_token}&type=recovery&redirect_to=https://platform.infinite-scale.be/reset-password`;
+    const hashedToken = linkData.hashed_token;
+    if (hashedToken) {
+      setupUrl = `https://platform.infinite-scale.be/api/auth-redirect?token=${encodeURIComponent(hashedToken)}&type=recovery&new=1`;
     }
   }
 
