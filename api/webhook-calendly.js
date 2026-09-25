@@ -129,6 +129,7 @@ export default async function handler(req, res) {
     // Auto-create a new prospect in the meta_ads pipeline
     const nameParts = inviteeName.trim().split(' ');
     const newProspect = {
+      id: 'p' + Date.now(),
       pipeline_id: 'meta_ads',
       stage: 'appointment_booked',
       contact: inviteeName || null,
