@@ -69,17 +69,28 @@ async function findProspect(email, name) {
 }
 
 async function getMeetingStage(pipelineId) {
-  // Look for a stage with id/label containing "meeting" or "gepland" in this pipeline's config
+  // Hardcoded per pipeline first, then fall back to regex scan
+  const hardcoded = { meta_ads: 'appointment_booked', manuele: 'meeting_gepland' };
+  if (hardcoded[pipelineId]) return hardcoded[pipelineId];
   try {
     const rows = await sbGet('platform_settings?key=eq.prospect_pipelines&select=value');
     const pipelines = JSON.parse(rows?.[0]?.value || '[]');
     const pipeline = pipelines.find(p => p.id === pipelineId) || pipelines[0];
     if (!pipeline) return null;
     const stageIds = (pipeline.stages || []).map(s => s.id);
-    // Prefer a stage explicitly named "meeting_gepland", "meeting", "gepland" etc.
-    const preferred = stageIds.find(id => /meeting|gepland|booked|geplande/i.test(id));
-    return preferred || null;
+    return stageIds.find(id => /meeting|gepland|booked|geplande/i.test(id)) || null;
   } catch { return null; }
+}
+
+async function createProspect(data) {
+  const r = await fetch(`${SB_URL}/rest/v1/prospects`, {
+    method: 'POST',
+    headers: { ...sbHeaders(), Prefer: 'return=representation' },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) return null;
+  const rows = await r.json().catch(() => []);
+  return rows?.[0] || null;
 }
 
 export default async function handler(req, res) {
@@ -112,15 +123,35 @@ export default async function handler(req, res) {
 
   console.log(`[calendly] ${event} — ${inviteeName} <${inviteeEmail}> — ${eventName}`);
 
-  const prospect = await findProspect(inviteeEmail, inviteeName);
+  let prospect = await findProspect(inviteeEmail, inviteeName);
+
+  if (!prospect && event === 'invitee.created') {
+    // Auto-create a new prospect in the meta_ads pipeline
+    const nameParts = inviteeName.trim().split(' ');
+    const newProspect = {
+      pipeline_id: 'meta_ads',
+      stage: 'appointment_booked',
+      contact: inviteeName || null,
+      email: inviteeEmail || null,
+      company: inviteeEmail ? inviteeEmail.split('@')[1]?.split('.')[0] || inviteeName : inviteeName,
+      lead_source: 'Meta Ads',
+      created_at: new Date().toISOString(),
+    };
+    prospect = await createProspect(newProspect);
+    if (prospect) {
+      console.log(`[calendly] Auto-created prospect ${prospect.id} for ${inviteeName} <${inviteeEmail}>`);
+    } else {
+      console.warn(`[calendly] Failed to auto-create prospect for ${inviteeName} <${inviteeEmail}>`);
+      return res.status(200).json({ ok: true, matched: false });
+    }
+  }
 
   if (!prospect) {
     console.warn(`[calendly] No prospect found for email=${inviteeEmail} name=${inviteeName}`);
-    // Still return 200 so Calendly doesn't retry — just nothing to update
     return res.status(200).json({ ok: true, matched: false });
   }
 
-  const pipelineId = prospect.pipeline_id || 'manuele';
+  const pipelineId = prospect.pipeline_id || 'meta_ads';
 
   if (event === 'invitee.created') {
     // Find the right "meeting booked" stage for this pipeline

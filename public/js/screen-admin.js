@@ -2790,7 +2790,7 @@ const ScreenAdmin = {
           }
           if (col.meetingOutcomeCol) {
             const outcomes = [
-              { id:'held',        label:'Held',        color:'#4ade80' },
+              { id:'show',         label:'Show',        color:'#4ade80' },
               { id:'no_show',     label:'No-show',     color:'#f87171' },
               { id:'cancelled',   label:'Cancelled',   color:'#fb923c' },
               { id:'rescheduled', label:'Rescheduled', color:'#60a5fa' },
@@ -3244,18 +3244,92 @@ const ScreenAdmin = {
       { label: 'Motivation', key: 'motivation', w: 220 },
     ];
 
-    const totalW = 28 + cols.reduce((s, c) => s + c.w, 0);
+    const DEL_COL_W = 28;
+    const totalW = 28 + DEL_COL_W + cols.reduce((s, c) => s + c.w, 0);
     const cellStyle = (col) => ({
       width: col.w + 'px', minWidth: col.w + 'px', maxWidth: col.w + 'px',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       fontSize: 11.5, padding: '0 8px', boxSizing: 'border-box', flexShrink: 0,
     });
 
+    // Column filters
+    const activeFilters = s._recruitFilters || {};
+    const filterOpen = s._recruitFilterOpen || null;
+    const filterable = ['name', 'position', 'country', 'gender', 'source', 'lang', 'experience'];
+    const getUniqueVals = (key) => {
+      const vals = new Set();
+      (d.recruits || []).forEach(r => { const v = r[key]; if (v && typeof v !== 'object') vals.add(String(v)); });
+      return Array.from(vals).sort();
+    };
+    const setFilter = (key, val) => {
+      const f = { ...(s._recruitFilters || {}) };
+      if (!val) delete f[key]; else f[key] = val;
+      this.setState({ _recruitFilters: f, _recruitFilterOpen: null });
+    };
+    const matchesFilters = (recruit) => Object.entries(activeFilters).every(([key, val]) => {
+      if (!val) return true;
+      const rv = recruit[key];
+      return rv != null && String(rv).toLowerCase() === String(val).toLowerCase();
+    });
+
+    const filterPos = s._recruitFilterPos || null;
+    const filterDropdown = (col) => {
+      if (!filterable.includes(col.key)) return null;
+      const activeVal = activeFilters[col.key];
+      const isOpen = filterOpen === col.key;
+      const uniqueVals = getUniqueVals(col.key);
+      if (!uniqueVals.length) return null;
+      return e('span', {
+        style: { display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' },
+        onClick: ev => {
+          ev.stopPropagation();
+          if (isOpen) { this.setState({ _recruitFilterOpen: null, _recruitFilterPos: null }); return; }
+          const rect = ev.currentTarget.getBoundingClientRect();
+          this.setState({ _recruitFilterOpen: col.key, _recruitFilterPos: { x: rect.left, y: rect.bottom + 4 } });
+        }
+      },
+        e('span', { style: { fontSize: 8, marginLeft: 3, cursor: 'pointer', color: activeVal ? 'var(--accent)' : 'var(--text-mute)', background: activeVal ? 'oklch(0.84 0.16 194 / .2)' : 'transparent', borderRadius: 3, padding: '1px 3px', lineHeight: 1, userSelect: 'none' } }, activeVal ? '●' : '▾')
+      );
+    };
+    // Render the open filter as a fixed-position portal-like div to escape overflow clipping
+    const filterPopover = (filterOpen && filterPos) ? (() => {
+      const col = cols.find(c => c.key === filterOpen);
+      if (!col) return null;
+      const activeVal = activeFilters[filterOpen];
+      const uniqueVals = getUniqueVals(filterOpen);
+      return e('div', {
+        key: 'filter-popover',
+        style: { position: 'fixed', top: filterPos.y, left: filterPos.x, zIndex: 9999, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, minWidth: 150, padding: '4px 0', boxShadow: '0 4px 24px rgba(0,0,0,.45)' },
+        onClick: ev => ev.stopPropagation(),
+      },
+        e('div', { onClick: () => setFilter(filterOpen, ''), style: { padding: '5px 12px', fontSize: 12, cursor: 'pointer', color: !activeVal ? 'var(--accent)' : 'var(--text-dim)', fontWeight: !activeVal ? 700 : 400, whiteSpace: 'nowrap' } }, 'Alle'),
+        uniqueVals.map(v => e('div', {
+          key: v,
+          onClick: () => setFilter(filterOpen, v),
+          style: { padding: '5px 12px', fontSize: 12, cursor: 'pointer', color: activeVal === v ? 'var(--accent)' : 'var(--text)', fontWeight: activeVal === v ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 },
+          onMouseEnter: ev => { ev.currentTarget.style.background = 'var(--surface-2)'; },
+          onMouseLeave: ev => { ev.currentTarget.style.background = 'transparent'; }
+        }, v))
+      );
+    })() : null;
+
+    // Delete a recruit
+    const deleteRecruit = async (id) => {
+      const session = typeof SB !== 'undefined' && SB.getSession();
+      if (!session?.access_token) return;
+      await fetch('/api/db-write', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token }, body: JSON.stringify({ method: 'del', table: 'recruits', query: '?id=eq.' + id }) });
+      this.mutLocal(dd => { dd.recruits = (dd.recruits || []).filter(r => r.id !== id); });
+      this.toast('Recruitment', 'Kandidaat verwijderd', 'var(--text-mute)');
+    };
+
     const headerRow = e('div', {
       style: { display: 'flex', alignItems: 'center', borderBottom: '2px solid var(--border)', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 2, paddingLeft: 0, minWidth: totalW + 'px' },
     },
       e('div', { style: { width: 28, flexShrink: 0 } }),
-      cols.map(col => e('div', { key: col.key, style: { ...cellStyle(col), fontSize: 10, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', padding: '5px 8px' } }, col.label)));
+      cols.map(col => e('div', { key: col.key, style: { ...cellStyle(col), fontSize: 10, fontWeight: 700, color: activeFilters[col.key] ? 'var(--accent)' : 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', padding: '5px 8px', display: 'flex', alignItems: 'center' } },
+        col.label,
+        filterDropdown(col))),
+      e('div', { style: { width: DEL_COL_W, flexShrink: 0 } }));
 
     const candidateRow = (it, stageColor) => e('div', {
       key: it.id,
@@ -3290,7 +3364,16 @@ const ScreenAdmin = {
         }
         const style = { ...cellStyle(col), color: col.bold ? 'var(--text)' : 'var(--text-dim)', fontWeight: col.bold ? 600 : 400, fontFamily: col.mono ? "'JetBrains Mono', monospace" : undefined };
         return e('div', { key: col.key, style }, val || e('span', { style: { color: 'var(--border-soft)' } }, '—'));
-      }));
+      }),
+      e('div', {
+        style: { width: DEL_COL_W, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        onClick: ev => ev.stopPropagation(),
+      },
+        e('button', {
+          onClick: ev => { ev.stopPropagation(); if (window.confirm('Kandidaat verwijderen?')) deleteRecruit(it.id); },
+          title: 'Verwijderen',
+          style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '2px 5px', borderRadius: 4, opacity: 0.5 },
+        }, '×')));
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
       // Top bar
@@ -3305,7 +3388,7 @@ const ScreenAdmin = {
 
         // Stages stacked vertically
         stages.map((sg, si) => {
-          const items = d.recruits.filter(r => r.stage === sg.id);
+          const items = d.recruits.filter(r => r.stage === sg.id && matchesFilters(r));
           const isOver = dragOver === sg.id;
           const isStageOver = stageDragOverIdx === si;
           const isCollapsed = collapsed[sg.id];
@@ -3362,7 +3445,8 @@ const ScreenAdmin = {
           e('button', {
             onClick: addStage,
             style: { fontSize: 11.5, color: 'var(--text-mute)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4 },
-          }, '+ Add stage'))));
+          }, '+ Add stage'))),
+      filterPopover);
   },
 
   _admContracts(d, s) {
@@ -5488,6 +5572,14 @@ const ScreenAdmin = {
       this.toast('Ticket', 'Notitie opgeslagen', 'var(--up)');
     };
 
+    const deleteTicket = async (ticketId) => {
+      const session = typeof SB !== 'undefined' && SB.getSession();
+      if (!session?.access_token) return;
+      await fetch('/api/db-write', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token }, body: JSON.stringify({ method: 'del', table: 'tickets', query: '?id=eq.' + ticketId }) });
+      await this.reload();
+      this.toast('Ticket', 'Ticket verwijderd', 'var(--text-mute)');
+    };
+
     const openTickets = tickets.filter(t => t.status === 'open' || t.status === 'in_progress');
     const closedTickets = tickets.filter(t => t.status === 'fixed' || t.status === 'closed');
 
@@ -5503,6 +5595,7 @@ const ScreenAdmin = {
           e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 } },
             e('select', { value: t.status, onClick: ev => ev.stopPropagation(), onChange: ev => updateStatus(t.id, ev.target.value), style: { padding: '5px 10px', borderRadius: 8, border: '1px solid ' + (statusColor[t.status] || 'var(--border)'), background: 'transparent', color: statusColor[t.status] || 'var(--text)', fontWeight: 700, fontSize: 12, cursor: 'pointer', outline: 'none' } },
               STATUS_OPTS.map(st => e('option', { key: st, value: st }, statusLabel[st]))),
+            e('button', { onClick: ev => { ev.stopPropagation(); if (window.confirm('Ticket verwijderen?')) deleteTicket(t.id); }, title: 'Verwijderen', style: { background: 'none', border: '1px solid var(--border)', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 13, lineHeight: 1, padding: '3px 7px', borderRadius: 6, opacity: 0.6 } }, '×'),
             e('span', { style: { fontSize: 16, color: 'var(--text-mute)', transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform .15s', display: 'inline-block' } }, '›'))),
         expanded ? e('div', { style: { borderTop: '1px solid var(--border-soft)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 } },
           e('pre', { style: { margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--bg-2)', padding: '12px 14px', borderRadius: 10 } }, t.desc),
@@ -5670,13 +5763,13 @@ const ScreenAdmin = {
     const thisMonthStart = thisMonth + '-01';
     const thisMonthEnd = new Date(tmY, tmM, 0).toISOString().slice(0,10);
 
-    // inPeriod for completed (shows/no-shows) — uses dateLog
+    // inPeriod for completed (shows/no-shows) — uses dateAppt (appointment date)
     const inPeriod = (appt) => {
-      const dl = appt.dateLog || '';
-      if (period === 'dag') return dl === today;
-      if (period === 'week') return dl >= weekStart && dl <= today;
-      if (period === 'deze-maand') return dl >= thisMonthStart && dl <= thisMonthEnd;
-      if (period === 'maand') return dl >= monthStart && dl <= monthEnd;
+      const da = appt.dateAppt || '';
+      if (period === 'dag') return da === today;
+      if (period === 'week') return da >= weekStart && da <= weekEnd;
+      if (period === 'deze-maand') return da >= thisMonthStart && da <= thisMonthEnd;
+      if (period === 'maand') return da >= monthStart && da <= monthEnd;
       return false;
     };
     // inPeriodOpen for planned (open) appointments — uses dateAppt (full week/month range incl. future)
@@ -5694,10 +5787,12 @@ const ScreenAdmin = {
     const agentAppts = {};
     const agentShows = {};
     const agentBooked = {};
+    const agentCostMap = {};
     (d.appointments || []).filter(a => a.status === 'show' && inPeriod(a)).forEach(a => {
       const rev = cRate(a);
       agentRev[a.agent] = (agentRev[a.agent] || 0) + rev;
       agentAppts[a.agent] = (agentAppts[a.agent] || 0) + 1;
+      agentCostMap[a.agent] = (agentCostMap[a.agent] || 0) + agCost(a);
     });
     // Add expected revenue from planned appointments
     (d.appointments || []).filter(a => a.status === 'open' && inPeriodOpen(a)).forEach(a => {
@@ -5712,7 +5807,7 @@ const ScreenAdmin = {
     });
 
     const rows = [...agents]
-      .map(ag => ({ ag, rev: agentRev[ag.id] || 0, appts: agentAppts[ag.id] || 0, shows: agentShows[ag.id] || { s: 0, ns: 0 }, booked: agentBooked[ag.id] || 0 }))
+      .map(ag => ({ ag, rev: agentRev[ag.id] || 0, appts: agentAppts[ag.id] || 0, shows: agentShows[ag.id] || { s: 0, ns: 0 }, booked: agentBooked[ag.id] || 0, cost: agentCostMap[ag.id] || 0 }))
       .filter(r => r.rev > 0 || r.appts > 0 || r.booked > 0)
       .sort((a, b) => b.rev - a.rev || b.booked - a.booked);
 
@@ -5726,10 +5821,10 @@ const ScreenAdmin = {
         e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text)', minWidth: 52, textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, EUR(val)));
     };
 
-    // Monthly history — all shows by dateLog, grouped by month
+    // Monthly history — all shows by dateAppt, grouped by month
     const monthHist = {};
-    (d.appointments || []).filter(a => a.status === 'show' && a.dateLog).forEach(a => {
-      const ym = a.dateLog.slice(0, 7);
+    (d.appointments || []).filter(a => a.status === 'show' && (a.dateAppt || a.dateLog)).forEach(a => {
+      const ym = (a.dateAppt || a.dateLog || '').slice(0, 7);
       if (!monthHist[ym]) monthHist[ym] = { rev: 0, cost: 0, shows: 0 };
       monthHist[ym].rev  += cRate(a);
       monthHist[ym].cost += agCost(a);
@@ -5764,19 +5859,21 @@ const ScreenAdmin = {
 
       // Per-agent leaderboard
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
-        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
-          e('div', null, '#'), e('div', null, 'Agent'), e('div', null, 'Omzet (incl. gepland)'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%')),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px 65px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
+          e('div', null, '#'), e('div', null, 'Agent'), e('div', null, 'Omzet (incl. gepland)'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%'), e('div', { style: { textAlign: 'right' } }, 'Ag.kost')),
         rows.length === 0
           ? e('div', { style: { padding: '32px 16px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen data voor deze periode.')
           : rows.map((r, i) => {
-            const showRate = (r.shows.s + r.shows.ns) > 0 ? Math.round(r.shows.s / (r.shows.s + r.shows.ns) * 100) : 0;
-            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
+            const total = r.shows.s + r.shows.ns + r.booked;
+            const showRate = total > 0 ? Math.round(r.shows.s / total * 100) : 0;
+            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px 65px', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
               e('div', { style: { fontSize: 13, fontWeight: 700, color: i < 3 ? ['var(--warn)', 'var(--text-mute)', 'var(--text-mute)'][i] : 'var(--text-mute)', textAlign: 'center' } }, i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1),
               e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.ag.name || r.ag.id),
               pctBar(r.rev, totalRev),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.shows.s),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: r.booked > 0 ? 'var(--accent)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.booked || '—'),
-              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: showRate >= 70 ? 'var(--up)' : showRate >= 50 ? 'var(--warn)' : 'var(--down)', textAlign: 'right' } }, (r.shows.s + r.shows.ns) > 0 ? showRate + '%' : '—'));
+              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: showRate >= 50 ? 'var(--up)' : showRate >= 30 ? 'var(--warn)' : showRate > 0 ? 'var(--down)' : 'var(--text-mute)', textAlign: 'right' } }, total > 0 ? showRate + '%' : '—'),
+              e('div', { style: { fontSize: 11.5, fontWeight: 500, color: r.cost > 0 ? 'var(--down)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.cost > 0 ? EUR(r.cost) : '—'));
           })),
 
       // Monthly P&L history

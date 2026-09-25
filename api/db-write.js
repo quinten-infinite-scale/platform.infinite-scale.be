@@ -171,6 +171,27 @@ TRANSCRIPT:\n${transcript}`;
 
     // Build update payload
     const actionItemsText = Array.isArray(action_items) ? action_items.join('\n• ') : (action_items || '');
+
+    // Determine stage transition and meeting_outcome from CLOSER analysis
+    let stageUpdate = {};
+    if (analysis && prospectRow) {
+      const nat = analysis.next_action_type;
+      const pid = prospectRow.pipeline_id || 'manuele';
+      // Stage maps per pipeline
+      const stageMap = {
+        meta_ads: { second_call: 'call_2', follow_up_call: 'interested_follow_up' },
+        manuele:  { second_call: 'second_call', follow_up_call: 'follow_up_call' },
+      };
+      const map = stageMap[pid] || stageMap.manuele;
+      if (nat === 'second_call' && map.second_call) {
+        stageUpdate = { stage: map.second_call, meeting_outcome: 'show' };
+      } else if (nat === 'follow_up_call' && map.follow_up_call) {
+        stageUpdate = { stage: map.follow_up_call, meeting_outcome: 'show' };
+      } else if (nat && nat !== 'geen_actie' && nat !== 'niet_gekwalificeerd') {
+        stageUpdate = { meeting_outcome: 'show' };
+      }
+    }
+
     const updates = {
       ...(analysis ? {
         closer_analysis: { ...analysis, call_date: started_at || new Date().toISOString(), recording_url: recording_url || null, fathom_title: title || null },
@@ -179,6 +200,7 @@ TRANSCRIPT:\n${transcript}`;
         next_action_date: analysis.next_action_date || null,
         next_action_notes: analysis.next_action_notes || null,
       } : {}),
+      ...stageUpdate,
       ...(actionItemsText ? { action_items: actionItemsText } : {}),
       ...(summary ? { fathom_summary: summary } : {}),
       last_call_at: started_at || new Date().toISOString(),
@@ -204,6 +226,24 @@ TRANSCRIPT:\n${transcript}`;
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   const user = await verifyToken(token);
   if (!user || !user.id) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+
+  // Magic link generation (admin only)
+  if (req.body?.method === 'magicLink') {
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!email) return res.status(400).json({ ok: false, error: 'email required' });
+    const r = await fetch(`${SB_URL}/auth/v1/admin/generate_link`, {
+      method: 'POST',
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'magiclink', email }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(200).json({ ok: false, error: d });
+    const hashedToken = d.hashed_token || '';
+    const link = hashedToken
+      ? `https://platform.infinite-scale.be/api/create-account?action=auth-redirect&token=${encodeURIComponent(hashedToken)}&type=magiclink`
+      : null;
+    return res.status(200).json({ ok: !!link, link });
+  }
 
   // Storage upload: detected by x-file-path header
   const filePath = req.headers['x-file-path'];
