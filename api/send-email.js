@@ -81,24 +81,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
       const d = await r.json();
-      const actionLink = d.action_link || '';
-      // Supabase site URL forces redirect to database.infinite-scale.be — extract tokens and build correct URL
-      const hashMatch = actionLink.match(/[?#](.+)$/);
-      if (hashMatch) {
-        const params = new URLSearchParams(hashMatch[1]);
-        const at = params.get('access_token') || params.get('token');
-        const rt = params.get('refresh_token') || '';
-        const type = params.get('type') || 'recovery';
-        if (at) {
-          resetUrl = `https://platform.infinite-scale.be/reset-password#access_token=${at}&refresh_token=${rt}&type=${type}`;
-        }
-      }
-      // Fallback: redirect through Supabase's own verify endpoint with correct redirect_to
-      if (!resetUrl) {
-        const token = d.hashed_token || '';
-        resetUrl = token
-          ? `${SB_URL}/auth/v1/verify?token=${token}&type=recovery&redirect_to=https://platform.infinite-scale.be/reset-password`
-          : null;
+      // Route through the platform relay so the link always starts with platform.infinite-scale.be
+      // and the hashed_token is exchanged server-side for a real JWT before landing on reset-password.
+      const hashedToken = d.hashed_token || '';
+      if (hashedToken) {
+        resetUrl = `https://platform.infinite-scale.be/api/create-account?action=auth-redirect&token=${encodeURIComponent(hashedToken)}&type=recovery`;
       }
     } catch (err) {
       console.error('generate_link error:', err);
@@ -130,6 +117,37 @@ export default async function handler(req, res) {
     } catch (err) {
       return res.status(200).json({ ok: false, error: err.message });
     }
+  }
+
+  // Welcome email — fired from reset-password.html after first-time account activation (new=1)
+  if (body.welcomeEmail) {
+    const at = (body.accessToken || '').trim();
+    if (!at || !SERVICE_KEY) return res.status(200).json({ ok: false, error: 'missing params' });
+    let userEmail, userId, role, userName;
+    try {
+      const uR = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${at}` } });
+      if (!uR.ok) return res.status(200).json({ ok: false, error: 'invalid token' });
+      const u = await uR.json();
+      userEmail = u?.email; userId = u?.id;
+      if (!userEmail || !userId) return res.status(200).json({ ok: false, error: 'no user data' });
+      const pR = await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${userId}&select=role,name&limit=1`, { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } });
+      const profiles = pR.ok ? await pR.json() : [];
+      role = profiles?.[0]?.role || 'client';
+      userName = profiles?.[0]?.name || userEmail.split('@')[0];
+    } catch (err) { return res.status(200).json({ ok: false, error: err.message }); }
+    if (!RESEND_KEY || RESEND_KEY === 're_placeholder') return res.status(200).json({ ok: false, error: 'RESEND_API_KEY not configured' });
+    const isAgent = role === 'agent';
+    const featureRows = isAgent
+      ? ['📅 Jouw dagelijkse afspraken en to-do\'s', '📊 Live prestatie-overzicht per week', '🎯 Coaching & feedback van je manager', '💬 WhatsApp-berichten en klantcontact']
+      : ['📊 Campagneresultaten per callagent', '📅 Alle geplande en afgehandelde afspraken', '🧾 Facturen en betalingsoverzicht', '💬 Direct contact met je accountmanager'];
+    const desc = isAgent
+      ? 'Via het platform volg je je afspraken, dagelijkse opdrachten en prestaties — alles op één plek.'
+      : 'Via het klantportaal volg je jouw campagneresultaten, afspraken en facturen — volledig transparant en in real-time.';
+    const html = `<div style="background:#0a0e1a;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><div style="max-width:540px;margin:0 auto;padding:40px 24px;"><div style="margin-bottom:28px;"><span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#4ade80;font-weight:700;">Infinite Scale</span></div><h1 style="margin:0 0 10px;font-size:26px;font-weight:700;color:#f0f4ff;letter-spacing:-.02em;line-height:1.2;">Welkom bij Infinite Scale, ${userName}! 🎉</h1><p style="margin:0 0 28px;font-size:15px;color:#8090b0;line-height:1.7;">${desc}</p><div style="margin-bottom:28px;">${featureRows.map(f => `<div style="padding:10px 14px;margin-bottom:6px;border-radius:10px;background:#111827;border:1px solid #1f2d3d;font-size:13.5px;color:#c0d0e8;">${f}</div>`).join('')}</div><a href="https://platform.infinite-scale.be" style="display:inline-block;padding:14px 34px;border-radius:12px;background:#4ade80;color:#071407;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:-.01em;">Naar het platform →</a><p style="margin-top:32px;font-size:12px;color:#2d3d55;line-height:1.6;">Vragen? Mail naar <a href="mailto:quinten@infinite-scale.be" style="color:#3d5070;text-decoration:none;">quinten@infinite-scale.be</a></p></div></div>`;
+    try {
+      const er = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: FROM, to: [userEmail], subject: 'Welkom bij Infinite Scale! 🎉', html }) });
+      return res.status(200).json({ ok: er.ok });
+    } catch (err) { return res.status(200).json({ ok: false, error: err.message }); }
   }
 
   // Unauthenticated path: contract view/sign notifications from sign.html

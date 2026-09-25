@@ -442,8 +442,8 @@ ${sigBlock}
       const email = contractData.email;
       const partyType = contractData.party_type || 'client';
 
-      // Auto-onboard: create client account + send invite email with password setup link
-      if (email && partyType === 'client') {
+      // Auto-onboard: create account + send invite email with password setup link (clients and agents)
+      if (email && (partyType === 'client' || partyType === 'agent')) {
         fetch('/api/save-contract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
