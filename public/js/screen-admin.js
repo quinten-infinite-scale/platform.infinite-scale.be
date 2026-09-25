@@ -5888,17 +5888,17 @@ const ScreenAdmin = {
 
       // Per-agent leaderboard
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
-        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 55px 2fr 60px 60px 60px 60px 65px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
-          e('div', null, '#'), e('div', null, 'Agent'), e('div', { style: { textAlign: 'right' } }, 'Dials'), e('div', null, 'Omzet (incl. gepland)'), e('div', { style: { textAlign: 'right' } }, 'Geboekt'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%'), e('div', { style: { textAlign: 'right' } }, 'Ag.kost')),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 50px 2fr 60px 60px 60px 60px 65px', gap: '12px 4px', padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
+          e('div', null, '#'), e('div', null, 'Agent'), e('div', { style: { textAlign: 'right', paddingRight: 8 } }, 'Dials'), e('div', null, 'Omzet (incl. gepland)'), e('div', { style: { textAlign: 'right' } }, 'Geboekt'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%'), e('div', { style: { textAlign: 'right' } }, 'Ag.kost')),
         rows.length === 0
           ? e('div', { style: { padding: '32px 16px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen data voor deze periode.')
           : rows.map((r, i) => {
             const total = r.shows.s + r.shows.ns + r.booked;
             const showRate = total > 0 ? Math.round(r.shows.s / total * 100) : 0;
-            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 55px 2fr 60px 60px 60px 60px 65px', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
+            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 50px 2fr 60px 60px 60px 60px 65px', gap: '12px 4px', padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
               e('div', { style: { fontSize: 13, fontWeight: 700, color: i < 3 ? ['var(--warn)', 'var(--text-mute)', 'var(--text-mute)'][i] : 'var(--text-mute)', textAlign: 'center' } }, i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1),
               e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.ag.name || r.ag.id),
-              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: r.dials > 0 ? 'var(--text)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.dials || '—'),
+              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: r.dials > 0 ? 'var(--text)' : 'var(--text-mute)', textAlign: 'right', paddingRight: 8, fontVariantNumeric: 'tabular-nums' } }, r.dials || '—'),
               pctBar(r.rev, totalRev),
               e('div', { style: { fontSize: 12.5, fontWeight: 700, color: r.logged > 0 ? 'var(--info)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }, title: 'Afspraken gelogd in deze periode' }, r.logged || '—'),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.shows.s),
