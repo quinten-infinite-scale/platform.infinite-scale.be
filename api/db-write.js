@@ -113,7 +113,20 @@ export default async function handler(req, res) {
     let payload = {};
     try { payload = JSON.parse(Buffer.concat(chunks2).toString('utf8')); } catch {}
 
-    const { transcript, summary, action_items, title, started_at, recording_url, attendee_email, attendee_name, prospect_id } = payload;
+    // Normalize payload — handle both our internal format and Fathom's real webhook format
+    // Fathom sends: { event_type, meeting_id, meeting_title, meeting_date, participants:[{name,email}], summary, action_items, transcript }
+    const participants = payload.participants || [];
+    const fathomEmail = participants.find(p => p.email && !p.email.includes('@infinite-scale'))?.email || '';
+    const fathomName  = participants.find(p => p.email && !p.email.includes('@infinite-scale'))?.name || '';
+    const transcript    = payload.transcript || payload.transcript_text || '';
+    const summary       = payload.summary || payload.meeting_summary || '';
+    const action_items  = payload.action_items || payload.action_points || [];
+    const title         = payload.title || payload.meeting_title || payload.name || '';
+    const started_at    = payload.started_at || payload.meeting_date || payload.date || null;
+    const recording_url = payload.recording_url || payload.video_url || null;
+    const prospect_id   = payload.prospect_id || null;
+    const attendee_email = payload.attendee_email || fathomEmail || '';
+    const attendee_name  = payload.attendee_name  || fathomName  || '';
     if (!transcript && !summary) return res.status(400).json({ ok: false, error: 'transcript or summary required' });
 
     // Run CLOSER analysis on transcript (call enhance-contract endpoint internally)
@@ -155,15 +168,23 @@ TRANSCRIPT:\n${transcript}`;
       } catch (_) {}
     }
 
-    // Find or create prospect
+    // Find prospect — try prospect_id first, then email, then name
     let prospectRow = null;
     if (prospect_id) {
       const rows = await fetch(`${SB_URL}/rest/v1/prospects?id=eq.${encodeURIComponent(prospect_id)}`, {
         headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
       }).then(r => r.json()).catch(() => []);
       prospectRow = rows?.[0] || null;
-    } else if (attendee_email) {
+    }
+    if (!prospectRow && attendee_email) {
       const rows = await fetch(`${SB_URL}/rest/v1/prospects?email=eq.${encodeURIComponent(attendee_email)}&order=created_at.desc&limit=1`, {
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+      }).then(r => r.json()).catch(() => []);
+      prospectRow = rows?.[0] || null;
+    }
+    if (!prospectRow && attendee_name) {
+      const since = new Date(Date.now() - 90 * 86400000).toISOString();
+      const rows = await fetch(`${SB_URL}/rest/v1/prospects?contact=ilike.${encodeURIComponent('*' + attendee_name + '*')}&created_at=gt.${since}&order=created_at.desc&limit=1`, {
         headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
       }).then(r => r.json()).catch(() => []);
       prospectRow = rows?.[0] || null;
