@@ -248,9 +248,19 @@ TRANSCRIPT:\n${transcript}`;
   const user = await verifyToken(token);
   if (!user || !user.id) return res.status(401).json({ ok: false, error: 'Unauthorized' });
 
+  // Read body once (bodyParser is disabled globally)
+  const _allChunks = [];
+  for await (const chunk of req) _allChunks.push(chunk);
+  const _bodyBuffer = Buffer.concat(_allChunks);
+
+  let _parsed = {};
+  if (!req.headers['x-file-path']) {
+    try { _parsed = JSON.parse(_bodyBuffer.toString('utf8')); } catch { _parsed = {}; }
+  }
+
   // Magic link generation (admin only)
-  if (req.body?.method === 'magicLink') {
-    const email = (req.body.email || '').trim().toLowerCase();
+  if (_parsed?.method === 'magicLink') {
+    const email = (_parsed.email || '').trim().toLowerCase();
     if (!email) return res.status(400).json({ ok: false, error: 'email required' });
     const r = await fetch(`${SB_URL}/auth/v1/admin/generate_link`, {
       method: 'POST',
@@ -272,9 +282,7 @@ TRANSCRIPT:\n${transcript}`;
     const safePath = filePath.replace(/\.\./g, '').replace(/^\/+/, '');
     const rawBucket = (req.headers['x-bucket'] || 'contracts').replace(/[^a-z0-9-]/g, '');
     const bucket = ALLOWED_BUCKETS.has(rawBucket) ? rawBucket : 'contracts';
-    const chunks = [];
-    for await (const chunk of req) chunks.push(chunk);
-    const buffer = Buffer.concat(chunks);
+    const buffer = _bodyBuffer;
     const contentType = req.headers['content-type'] || 'application/octet-stream';
 
     // Auto-create bucket if it doesn't exist (idempotent)
@@ -302,14 +310,10 @@ TRANSCRIPT:\n${transcript}`;
     return res.status(200).json({ ok: true, url: `${SB_URL}/storage/v1/object/public/${bucket}/${safePath}` });
   }
 
-  // JSON body for DB writes
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const rawBody = Buffer.concat(chunks).toString('utf8');
-  let parsed;
-  try { parsed = JSON.parse(rawBody); } catch { return res.status(400).json({ ok: false, error: 'invalid JSON' }); }
+  // JSON body for DB writes (already parsed above)
+  if (!_parsed || typeof _parsed !== 'object') return res.status(400).json({ ok: false, error: 'invalid JSON' });
 
-  const { method, table, query, body, conflict } = parsed || {};
+  const { method, table, query, body, conflict } = _parsed;
 
   if (!table) return res.status(400).json({ ok: false, error: 'table required' });
   if (!ALLOWED_TABLES.has(table)) return res.status(400).json({ ok: false, error: 'table not allowed' });
