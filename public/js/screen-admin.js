@@ -5644,12 +5644,15 @@ const ScreenAdmin = {
     const today = new Date().toISOString().slice(0, 10);
     const agents = (d.agents || []).filter(a => a.active !== false);
 
-    // cRate — same billing logic used everywhere
+    // cRate — client billing rate (same logic used everywhere)
     const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e2) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    // agCost — what we pay the agent per appointment
+    const agCost = (a) => { const ag = (d.agents||[]).find(g => g.id === a.agent); if (!ag) return 0; return (ag.rates && ((ag.rates[a.sub]) || (ag.rates[a.client]))) || 0; };
 
-    // Period selector: dag / week / maand (maand supports prev/next navigation)
+    // Period selector: dag / week / deze-maand / maand (maand supports prev/next)
     const period = s._opaPeriod || 'week';
     const opaMonth = s._opaMonth || today.slice(0, 7);
+    const thisMonth = today.slice(0, 7);
     const shiftOpaMonth = (delta) => {
       const [y, m] = opaMonth.split('-').map(Number);
       const d2 = new Date(y, m - 1 + delta, 1);
@@ -5658,20 +5661,35 @@ const ScreenAdmin = {
 
     // Date range helpers
     const weekStart = (() => { const d2 = new Date(today); d2.setDate(d2.getDate() - d2.getDay() + 1); return d2.toISOString().slice(0,10); })();
+    const weekEnd   = (() => { const d2 = new Date(today); d2.setDate(d2.getDate() - d2.getDay() + 7); return d2.toISOString().slice(0,10); })();
     const [omY, omM] = opaMonth.split('-').map(Number);
     const monthStart = opaMonth + '-01';
     const monthEnd = new Date(omY, omM, 0).toISOString().slice(0,10);
     const monthLabel = new Date(omY, omM - 1, 1).toLocaleString('nl-BE', { month: 'long', year: 'numeric' });
+    const [tmY, tmM] = thisMonth.split('-').map(Number);
+    const thisMonthStart = thisMonth + '-01';
+    const thisMonthEnd = new Date(tmY, tmM, 0).toISOString().slice(0,10);
 
+    // inPeriod for completed (shows/no-shows) — uses dateLog
     const inPeriod = (appt) => {
       const dl = appt.dateLog || '';
       if (period === 'dag') return dl === today;
       if (period === 'week') return dl >= weekStart && dl <= today;
+      if (period === 'deze-maand') return dl >= thisMonthStart && dl <= thisMonthEnd;
       if (period === 'maand') return dl >= monthStart && dl <= monthEnd;
       return false;
     };
+    // inPeriodOpen for planned (open) appointments — uses dateAppt (full week/month range incl. future)
+    const inPeriodOpen = (appt) => {
+      const da = appt.dateAppt || '';
+      if (period === 'dag') return da === today;
+      if (period === 'week') return da >= weekStart && da <= weekEnd;
+      if (period === 'deze-maand') return da >= thisMonthStart && da <= thisMonthEnd;
+      if (period === 'maand') return da >= monthStart && da <= monthEnd;
+      return false;
+    };
 
-    // Build per-agent revenue
+    // Build per-agent data: revenue from shows + expected revenue from planned
     const agentRev = {};
     const agentAppts = {};
     const agentShows = {};
@@ -5681,13 +5699,16 @@ const ScreenAdmin = {
       agentRev[a.agent] = (agentRev[a.agent] || 0) + rev;
       agentAppts[a.agent] = (agentAppts[a.agent] || 0) + 1;
     });
+    // Add expected revenue from planned appointments
+    (d.appointments || []).filter(a => a.status === 'open' && inPeriodOpen(a)).forEach(a => {
+      const rev = cRate(a);
+      agentRev[a.agent] = (agentRev[a.agent] || 0) + rev;
+      agentBooked[a.agent] = (agentBooked[a.agent] || 0) + 1;
+    });
     (d.appointments || []).filter(a => inPeriod(a) && (a.status === 'show' || a.status === 'no_show')).forEach(a => {
       agentShows[a.agent] = (agentShows[a.agent] || { s: 0, ns: 0 });
       if (a.status === 'show') agentShows[a.agent].s++;
       else agentShows[a.agent].ns++;
-    });
-    (d.appointments || []).filter(a => inPeriod(a) && a.status === 'open').forEach(a => {
-      agentBooked[a.agent] = (agentBooked[a.agent] || 0) + 1;
     });
 
     const rows = [...agents]
@@ -5705,12 +5726,28 @@ const ScreenAdmin = {
         e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text)', minWidth: 52, textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, EUR(val)));
     };
 
+    // Monthly history — all shows by dateLog, grouped by month
+    const monthHist = {};
+    (d.appointments || []).filter(a => a.status === 'show' && a.dateLog).forEach(a => {
+      const ym = a.dateLog.slice(0, 7);
+      if (!monthHist[ym]) monthHist[ym] = { rev: 0, cost: 0, shows: 0 };
+      monthHist[ym].rev  += cRate(a);
+      monthHist[ym].cost += agCost(a);
+      monthHist[ym].shows++;
+    });
+    const monthHistRows = Object.entries(monthHist)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 18)
+      .map(([ym, v]) => { const [y2, m2] = ym.split('-').map(Number); return { ym, label: new Date(y2, m2 - 1, 1).toLocaleString('nl-BE', { month: 'long', year: 'numeric' }), ...v, profit: v.rev - v.cost }; });
+
+    const btnSt = (active) => ({ padding: '5px 14px', borderRadius: 20, border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'), background: active ? 'var(--accent)' : 'transparent', color: active ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' });
+    const periodLabel = { dag: 'Vandaag', week: 'Deze week', 'deze-maand': 'Deze maand', maand: monthLabel }[period] || period;
+
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
       // Period tabs
       e('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
         e('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)', flex: 1 } }, 'OPA — Omzet per Agent'),
-        ['dag', 'week'].map(p => e('button', { key: p, onClick: () => this.setState({ _opaPeriod: p }),
-          style: { padding: '5px 14px', borderRadius: 20, border: '1px solid ' + (period === p ? 'var(--accent)' : 'var(--border)'), background: period === p ? 'var(--accent)' : 'transparent', color: period === p ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' } }, { dag: 'Vandaag', week: 'Deze week' }[p])),
+        ['dag', 'week', 'deze-maand'].map(p => e('button', { key: p, onClick: () => this.setState({ _opaPeriod: p }), style: btnSt(period === p) }, { dag: 'Vandaag', week: 'Deze week', 'deze-maand': 'Deze maand' }[p])),
         e('div', { style: { display: 'flex', alignItems: 'center', gap: 0, borderRadius: 20, border: '1px solid ' + (period === 'maand' ? 'var(--accent)' : 'var(--border)'), background: period === 'maand' ? 'var(--accent)' : 'transparent', overflow: 'hidden' } },
           e('button', { onClick: () => shiftOpaMonth(-1), style: { padding: '5px 10px', background: 'transparent', border: 'none', color: period === 'maand' ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 13, cursor: 'pointer', lineHeight: 1 } }, '‹'),
           e('button', { onClick: () => this.setState({ _opaPeriod: 'maand', _opaMonth: opaMonth }), style: { padding: '5px 2px', background: 'transparent', border: 'none', color: period === 'maand' ? 'var(--accent-ink)' : 'var(--text-mute)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minWidth: 110, textAlign: 'center' } }, monthLabel),
@@ -5719,7 +5756,7 @@ const ScreenAdmin = {
       // Summary card
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' } },
         e('div', null,
-          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 } }, { dag: 'Vandaag', week: 'Deze week', maand: monthLabel }[period] || period),
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 } }, periodLabel),
           e('div', { style: { fontSize: 32, fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' } }, EUR(totalRev))),
         e('div', { style: { fontSize: 13, color: 'var(--text-mute)' } },
           e('div', null, rows.length + ' actieve agent' + (rows.length !== 1 ? 's' : '')),
@@ -5728,7 +5765,7 @@ const ScreenAdmin = {
       // Per-agent leaderboard
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
         e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
-          e('div', null, '#'), e('div', null, 'Agent'), e('div', null, 'Omzet'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%')),
+          e('div', null, '#'), e('div', null, 'Agent'), e('div', null, 'Omzet (incl. gepland)'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%')),
         rows.length === 0
           ? e('div', { style: { padding: '32px 16px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen data voor deze periode.')
           : rows.map((r, i) => {
@@ -5740,7 +5777,22 @@ const ScreenAdmin = {
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.shows.s),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: r.booked > 0 ? 'var(--accent)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.booked || '—'),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: showRate >= 70 ? 'var(--up)' : showRate >= 50 ? 'var(--warn)' : 'var(--down)', textAlign: 'right' } }, (r.shows.s + r.shows.ns) > 0 ? showRate + '%' : '—'));
-          })));
+          })),
+
+      // Monthly P&L history
+      monthHistRows.length > 0 && e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
+        e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)', display: 'flex', alignItems: 'center', gap: 8 } },
+          e('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)' } }, 'Maandoverzicht OPA'),
+          e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '— op basis van shows')),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 90px 90px 90px 50px', gap: 10, padding: '7px 18px', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', borderBottom: '1px solid var(--border-soft)' } },
+          e('div', null, 'Maand'), e('div', { style: { textAlign: 'right' } }, 'Omzet'), e('div', { style: { textAlign: 'right' } }, 'Agentkosten'), e('div', { style: { textAlign: 'right' } }, 'Winst'), e('div', { style: { textAlign: 'right' } }, 'Shows')),
+        monthHistRows.map((r, i) => e('div', { key: r.ym, style: { display: 'grid', gridTemplateColumns: '1fr 90px 90px 90px 50px', gap: 10, padding: '10px 18px', borderBottom: i < monthHistRows.length - 1 ? '1px solid var(--border-soft)' : 'none', alignItems: 'center' } },
+          e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, r.label),
+          e('div', { style: { textAlign: 'right', fontWeight: 700, fontSize: 13, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, EUR(r.rev)),
+          e('div', { style: { textAlign: 'right', fontWeight: 600, fontSize: 12.5, color: 'var(--down)', fontVariantNumeric: 'tabular-nums' } },
+            r.cost > 0 ? EUR(r.cost) : e('span', { style: { color: 'var(--text-mute)' } }, '—')),
+          e('div', { style: { textAlign: 'right', fontWeight: 700, fontSize: 13, color: r.profit >= 0 ? 'var(--up)' : 'var(--down)', fontVariantNumeric: 'tabular-nums' } }, EUR(r.profit)),
+          e('div', { style: { textAlign: 'right', fontSize: 12, color: 'var(--text-mute)', fontVariantNumeric: 'tabular-nums' } }, r.shows)))));
   },
 
   _admCoaching(d, s) {
