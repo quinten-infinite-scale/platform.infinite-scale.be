@@ -5,11 +5,49 @@
 //   3. 1 day before end     → final warning
 //   4. Last day of month    → "we invoice everything today" warning
 // Also handles ?action=auto-invoice (1st of month, mark previous month invoiced)
+
+const RESEND_KEY = process.env.RESEND_API_KEY;
+const FROM = 'Infinite Scale <platform@infinite-scale.be>';
+
+async function sendEmail(to, subject, html) {
+  if (!RESEND_KEY) throw new Error('RESEND_API_KEY not configured');
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: [to], subject, html }),
+  });
+  if (!r.ok) { const err = await r.text(); throw new Error(err); }
+  return r.json();
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
   const auth = req.headers.authorization || '';
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const validCron = process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`;
+  const validService = process.env.SUPABASE_SERVICE_ROLE_KEY && auth === `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`;
+
+  // Also accept a valid Supabase user JWT (admin-triggered from the platform UI)
+  let validUser = false;
+  if (!validCron && !validService && auth.startsWith('Bearer ')) {
+    const token = auth.slice(7);
+    try {
+      const userRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://database.infinite-scale.be'}/auth/v1/user`, {
+        headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` },
+      });
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        // Only allow admin users
+        const profileRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://database.infinite-scale.be'}/rest/v1/profiles?id=eq.${userData.id}&select=role&limit=1`, {
+          headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+        });
+        const profiles = profileRes.ok ? await profileRes.json() : [];
+        validUser = profiles?.[0]?.role === 'admin';
+      }
+    } catch {}
+  }
+
+  if (!validCron && !validService && !validUser) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -188,13 +226,13 @@ export default async function handler(req, res) {
     const pending = appts.filter(a => a.client_id === cl.id).length;
     const html = buildEmail(cl, pending, trigger);
 
-    const r = await fetch('https://platform.infinite-scale.be/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: email, subject: subjects[trigger], html }),
-    });
-    const rj = await r.json().catch(() => ({}));
-    results.push({ id: cl.id, email, trigger, sent: rj.ok === true });
+    try {
+      await sendEmail(email, subjects[trigger], html);
+      results.push({ id: cl.id, email, trigger, sent: true });
+    } catch (err) {
+      console.error(`[invoice-reminder] failed to send to ${email}:`, err.message);
+      results.push({ id: cl.id, email, trigger, sent: false, error: err.message });
+    }
   }
 
   console.log(`[invoice-reminder] trigger=${trigger}, month=${currentYM}:`, results);

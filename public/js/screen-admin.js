@@ -3285,7 +3285,8 @@ const ScreenAdmin = {
           ev.stopPropagation();
           if (isOpen) { this.setState({ _recruitFilterOpen: null, _recruitFilterPos: null }); return; }
           const rect = ev.currentTarget.getBoundingClientRect();
-          this.setState({ _recruitFilterOpen: col.key, _recruitFilterPos: { x: rect.left, y: rect.bottom + 4 } });
+          const clampedX = Math.min(rect.left, (window.innerWidth || 1200) - 170);
+          this.setState({ _recruitFilterOpen: col.key, _recruitFilterPos: { x: clampedX, y: rect.bottom + 4 } });
         }
       },
         e('span', { style: { fontSize: 8, marginLeft: 3, cursor: 'pointer', color: activeVal ? 'var(--accent)' : 'var(--text-mute)', background: activeVal ? 'oklch(0.84 0.16 194 / .2)' : 'transparent', borderRadius: 3, padding: '1px 3px', lineHeight: 1, userSelect: 'none' } }, activeVal ? '●' : '▾')
@@ -5772,13 +5773,14 @@ const ScreenAdmin = {
       if (period === 'maand') return da >= monthStart && da <= monthEnd;
       return false;
     };
-    // inPeriodOpen for planned (open) appointments — uses dateAppt (full week/month range incl. future)
+    // inPeriodOpen for planned (open) appointments — uses dateLog (when agent booked them)
+    // so revenue + gepland count match what agents actually booked in the period
     const inPeriodOpen = (appt) => {
-      const da = appt.dateAppt || '';
-      if (period === 'dag') return da === today;
-      if (period === 'week') return da >= weekStart && da <= weekEnd;
-      if (period === 'deze-maand') return da >= thisMonthStart && da <= thisMonthEnd;
-      if (period === 'maand') return da >= monthStart && da <= monthEnd;
+      const dl = appt.dateLog || '';
+      if (period === 'dag') return dl === today;
+      if (period === 'week') return dl >= weekStart && dl <= weekEnd;
+      if (period === 'deze-maand') return dl >= thisMonthStart && dl <= thisMonthEnd;
+      if (period === 'maand') return dl >= monthStart && dl <= monthEnd;
       return false;
     };
 
@@ -5788,6 +5790,7 @@ const ScreenAdmin = {
     const agentShows = {};
     const agentBooked = {};
     const agentCostMap = {};
+    const agentLogged = {}; // appointments logged (dateLog) in period — callagent productivity
     (d.appointments || []).filter(a => a.status === 'show' && inPeriod(a)).forEach(a => {
       const rev = cRate(a);
       agentRev[a.agent] = (agentRev[a.agent] || 0) + rev;
@@ -5805,10 +5808,36 @@ const ScreenAdmin = {
       if (a.status === 'show') agentShows[a.agent].s++;
       else agentShows[a.agent].ns++;
     });
+    // Count appointments by dateLog (when the callagent actually booked them)
+    const inPeriodLog = (a) => {
+      const dl = a.dateLog || '';
+      if (period === 'dag') return dl === today;
+      if (period === 'week') return dl >= weekStart && dl <= weekEnd;
+      if (period === 'deze-maand') return dl >= thisMonthStart && dl <= thisMonthEnd;
+      if (period === 'maand') return dl >= monthStart && dl <= monthEnd;
+      return false;
+    };
+    (d.appointments || []).filter(a => a.status !== 'cancel' && inPeriodLog(a)).forEach(a => {
+      agentLogged[a.agent] = (agentLogged[a.agent] || 0) + 1;
+    });
+    // Compute dials per agent for the period
+    const agentDials = {};
+    agents.forEach(ag => {
+      const agDials = d.dials[ag.id] || {};
+      let total = 0;
+      if (period === 'dag') {
+        total = agDials[today] || 0;
+      } else {
+        const start = period === 'week' ? weekStart : period === 'deze-maand' ? thisMonthStart : monthStart;
+        const end   = period === 'week' ? weekEnd   : period === 'deze-maand' ? thisMonthEnd   : monthEnd;
+        Object.entries(agDials).forEach(([day, cnt]) => { if (day >= start && day <= end) total += cnt; });
+      }
+      agentDials[ag.id] = total;
+    });
 
     const rows = [...agents]
-      .map(ag => ({ ag, rev: agentRev[ag.id] || 0, appts: agentAppts[ag.id] || 0, shows: agentShows[ag.id] || { s: 0, ns: 0 }, booked: agentBooked[ag.id] || 0, cost: agentCostMap[ag.id] || 0 }))
-      .filter(r => r.rev > 0 || r.appts > 0 || r.booked > 0)
+      .map(ag => ({ ag, rev: agentRev[ag.id] || 0, appts: agentAppts[ag.id] || 0, shows: agentShows[ag.id] || { s: 0, ns: 0 }, booked: agentBooked[ag.id] || 0, cost: agentCostMap[ag.id] || 0, logged: agentLogged[ag.id] || 0, dials: agentDials[ag.id] || 0 }))
+      .filter(r => r.rev > 0 || r.appts > 0 || r.booked > 0 || r.logged > 0 || r.dials > 0)
       .sort((a, b) => b.rev - a.rev || b.booked - a.booked);
 
     const totalRev = rows.reduce((s2, r) => s2 + r.rev, 0);
@@ -5859,17 +5888,19 @@ const ScreenAdmin = {
 
       // Per-agent leaderboard
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
-        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px 65px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
-          e('div', null, '#'), e('div', null, 'Agent'), e('div', null, 'Omzet (incl. gepland)'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%'), e('div', { style: { textAlign: 'right' } }, 'Ag.kost')),
+        e('div', { style: { display: 'grid', gridTemplateColumns: '32px 1fr 55px 2fr 60px 60px 60px 60px 65px', gap: 12, padding: '8px 16px', borderBottom: '1px solid var(--border-soft)', fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } },
+          e('div', null, '#'), e('div', null, 'Agent'), e('div', { style: { textAlign: 'right' } }, 'Dials'), e('div', null, 'Omzet (incl. gepland)'), e('div', { style: { textAlign: 'right' } }, 'Geboekt'), e('div', { style: { textAlign: 'right' } }, 'Shows'), e('div', { style: { textAlign: 'right' } }, 'Gepland'), e('div', { style: { textAlign: 'right' } }, 'Conv%'), e('div', { style: { textAlign: 'right' } }, 'Ag.kost')),
         rows.length === 0
           ? e('div', { style: { padding: '32px 16px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen data voor deze periode.')
           : rows.map((r, i) => {
             const total = r.shows.s + r.shows.ns + r.booked;
             const showRate = total > 0 ? Math.round(r.shows.s / total * 100) : 0;
-            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 2fr 60px 60px 60px 65px', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
+            return e('div', { key: r.ag.id, style: { display: 'grid', gridTemplateColumns: '32px 1fr 55px 2fr 60px 60px 60px 60px 65px', gap: 12, padding: '11px 16px', borderBottom: '1px solid var(--border-soft)', alignItems: 'center' } },
               e('div', { style: { fontSize: 13, fontWeight: 700, color: i < 3 ? ['var(--warn)', 'var(--text-mute)', 'var(--text-mute)'][i] : 'var(--text-mute)', textAlign: 'center' } }, i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1),
               e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, r.ag.name || r.ag.id),
+              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: r.dials > 0 ? 'var(--text)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.dials || '—'),
               pctBar(r.rev, totalRev),
+              e('div', { style: { fontSize: 12.5, fontWeight: 700, color: r.logged > 0 ? 'var(--info)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }, title: 'Afspraken gelogd in deze periode' }, r.logged || '—'),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.shows.s),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: r.booked > 0 ? 'var(--accent)' : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, r.booked || '—'),
               e('div', { style: { fontSize: 12.5, fontWeight: 600, color: showRate >= 50 ? 'var(--up)' : showRate >= 30 ? 'var(--warn)' : showRate > 0 ? 'var(--down)' : 'var(--text-mute)', textAlign: 'right' } }, total > 0 ? showRate + '%' : '—'),

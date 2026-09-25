@@ -1941,10 +1941,12 @@ const Modals = {
           const raw = (this.state?.data?.settings || {}).prospect_pipelines;
           if (raw) allPipelines = JSON.parse(raw);
         } catch(_) {}
-        const pipelineOpts = allPipelines.map(pl => ({ v: pl.id, l: pl.name || pl.id }));
+        const fallbackPipelines = [{ id: 'manuele', name: 'Manuele', stages: [{ id: 'nieuwe_leads', label: 'Nieuwe leads' }, { id: 'first_call', label: 'First Call' }, { id: 'second_call', label: 'Second Call' }, { id: 'gewonnen', label: 'Gewonnen' }, { id: 'niet_gewonnen', label: 'Niet gewonnen' }] }, { id: 'meta_ads', name: 'Meta Ads', stages: [{ id: 'appointment_booked', label: 'Appointment Booked' }, { id: 'call_2', label: 'Second Call' }, { id: 'gewonnen', label: 'Gewonnen' }, { id: 'niet_gewonnen', label: 'Niet gewonnen' }] }];
+        const effectivePipelines = allPipelines.length > 0 ? allPipelines : fallbackPipelines;
+        const pipelineOpts = effectivePipelines.map(pl => ({ v: pl.id, l: pl.name || pl.id }));
         const selectedPipelineId = g('pipeline_id', p.pipeline_id || 'manuele');
-        const selectedPipeline = allPipelines.find(pl => pl.id === selectedPipelineId);
-        const stageOpts = (selectedPipeline?.stages || []).map(sg => ({ v: sg.id, l: sg.label || sg.id }));
+        const selectedPipeline = effectivePipelines.find(pl => pl.id === selectedPipelineId) || effectivePipelines[0];
+        const stageOpts = [{ v: '', l: '— Kies fase —' }, ...(selectedPipeline?.stages || []).map(sg => ({ v: sg.id, l: sg.label || sg.id }))];
         return wrap('Bewerk prospect — ' + p.company, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
           UI.Grid('1fr 1fr', 10, UI.Field('Bedrijf', UI.Input(g('company'), v => sf('company', v))), UI.Field('Contactpersoon', UI.Input(g('contact'), v => sf('contact', v)))),
           UI.Grid('1fr 1fr', 10, UI.Field('Telefoon', UI.Input(g('phone'), v => sf('phone', v))), UI.Field('E-mail', UI.Input(g('email'), v => sf('email', v)))),
@@ -1954,15 +1956,19 @@ const Modals = {
           UI.Grid('1fr 1fr', 10,
             UI.Field('Bron (historisch)', UI.Select(g('source'), v => sf('source', v), [{ v: '', l: '— Geen —' }, { v: 'LinkedIn', l: 'LinkedIn' }, { v: 'Cold email', l: 'Cold email' }, { v: 'Referral', l: 'Referral' }, { v: 'Meta forms', l: 'Meta forms' }, { v: 'Website', l: 'Website' }, { v: 'Cold call', l: 'Cold call' }])),
             UI.Field('Omzet / Revenue', UI.Input(g('revenue'), v => sf('revenue', v)))),
-          pipelineOpts.length > 0 ? UI.Grid('1fr 1fr', 10,
+          UI.Grid('1fr 1fr', 10,
             UI.Field('Pipeline', UI.Select(selectedPipelineId, v => { sf('pipeline_id', v); sf('stage', ''); }, pipelineOpts)),
-            stageOpts.length > 0 ? UI.Field('Fase / Stage', UI.Select(g('stage', p.stage || ''), v => sf('stage', v), stageOpts)) : e('div', null)) : null,
+            UI.Field('Fase / Stage', UI.Select(g('stage', p.stage || ''), v => sf('stage', v), stageOpts))),
           UI.Grid('1fr 1fr', 10, UI.Field('Afspraak datum', UI.Input(g('appointment_date'), v => sf('appointment_date', v), '', 'date')), UI.Field('Bellen op', UI.Input(g('call_on'), v => sf('call_on', v), '', 'date'))),
           UI.Field('Opmerking beller', UI.Input(g('caller_note'), v => sf('caller_note', v))),
           UI.Field('Opmerkingen / notes', UI.Area(g('notes'), v => sf('notes', v)))),
           [UI.Btn('Annuleer', () => this.setForm('editingProspect', false), 'soft'),
            UI.Btn('Opslaan', () => {
              const g2 = (key, fallback) => f['p_' + key] !== undefined ? f['p_' + key] : (p[key] || fallback || '');
+             const newStage = g2('stage', p.stage);
+             // Sync status to stage when stage changes (stage IDs map to status IDs)
+             const stageStatusMap = { first_call: 'first_call', second_call: 'second_call', call_2: 'second_call', follow_up_call: 'follow_up', interested_follow_up: 'follow_up', follow_up: 'follow_up', gewonnen: 'gewonnen', niet_gewonnen: 'niet_gekwalificeerd', appointment_booked: 'niet_gecontacteerd', nieuwe_leads: 'niet_gecontacteerd', meeting_gepland: 'niet_gecontacteerd' };
+             const newStatus = newStage && newStage !== p.stage ? (stageStatusMap[newStage] || null) : null;
              const updates = {
                company: g2('company') || p.company,
                contact: g2('contact'),
@@ -1972,7 +1978,8 @@ const Modals = {
                lead_source: g2('lead_source'),
                source: g2('source'),
                pipeline_id: g2('pipeline_id', p.pipeline_id),
-               stage: g2('stage', p.stage),
+               stage: newStage,
+               ...(newStatus ? { status: newStatus } : {}),
                appointment_date: g2('appointment_date') || null,
                call_on: g2('call_on') || null,
                revenue: g2('revenue'),

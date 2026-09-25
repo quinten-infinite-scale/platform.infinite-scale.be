@@ -142,13 +142,44 @@ async function sbUpsert(serviceKey, rows) {
   }
 }
 
+async function verifyAdminJwt(token) {
+  if (!token) return false;
+  const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!sbKey) return false;
+  // Verify token and get user id
+  const r = await fetch(`${SB_URL}/auth/v1/user`, {
+    headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + token },
+  }).catch(() => null);
+  if (!r || !r.ok) return false;
+  const user = await r.json().catch(() => null);
+  if (!user || !user.id) return false;
+  // Check profiles table for admin role
+  const p = await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${user.id}&select=role`, {
+    headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey },
+  }).catch(() => null);
+  if (!p || !p.ok) return false;
+  const profiles = await p.json().catch(() => []);
+  return Array.isArray(profiles) && profiles.length > 0 && profiles[0].role === 'admin';
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
+  // Allow CORS for browser-triggered syncs from the platform
+  res.setHeader('Access-Control-Allow-Origin', 'https://platform.infinite-scale.be');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   const cronSecret = process.env.CRON_SECRET;
   const debugToken = process.env.SYNC_DEBUG_TOKEN;
-  if (cronSecret && auth !== `Bearer ${cronSecret}` && !(debugToken && auth === `Bearer ${debugToken}`)) {
+
+  const isValidCron = cronSecret && auth === `Bearer ${cronSecret}`;
+  const isValidDebug = debugToken && auth === `Bearer ${debugToken}`;
+  const isValidAdmin = !isValidCron && !isValidDebug ? await verifyAdminJwt(token) : false;
+
+  if (cronSecret && !isValidCron && !isValidDebug && !isValidAdmin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

@@ -132,27 +132,43 @@ export default async function handler(req, res) {
     // Run CLOSER analysis on transcript (call enhance-contract endpoint internally)
     const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
     let analysis = null;
+    const callDateStr = started_at ? new Date(started_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
     if (transcript && ANTHROPIC_KEY) {
-      const closerPrompt = `Je bent een sales coach die verkoopgesprekken analyseert met het CLOSER-framework van Alex Hormozi.
+      const closerPrompt = `Je bent een senior sales coach die verkoopgesprekken grondig analyseert met het CLOSER-framework van Alex Hormozi.
 
-Analyseer het volgende transcript en geef een gedetailleerde analyse in het Nederlands (Vlaams).
+Analyseer het volgende transcript ZEER gedetailleerd en geef een uitgebreide analyse in het Nederlands (Vlaams).
 
-CLOSER FRAMEWORK:
-C - Clarify: Werd de reden van het gesprek helder gesteld? Werden de doelen van de prospect verduidelijkt?
-L - Label: Werd het probleem van de prospect gelabeld/benoemd? Voelde de prospect zich begrepen?
-O - Overview/Consequence: Werden de gevolgen van niet-handelen duidelijk gemaakt? Werd urgentie gecreeerd?
-S - Sell the vacation: Werd de gewenste toekomststaat verkocht (niet het product)? Werd de droom van de prospect aangesproken?
-E - Explain away objections: Werden bezwaren proactief weggenomen? Werd de methode van consequence-selling gebruikt?
-R - Reinforce: Werd de beslissing van de prospect versterkt? Werden next steps duidelijk afgesproken?
+Gespreksdatum: ${callDateStr}
 
-Voor elke sectie geef: wat_er_gebeurde, wat_beter_kon, score /10.
-Eindig met: biggest_growth_point (1 zin), score_total (gemiddelde), deal_facts: {prospect, pricing, terms, next_steps}.
+CLOSER FRAMEWORK — Analyseer elke stap uitgebreid:
+C - Clarify: Werd de reden van het gesprek helder gesteld? Werden de doelen/situatie van de prospect verduidelijkt? Welke specifieke problemen kwamen naar boven?
+L - Label: Werd het kernprobleem van de prospect gelabeld/benoemd? Gebruikte de salesperson de exacte woorden van de prospect? Voelde de prospect zich écht begrepen?
+O - Overview/Consequence: Werden de gevolgen van niet-handelen duidelijk gemaakt? Werd urgentie gecreeerd? Welke specifieke pijnpunten werden benadrukt?
+S - Sell the vacation: Werd de gewenste toekomststaat levendig verkocht (niet het product zelf)? Werd de concrete droom/ambitie van de prospect aangesproken?
+E - Explain away objections: Welke bezwaren kwamen naar boven? Hoe werden ze behandeld? Werd consequence-selling correct toegepast?
+R - Reinforce: Werd de beslissing versterkt? Werden concrete next steps en datum afgesproken? Werd commitment gekregen?
+
+DEAL FACTS — Extraheer precies uit het transcript:
+- prospect_naam: volledige naam van de prospect
+- bedrijf: bedrijfsnaam indien vermeld
+- budget_of_pricing: exact genoemde bedragen, prijzen of budget
+- omzet_huidige_situatie: huidige omzet/situatie van het bedrijf
+- pijnpunten: concrete problemen die de prospect heeft
+- bezwaren: bezwaren die de prospect heeft geuit
+- interesse_niveau: laag/matig/hoog/zeer hoog — inschatting
+- afspraak_datum: EXACTE datum van volgende afspraak indien in transcript vermeld (YYYY-MM-DD), anders null
+- afspraak_notities: beschrijving van wat er afgesproken is voor de volgende stap
+
+Voor elke CLOSER-sectie geef: wat_er_gebeurde (specifiek!), wat_beter_kon (concreet advies), score /10.
+Eindig met: biggest_growth_point (1 concrete actie om de volgende call te winnen), score_total (gewogen gemiddelde).
+
 next_action_type: één van "second_call","follow_up_call","send_info","meeting","herplan_call","geen_actie","niet_gekwalificeerd"
-next_action_date: datum indien vermeld (YYYY-MM-DD), anders null
-next_action_notes: korte beschrijving wat er moet gebeuren
+next_action_date: datum van volgende actie indien vermeld (YYYY-MM-DD), anders null
+next_action_notes: duidelijke omschrijving van de VOLGENDE STAP (vermeld het type: "Tweede call" / "Follow-up call" / etc. — NIET "eerste call" als het al de tweede is)
+meeting_outcome_label: label voor de huidige meeting, b.v. "Eerste call" / "Tweede call" / "Discovery call" — gebaseerd op wat er in het gesprek naar boven komt
 
 Geef ALLEEN geldig JSON terug zonder markdown:
-{"c":{"wat_er_gebeurde":"","wat_beter_kon":"","score":7},"l":{"wat_er_gebeurde":"","wat_beter_kon":"","score":6},"o":{"wat_er_gebeurde":"","wat_beter_kon":"","score":5},"s":{"wat_er_gebeurde":"","wat_beter_kon":"","score":7},"e":{"wat_er_gebeurde":"","wat_beter_kon":"","score":6},"r":{"wat_er_gebeurde":"","wat_beter_kon":"","score":8},"biggest_growth_point":"","score_total":6.5,"deal_facts":{"prospect":"","pricing":"","terms":"","next_steps":""},"next_action_type":"second_call","next_action_date":null,"next_action_notes":""}
+{"c":{"wat_er_gebeurde":"","wat_beter_kon":"","score":7},"l":{"wat_er_gebeurde":"","wat_beter_kon":"","score":6},"o":{"wat_er_gebeurde":"","wat_beter_kon":"","score":5},"s":{"wat_er_gebeurde":"","wat_beter_kon":"","score":7},"e":{"wat_er_gebeurde":"","wat_beter_kon":"","score":6},"r":{"wat_er_gebeurde":"","wat_beter_kon":"","score":8},"biggest_growth_point":"","score_total":6.5,"deal_facts":{"prospect_naam":"","bedrijf":"","budget_of_pricing":"","omzet_huidige_situatie":"","pijnpunten":"","bezwaren":"","interesse_niveau":"hoog","afspraak_datum":null,"afspraak_notities":""},"next_action_type":"second_call","next_action_date":null,"next_action_notes":"Tweede call gepland","meeting_outcome_label":"Eerste call"}
 
 TRANSCRIPT:\n${transcript}`;
       try {
@@ -205,21 +221,27 @@ TRANSCRIPT:\n${transcript}`;
       };
       const map = stageMap[pid] || stageMap.manuele;
       if (nat === 'second_call' && map.second_call) {
-        stageUpdate = { stage: map.second_call, meeting_outcome: 'show' };
+        stageUpdate = { stage: map.second_call, status: 'second_call', meeting_outcome: 'show' };
       } else if (nat === 'follow_up_call' && map.follow_up_call) {
-        stageUpdate = { stage: map.follow_up_call, meeting_outcome: 'show' };
-      } else if (nat && nat !== 'geen_actie' && nat !== 'niet_gekwalificeerd') {
+        stageUpdate = { stage: map.follow_up_call, status: 'follow_up', meeting_outcome: 'show' };
+      } else if (nat === 'niet_gekwalificeerd') {
+        stageUpdate = { status: 'niet_gekwalificeerd', meeting_outcome: 'no_show' };
+      } else if (nat && nat !== 'geen_actie') {
         stageUpdate = { meeting_outcome: 'show' };
       }
     }
 
+    // Extract appointment date from analysis deal_facts or next_action_date
+    const dealAfspraakDatum = analysis?.deal_facts?.afspraak_datum || analysis?.next_action_date || null;
     const updates = {
       ...(analysis ? {
+        // meeting_outcome_label is stored inside closer_analysis JSON, not as a separate column
         closer_analysis: { ...analysis, call_date: started_at || new Date().toISOString(), recording_url: recording_url || null, fathom_title: title || null },
         closer_score_total: analysis.score_total || null,
         next_action_type: analysis.next_action_type || null,
         next_action_date: analysis.next_action_date || null,
         next_action_notes: analysis.next_action_notes || null,
+        ...(dealAfspraakDatum ? { appointment_date: dealAfspraakDatum } : {}),
       } : {}),
       ...stageUpdate,
       ...(actionItemsText ? { action_items: actionItemsText } : {}),
