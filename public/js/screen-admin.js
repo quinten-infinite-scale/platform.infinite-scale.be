@@ -1586,44 +1586,7 @@ const ScreenAdmin = {
             e('div', { style: { fontSize: 26, fontWeight: 700, color: c.color, fontFamily: "'Space Grotesk'" } }, c.val),
             e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 3 } }, c.sub))))),
 
-      // Client revenue / deal stats
-      (() => {
-        const rangeAppts = d.appointments.filter(a => a.dateLog >= rangeFrom && a.dateLog <= rangeTo);
-        const clientRows = d.clients.map(cl => {
-          const appts = rangeAppts.filter(a => a.client === cl.id);
-          const shows = appts.filter(a => a.status === 'show');
-          const deals = shows.filter(a => a.quoteApproved);
-          const revenue = deals.reduce((s, a) => s + (a.dealAmount || 0), 0);
-          const showRate = appts.length ? Math.round(shows.length / appts.length * 100) : 0;
-          const showToDeal = shows.length ? Math.round(deals.length / shows.length * 100) : 0;
-          const leadToDeal = appts.length ? Math.round(deals.length / appts.length * 100) : 0;
-          return { cl, booked: appts.length, shows: shows.length, deals: deals.length, revenue, showRate, showToDeal, leadToDeal };
-        }).filter(r => r.booked > 0).sort((a, b) => b.revenue - a.revenue || b.booked - a.booked);
-        if (!clientRows.length) return null;
-        const totalRevenue = clientRows.reduce((s, r) => s + r.revenue, 0);
-        const Pct = (v) => e('span', { style: { fontFamily: "'JetBrains Mono'", fontSize: 12.5, color: v > 0 ? 'var(--text)' : 'var(--text-mute)' } }, v + '%');
-        return UI.C({},
-          UI.Row({ justifyContent: 'space-between', marginBottom: 14 },
-            UI.Hd('Client revenue & deals', { fontSize: 15 }),
-            e('div', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15, color: 'var(--up)' } }, totalRevenue > 0 ? this.euro(totalRevenue) + ' total' : 'No deals yet')),
-          e('div', { style: { overflowX: 'auto' } },
-            e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
-              e('thead', null,
-                e('tr', null,
-                  ['Client', 'Booked', 'Shows', 'Deals', 'Show rate', 'Show→Deal', 'Lead→Deal', 'Revenue'].map((h, i) =>
-                    e('th', { key: h, style: { padding: '6px 10px', textAlign: i === 0 ? 'left' : 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--border-soft)', whiteSpace: 'nowrap' } }, h)))),
-              e('tbody', null,
-                clientRows.map((r, i) =>
-                  e('tr', { key: r.cl.id, style: { borderBottom: i < clientRows.length - 1 ? '1px solid var(--border-soft)' : 'none' } },
-                    e('td', { style: { padding: '10px 10px', fontWeight: 600, color: 'var(--text)' } }, r.cl.name),
-                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, UI.Mono(r.booked)),
-                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, UI.Mono(r.shows, { color: 'var(--up)' })),
-                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, UI.Mono(r.deals, { color: r.deals > 0 ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 700 })),
-                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, Pct(r.showRate)),
-                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, Pct(r.showToDeal)),
-                    e('td', { style: { padding: '10px 10px', textAlign: 'right' } }, Pct(r.leadToDeal)),
-                    e('td', { style: { padding: '10px 10px', textAlign: 'right', fontFamily: "'JetBrains Mono'", fontWeight: 700, color: r.revenue > 0 ? 'var(--up)' : 'var(--text-mute)' } }, r.revenue > 0 ? this.euro(r.revenue) : '—')))))));
-      })());
+      null);
   },
 
   _admAppointments(d, s) {
@@ -5631,7 +5594,6 @@ const ScreenAdmin = {
     const e = React.createElement;
     const now = new Date();
 
-    // Build list of last 12 months
     const months = [];
     for (let i = 0; i < 12; i++) {
       const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -5647,55 +5609,51 @@ const ScreenAdmin = {
     const appts = d.appointments || [];
     const clients = d.clients || [];
 
-    // For a given month+client: logged = appointments with dateLog in that month
-    // scheduled = appointments with dateAppt in that month
-    // shows = scheduled + status=show
-    const getClientStats = (clientId, ym) => {
-      const logged = appts.filter(a => a.client === clientId && (a.dateLog || '').startsWith(ym));
-      const scheduled = appts.filter(a => a.client === clientId && (a.dateAppt || '').startsWith(ym));
-      const shows = scheduled.filter(a => a.status === 'show');
-      const showRate = scheduled.length ? Math.round(shows.length / scheduled.length * 100) : null;
-      // Revenue from shows (client rate * shows)
+    // Stats based on dateAppt (appointment date in that month)
+    const getStats = (clientId, ym, subId) => {
+      let base = appts.filter(a => a.client === clientId && (a.dateAppt || '').startsWith(ym));
+      if (subId !== undefined) base = base.filter(a => a.sub === subId);
+      const shows = base.filter(a => a.status === 'show');
+      const deals = shows.filter(a => a.quoteApproved);
       const cl = clients.find(c => c.id === clientId);
       let rev = 0;
       shows.forEach(a => {
-        const sub = a.sub && cl?.subclients ? cl.subclients.find(s => s.id === a.sub) : null;
-        rev += (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0;
+        const sub = a.sub && cl?.subclients ? cl.subclients.find(sc => sc.id === a.sub) : null;
+        rev += (sub?.rate) || (cl?.rate) || 0;
       });
-      return { logged: logged.length, scheduled: scheduled.length, shows: shows.length, showRate, rev };
+      const showRate = base.length ? Math.round(shows.length / base.length * 100) : null;
+      const showToDeal = shows.length ? Math.round(deals.length / shows.length * 100) : null;
+      return { booked: base.length, shows: shows.length, deals: deals.length, rev, showRate, showToDeal };
     };
 
-    // Only show clients with any appointments in the last 12 months
-    const activeClients = clients.filter(cl => {
-      return months.some(m => {
-        const st = getClientStats(cl.id, m.ym);
-        return st.logged > 0 || st.scheduled > 0;
-      });
-    });
+    const activeClients = clients.filter(cl =>
+      months.some(m => appts.some(a => a.client === cl.id && (a.dateAppt || '').startsWith(m.ym)))
+    );
 
-    const cur = selMonth ? activeClients.map(cl => ({ cl, stats: getClientStats(cl.id, selMonth) })).filter(x => x.stats.logged > 0 || x.stats.scheduled > 0) : [];
-    const prev = prevMonth ? activeClients.map(cl => ({ cl, stats: getClientStats(cl.id, prevMonth) })).filter(x => x.stats.logged > 0 || x.stats.scheduled > 0) : [];
+    const cur  = selMonth  ? activeClients.map(cl => ({ cl, stats: getStats(cl.id, selMonth)  })).filter(x => x.stats.booked > 0) : [];
+    const prev = prevMonth ? activeClients.map(cl => ({ cl, stats: getStats(cl.id, prevMonth) })).filter(x => x.stats.booked > 0) : [];
 
-    const totalCur = { logged: cur.reduce((s2, x) => s2 + x.stats.logged, 0), scheduled: cur.reduce((s2, x) => s2 + x.stats.scheduled, 0), shows: cur.reduce((s2, x) => s2 + x.stats.shows, 0), rev: cur.reduce((s2, x) => s2 + x.stats.rev, 0) };
-    const totalPrev = { logged: prev.reduce((s2, x) => s2 + x.stats.logged, 0), scheduled: prev.reduce((s2, x) => s2 + x.stats.scheduled, 0), shows: prev.reduce((s2, x) => s2 + x.stats.shows, 0), rev: prev.reduce((s2, x) => s2 + x.stats.rev, 0) };
-    const totalShowRate = totalCur.scheduled ? Math.round(totalCur.shows / totalCur.scheduled * 100) : 0;
-    const prevShowRate = totalPrev.scheduled ? Math.round(totalPrev.shows / totalPrev.scheduled * 100) : 0;
+    const sum = rows => rows.reduce((acc, x) => {
+      acc.booked += x.stats.booked; acc.shows += x.stats.shows;
+      acc.deals  += x.stats.deals;  acc.rev   += x.stats.rev; return acc;
+    }, { booked: 0, shows: 0, deals: 0, rev: 0 });
+    const tc = sum(cur), tp = sum(prev);
+    const totalShowRate = tc.booked ? Math.round(tc.shows / tc.booked * 100) : 0;
+    const prevShowRate  = tp.booked ? Math.round(tp.shows / tp.booked * 100) : 0;
 
     const delta = (a, b, suffix = '') => {
-      if (!b) return null;
+      if (!b && b !== 0) return null;
       const diff = a - b;
-      const sign = diff >= 0 ? '+' : '';
-      return e('span', { style: { fontSize: 12, fontWeight: 700, color: diff >= 0 ? 'var(--up)' : 'var(--down)', marginLeft: 6 } }, sign + diff + suffix);
+      return e('span', { style: { fontSize: 12, fontWeight: 700, color: diff >= 0 ? 'var(--up)' : 'var(--down)', marginLeft: 6 } }, (diff >= 0 ? '+' : '') + diff + suffix);
     };
 
     const Stat = (label, val, d2, sub) => e('div', { style: { padding: '16px 20px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', flex: '1 1 140px' } },
       e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, label),
       e('div', { style: { display: 'flex', alignItems: 'baseline', gap: 4 } },
-        e('span', { style: { fontSize: 26, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, val),
-        d2),
+        e('span', { style: { fontSize: 26, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, val), d2),
       sub ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 3 } }, sub) : null);
 
-    const showRateBar = (rate, prev2) => {
+    const RateBar = ({ rate, prev: prev2 }) => {
       const color = rate >= 70 ? 'var(--up)' : rate >= 50 ? 'var(--warn)' : 'var(--down)';
       return e('div', null,
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 } },
@@ -5705,41 +5663,83 @@ const ScreenAdmin = {
           e('div', { style: { width: rate + '%', height: '100%', background: color, borderRadius: 3, transition: 'width .3s' } })));
     };
 
-    const tableCols = [
-      { label: 'Client', render: x => e('span', { style: { fontWeight: 700, color: 'var(--text)' } }, x.cl.name) },
-      { label: 'Logged', align: 'center', render: x => e('span', { style: { fontWeight: 600, color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' } }, x.stats.logged) },
-      { label: 'Scheduled', align: 'center', render: x => e('span', { style: { fontWeight: 600, color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums' } }, x.stats.scheduled) },
-      { label: 'Shows', align: 'center', render: x => e('span', { style: { fontWeight: 700, color: x.stats.shows > 0 ? 'var(--up)' : 'var(--text-mute)', fontVariantNumeric: 'tabular-nums' } }, x.stats.shows) },
-      { label: 'Show rate', align: 'center', render: x => {
-        if (x.stats.scheduled === 0) return e('span', { style: { color: 'var(--text-mute)' } }, '—');
-        const prevStats = prevMonth ? getClientStats(x.cl.id, prevMonth) : null;
-        const prevRate = prevStats && prevStats.scheduled ? Math.round(prevStats.shows / prevStats.scheduled * 100) : null;
-        return e('div', { style: { minWidth: 100 } }, showRateBar(x.stats.showRate, prevRate));
-      }},
-      { label: 'Revenue', align: 'right', render: x => e('span', { style: { fontWeight: 700, color: x.stats.rev > 0 ? 'var(--text)' : 'var(--text-mute)', fontVariantNumeric: 'tabular-nums', fontFamily: "'JetBrains Mono'" } }, x.stats.rev > 0 ? this.euro(x.stats.rev) : '—') },
-    ];
+    const Pct = v => v == null ? e('span', { style: { color: 'var(--text-mute)' } }, '—')
+      : e('span', { style: { fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: v > 0 ? 'var(--text)' : 'var(--text-mute)' } }, v + '%');
 
-    const allRows = cur.sort((a, b) => b.stats.logged - a.stats.logged);
+    // Expanded state: set of client IDs with sub-client rows open
+    const expanded = s._csExpanded || new Set();
+    const toggleExpand = id => {
+      const next = new Set(expanded);
+      next.has(id) ? next.delete(id) : next.add(id);
+      this.setState({ _csExpanded: next });
+    };
+
+    const thStyle = (align) => ({ padding: '6px 10px', textAlign: align || 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--border-soft)', whiteSpace: 'nowrap' });
+    const tdStyle = (align, extra) => ({ padding: '9px 10px', textAlign: align || 'right', ...extra });
+
+    const renderRow = (st, name, isSubRow, key, extraCells) => {
+      const prevSt = prevMonth ? getStats(key?.clientId, prevMonth, key?.subId) : null;
+      const prevRate = prevSt && prevSt.booked ? Math.round(prevSt.shows / prevSt.booked * 100) : null;
+      return e('tr', { key: name, style: { borderBottom: '1px solid var(--border-soft)', background: isSubRow ? 'var(--bg-2)' : 'transparent' } },
+        e('td', { style: { ...tdStyle('left'), paddingLeft: isSubRow ? 28 : 10, fontWeight: isSubRow ? 500 : 700, color: isSubRow ? 'var(--text-mute)' : 'var(--text)' } },
+          isSubRow ? e('span', null, '↳ ' + name) : name),
+        ...extraCells,
+        e('td', { style: tdStyle() }, e('span', { style: { fontVariantNumeric: 'tabular-nums', fontWeight: 600 } }, st.booked)),
+        e('td', { style: tdStyle() }, e('span', { style: { fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: st.shows > 0 ? 'var(--up)' : 'var(--text-mute)' } }, st.shows)),
+        e('td', { style: tdStyle() }, e('span', { style: { fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: st.deals > 0 ? 'var(--accent)' : 'var(--text-mute)' } }, st.deals)),
+        e('td', { style: { ...tdStyle(), minWidth: 110 } },
+          st.booked ? e(RateBar, { rate: st.showRate ?? 0, prev: prevRate }) : e('span', { style: { color: 'var(--text-mute)' } }, '—')),
+        e('td', { style: tdStyle() }, Pct(st.showToDeal)),
+        e('td', { style: { ...tdStyle(), fontFamily: "'JetBrains Mono'", fontWeight: 700, color: st.rev > 0 ? 'var(--up)' : 'var(--text-mute)' } },
+          st.rev > 0 ? this.euro(st.rev) : '—'));
+    };
+
+    const tableRows = [];
+    cur.sort((a, b) => b.stats.booked - a.stats.booked).forEach(x => {
+      const hasSubs = (x.cl.subclients || []).length > 0;
+      const isOpen = expanded.has(x.cl.id);
+      const expandCell = hasSubs
+        ? e('td', { style: { ...tdStyle('left'), width: 28, paddingLeft: 10, paddingRight: 0, cursor: 'pointer', color: 'var(--text-mute)', userSelect: 'none' }, onClick: () => toggleExpand(x.cl.id) },
+            e('span', null, isOpen ? '▾' : '▸'))
+        : e('td', { style: { width: 28, padding: '9px 10px' } });
+      tableRows.push(renderRow(x.stats, x.cl.name, false, { clientId: x.cl.id }, [expandCell]));
+      if (hasSubs && isOpen) {
+        (x.cl.subclients || []).forEach(sub => {
+          const subSt = getStats(x.cl.id, selMonth, sub.id);
+          if (subSt.booked === 0 && subSt.shows === 0) return;
+          tableRows.push(renderRow(subSt, sub.name, true, { clientId: x.cl.id, subId: sub.id }, [e('td', { key: 'exppad', style: { width: 28 } })]));
+        });
+      }
+    });
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
-      // Month selector
       e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
         months.map(m => e('button', { key: m.ym, onClick: () => this.setState({ csMonth: m.ym }),
           style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (m.ym === selMonth ? 'var(--accent)' : 'var(--border)'), background: m.ym === selMonth ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: m.ym === selMonth ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, m.label))),
 
-      // Summary stats
       e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
-        Stat('Logged', String(totalCur.logged), delta(totalCur.logged, totalPrev.logged), prevMonth ? 'vs ' + totalPrev.logged + ' prev month' : null),
-        Stat('Scheduled', String(totalCur.scheduled), delta(totalCur.scheduled, totalPrev.scheduled), prevMonth ? 'vs ' + totalPrev.scheduled + ' prev month' : null),
-        Stat('Shows', String(totalCur.shows), delta(totalCur.shows, totalPrev.shows), prevMonth ? 'vs ' + totalPrev.shows + ' prev month' : null),
-        Stat('Show rate', totalShowRate + '%', delta(totalShowRate, prevShowRate, 'pp'), prevMonth ? 'vs ' + prevShowRate + '% prev month' : null),
-        Stat('Revenue', this.euro(totalCur.rev), delta(totalCur.rev, totalPrev.rev), prevMonth ? 'vs ' + this.euro(totalPrev.rev) + ' prev month' : null)),
+        Stat('Booked', String(tc.booked), delta(tc.booked, tp.booked), prevMonth ? 'vs ' + tp.booked + ' vorige maand' : null),
+        Stat('Shows', String(tc.shows), delta(tc.shows, tp.shows), prevMonth ? 'vs ' + tp.shows + ' vorige maand' : null),
+        Stat('Deals', String(tc.deals), delta(tc.deals, tp.deals), prevMonth ? 'vs ' + tp.deals + ' vorige maand' : null),
+        Stat('Show rate', totalShowRate + '%', delta(totalShowRate, prevShowRate, 'pp'), prevMonth ? 'vs ' + prevShowRate + '% vorige maand' : null),
+        Stat('Revenue', this.euro(tc.rev), delta(tc.rev, tp.rev), prevMonth ? 'vs ' + this.euro(tp.rev) + ' vorige maand' : null)),
 
-      // Per-client table
       UI.C({ padding: 0, overflow: 'hidden' },
         e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)' } },
           UI.Hd('Per client — ' + (months.find(m => m.ym === selMonth)?.label || selMonth), { fontSize: 14 })),
-        UI.Table(tableCols, allRows, { min: 560, empty: 'No client data for this month.' })));
+        e('div', { style: { overflowX: 'auto' } },
+          e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+            e('thead', null,
+              e('tr', null,
+                e('th', { style: { ...thStyle('left'), width: 28 } }),
+                e('th', { style: thStyle('left') }, 'Client'),
+                e('th', { style: thStyle() }, 'Booked'),
+                e('th', { style: thStyle() }, 'Shows'),
+                e('th', { style: thStyle() }, 'Deals'),
+                e('th', { style: thStyle() }, 'Show rate'),
+                e('th', { style: thStyle() }, 'Show→Deal'),
+                e('th', { style: thStyle() }, 'Revenue'))),
+            e('tbody', null, tableRows.length ? tableRows : e('tr', null, e('td', { colSpan: 8, style: { padding: 20, textAlign: 'center', color: 'var(--text-mute)' } }, 'Geen clientdata voor deze maand.')))))));
   },
 
   _admOpa(d, s) {

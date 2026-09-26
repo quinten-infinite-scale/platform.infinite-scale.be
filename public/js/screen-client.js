@@ -14,6 +14,7 @@ const ScreenClient = {
 
     if (s.route === 'dashboard') return this._clientDash(d, s, cl, appts, subName, isAgency);
     if (s.route === 'appointments') return this._clientAppointments(d, s, cl, appts, subName, isAgency);
+    if (s.route === 'stats') return this._clientStats(d, s, cl, isAgency);
     if (s.route === 'billing') return this._clientBilling(d, s, cl, isAgency);
     if (s.route === 'legal') return this._clientLegal(d, s, cl);
     if (s.route === 'support') return this._clientSupport(d, s, cl);
@@ -45,15 +46,41 @@ const ScreenClient = {
     ];
     const quoteSentAll = appts.filter(a => a.quoteSent);
     const totalRevenue = appts.reduce((s, a) => s + (a.dealAmount || 0), 0);
+    // Stats preview for this month
+    const curYM = now.toISOString().slice(0, 7);
+    const thisMonthAppts = d.appointments.filter(a => a.client === cl.id && (a.dateAppt || '').startsWith(curYM));
+    const thisShows = thisMonthAppts.filter(a => a.status === 'show');
+    const thisDeals = thisShows.filter(a => a.quoteApproved);
+    const thisShowRate = thisMonthAppts.length ? Math.round(thisShows.length / thisMonthAppts.length * 100) : 0;
+    const thisShowToDeal = thisShows.length ? Math.round(thisDeals.length / thisShows.length * 100) : 0;
+    const thisRev = thisShows.reduce((acc, a) => {
+      const sub = a.sub && cl.subclients ? cl.subclients.find(sc => sc.id === a.sub) : null;
+      return acc + ((sub?.rate) || (cl.rate) || 0);
+    }, 0);
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       UI.Grid('repeat(auto-fit,minmax(180px,1fr))', 14,
         UI.Stat('Afspraken (deze maand)', String(appts.filter(a => !a.invoiced).length), null, 'deze maand'),
         UI.Stat('Shows', String(showN), null, Math.round(showN / total * 100) + '% of set'),
         UI.Stat('Offertes verstuurd', String(quoteSentAll.length), null, quoteSentAll.length ? Math.round(quoteSentAll.length / (showN || 1) * 100) + '% van shows' : 'all time'),
         UI.Stat('Omzet', this.euro(totalRevenue), null, 'all time · goedgekeurde offertes'),
-        leads != null ? UI.Stat('Leads in', String(leads), null, 'from ' + cl.crm)
-          : null,
+        leads != null ? UI.Stat('Leads in', String(leads), null, 'from ' + cl.crm) : null,
         UI.Stat('Cancellations', String(cancN), null, 'this month')),
+      // Stats preview card
+      e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, cursor: 'pointer' }, onClick: () => this.go('stats') },
+        UI.Row({ justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+          UI.Hd('Resultaten deze maand', { fontSize: 15 }),
+          e('span', { style: { fontSize: 12, color: 'var(--accent)', fontWeight: 700 } }, 'Alles zien →')),
+        e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
+          [
+            { label: 'Afspraken', val: String(thisMonthAppts.length), color: 'var(--text)' },
+            { label: 'Shows', val: String(thisShows.length), color: 'var(--up)' },
+            { label: 'Deals', val: String(thisDeals.length), color: 'var(--accent)' },
+            { label: 'Show rate', val: thisShowRate + '%', color: thisShowRate >= 70 ? 'var(--up)' : thisShowRate >= 50 ? 'var(--warn)' : 'var(--down)' },
+            { label: 'Show→Deal', val: thisShowToDeal + '%', color: 'var(--text)' },
+            { label: 'Revenue', val: this.euro(thisRev), color: 'var(--up)' },
+          ].map((c, i) => e('div', { key: i, style: { flex: '1 1 100px', padding: '12px 14px', background: 'var(--bg-2)', borderRadius: 10, border: '1px solid var(--border-soft)' } },
+            e('div', { style: { fontSize: 10, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 } }, c.label),
+            e('div', { style: { fontSize: 20, fontWeight: 700, color: c.color, fontVariantNumeric: 'tabular-nums' } }, c.val))))),
       UI.C({ padding: 0, overflow: 'hidden' },
         e('div', { style: { padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
           UI.Hd('Live appointments'), UI.Pill('Real-time', 'var(--accent)', 'oklch(0.30 0.10 194)')),
@@ -65,6 +92,130 @@ const ScreenClient = {
           UI.Donut(Math.round(cancN / total * 100), 'var(--down)', Math.round(cancN / total * 100) + '%', 'Cancellation rate'),
           cl.crmOn ? UI.Donut(Math.round(total / (leads || 1) * 100), 'var(--info)', Math.round(total / (leads || 1) * 100) + '%', 'Lead → appt')
             : UI.Donut(0, 'var(--surface-3)', '—', 'Lead → appt (no CRM)'))));
+  },
+
+  _clientStats(d, s, cl, isAgency) {
+    const e = React.createElement;
+    const now = new Date();
+    const allAppts = d.appointments.filter(a => a.client === cl.id);
+
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ ym: dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0'), label: dt.toLocaleString('nl-BE', { month: 'long', year: 'numeric' }) });
+    }
+
+    const selMonth = s.cliStatsMonth || months[0].ym;
+    const prevMonth = (() => { const i = months.findIndex(m => m.ym === selMonth); return i < months.length - 1 ? months[i + 1].ym : null; })();
+
+    const getStats = (ym, subId) => {
+      let base = allAppts.filter(a => (a.dateAppt || '').startsWith(ym));
+      if (subId !== undefined) base = base.filter(a => a.sub === subId);
+      const shows = base.filter(a => a.status === 'show');
+      const deals = shows.filter(a => a.quoteApproved);
+      let rev = 0;
+      shows.forEach(a => {
+        const sub = a.sub && cl.subclients ? cl.subclients.find(sc => sc.id === a.sub) : null;
+        rev += (sub?.rate) || (cl.rate) || 0;
+      });
+      const showRate = base.length ? Math.round(shows.length / base.length * 100) : null;
+      const showToDeal = shows.length ? Math.round(deals.length / shows.length * 100) : null;
+      return { booked: base.length, shows: shows.length, deals: deals.length, rev, showRate, showToDeal };
+    };
+
+    const curStats = getStats(selMonth);
+    const prevStats = prevMonth ? getStats(prevMonth) : null;
+
+    const delta = (a, b, suffix = '') => {
+      if (b == null) return null;
+      const diff = a - b;
+      return e('span', { style: { fontSize: 12, fontWeight: 700, color: diff >= 0 ? 'var(--up)' : 'var(--down)', marginLeft: 6 } }, (diff >= 0 ? '+' : '') + diff + suffix);
+    };
+
+    const Stat = (label, val, d2, sub) => e('div', { style: { padding: '16px 20px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', flex: '1 1 140px' } },
+      e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, label),
+      e('div', { style: { display: 'flex', alignItems: 'baseline', gap: 4 } },
+        e('span', { style: { fontSize: 26, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, val), d2),
+      sub ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 3 } }, sub) : null);
+
+    const RateBar = ({ rate }) => {
+      const color = rate >= 70 ? 'var(--up)' : rate >= 50 ? 'var(--warn)' : 'var(--down)';
+      return e('div', null,
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 4 } },
+          e('span', { style: { fontSize: 13, fontWeight: 700, color } }, rate + '%')),
+        e('div', { style: { height: 8, borderRadius: 4, background: 'var(--border)', overflow: 'hidden' } },
+          e('div', { style: { width: rate + '%', height: '100%', background: color, borderRadius: 4, transition: 'width .3s' } })));
+    };
+
+    // Sub-client rows for agency
+    const subs = isAgency ? (cl.subclients || []) : [];
+    const expanded = s._cliStatsExp || new Set();
+    const hasSubRows = subs.length > 0;
+
+    const subRows = hasSubRows ? subs.map(sub => {
+      const st = getStats(selMonth, sub.id);
+      if (st.booked === 0 && st.shows === 0) return null;
+      return e('div', { key: sub.id, style: { display: 'flex', gap: 10, flexWrap: 'wrap', padding: '10px 0', borderTop: '1px solid var(--border-soft)', paddingLeft: 12 } },
+        e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontWeight: 700, minWidth: 140 } }, '↳ ' + sub.name),
+        e('div', { style: { fontSize: 12, color: 'var(--text-dim)' } }, st.booked + ' booked · ' + st.shows + ' shows · ' + st.deals + ' deals'),
+        st.showRate != null ? e('div', { style: { fontSize: 12, fontWeight: 700, color: st.showRate >= 70 ? 'var(--up)' : st.showRate >= 50 ? 'var(--warn)' : 'var(--down)' } }, st.showRate + '% show rate') : null,
+        st.rev > 0 ? e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--up)', marginLeft: 'auto' } }, this.euro(st.rev)) : null);
+    }).filter(Boolean) : [];
+
+    const monthHistory = months.map(m => {
+      const st = getStats(m.ym);
+      return { ...m, ...st };
+    });
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+      // Month picker
+      e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+        months.map(m => e('button', { key: m.ym, onClick: () => this.setState({ cliStatsMonth: m.ym }),
+          style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (m.ym === selMonth ? 'var(--accent)' : 'var(--border)'), background: m.ym === selMonth ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: m.ym === selMonth ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, m.label))),
+
+      // KPI cards
+      e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
+        Stat('Afspraken', String(curStats.booked), delta(curStats.booked, prevStats?.booked), prevMonth ? 'vs ' + (prevStats?.booked ?? 0) + ' vorige maand' : null),
+        Stat('Shows', String(curStats.shows), delta(curStats.shows, prevStats?.shows), prevMonth ? 'vs ' + (prevStats?.shows ?? 0) + ' vorige maand' : null),
+        Stat('Deals', String(curStats.deals), delta(curStats.deals, prevStats?.deals), prevMonth ? 'vs ' + (prevStats?.deals ?? 0) + ' vorige maand' : null),
+        Stat('Show rate', curStats.showRate != null ? curStats.showRate + '%' : '—', delta(curStats.showRate, prevStats?.showRate, 'pp'), prevMonth && prevStats?.showRate != null ? 'vs ' + prevStats.showRate + '% vorige maand' : null),
+        Stat('Show→Deal', curStats.showToDeal != null ? curStats.showToDeal + '%' : '—', delta(curStats.showToDeal, prevStats?.showToDeal, 'pp'), null),
+        Stat('Revenue', this.euro(curStats.rev), delta(curStats.rev, prevStats?.rev), prevMonth ? 'vs ' + this.euro(prevStats?.rev ?? 0) + ' vorige maand' : null)),
+
+      // Show rate visual
+      curStats.booked > 0 ? UI.C({},
+        UI.Hd('Show rate — ' + (months.find(m => m.ym === selMonth)?.label || selMonth), { fontSize: 14, marginBottom: 12 }),
+        e(RateBar, { rate: curStats.showRate ?? 0 })) : null,
+
+      // Sub-client breakdown for agencies
+      hasSubRows && subRows.length > 0 ? UI.C({ padding: 0, overflow: 'hidden' },
+        e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+          UI.Hd('Per sub-client', { fontSize: 14 }),
+          e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, subs.length + ' sub-clients')),
+        e('div', { style: { padding: '0 18px 8px' } }, subRows)) : null,
+
+      // Monthly history table
+      UI.C({ padding: 0, overflow: 'hidden' },
+        e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)' } },
+          UI.Hd('Historiek per maand', { fontSize: 14 })),
+        e('div', { style: { overflowX: 'auto' } },
+          e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+            e('thead', null,
+              e('tr', null,
+                ['Maand', 'Afspraken', 'Shows', 'Deals', 'Show rate', 'Show→Deal', 'Revenue'].map((h, i) =>
+                  e('th', { key: h, style: { padding: '8px 12px', textAlign: i === 0 ? 'left' : 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--border-soft)', whiteSpace: 'nowrap' } }, h)))),
+            e('tbody', null,
+              monthHistory.filter(m => m.booked > 0).map((m, i) => {
+                const isSelected = m.ym === selMonth;
+                return e('tr', { key: m.ym, onClick: () => this.setState({ cliStatsMonth: m.ym }), style: { borderBottom: '1px solid var(--border-soft)', cursor: 'pointer', background: isSelected ? 'oklch(0.22 0.06 194 / .2)' : 'transparent' } },
+                  e('td', { style: { padding: '9px 12px', fontWeight: 600, color: isSelected ? 'var(--accent)' : 'var(--text)' } }, m.label),
+                  e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, m.booked),
+                  e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: m.shows > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700 } }, m.shows),
+                  e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: m.deals > 0 ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 700 } }, m.deals),
+                  e('td', { style: { padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: m.showRate == null ? 'var(--text-mute)' : m.showRate >= 70 ? 'var(--up)' : m.showRate >= 50 ? 'var(--warn)' : 'var(--down)' } }, m.showRate != null ? m.showRate + '%' : '—'),
+                  e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, m.showToDeal != null ? m.showToDeal + '%' : '—'),
+                  e('td', { style: { padding: '9px 12px', textAlign: 'right', fontFamily: "'JetBrains Mono'", fontWeight: 700, color: m.rev > 0 ? 'var(--up)' : 'var(--text-mute)' } }, m.rev > 0 ? this.euro(m.rev) : '—'));
+              }))))));
   },
 
   _clientAppointments(d, s, cl, appts, subName, isAgency) {
