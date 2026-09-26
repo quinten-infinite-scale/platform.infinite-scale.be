@@ -234,20 +234,22 @@ export default async function handler(req, res) {
       const fromAgent = req.query.from;
       const toAgent   = req.query.to;
       if (!fromAgent || !toAgent) return res.status(400).json({ error: 'Missing from/to params' });
+      // Only reattribute from today onwards — historical dials stay with the old agent
+      const fromDate = req.query.from_date || new Date().toISOString().slice(0, 10);
       await Promise.all([
-        fetch(`${SB_URL}/rest/v1/dials?agent_id=eq.${fromAgent}`, {
+        fetch(`${SB_URL}/rest/v1/dials?agent_id=eq.${fromAgent}&dial_date=gte.${fromDate}`, {
           method: 'PATCH',
           headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
           body: JSON.stringify({ agent_id: toAgent }),
         }),
-        fetch(`${SB_URL}/rest/v1/dials_hourly?agent_id=eq.${fromAgent}`, {
+        fetch(`${SB_URL}/rest/v1/dials_hourly?agent_id=eq.${fromAgent}&dial_date=gte.${fromDate}`, {
           method: 'PATCH',
           headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
           body: JSON.stringify({ agent_id: toAgent }),
         }),
       ]);
-      console.log(`[sync-dials] reattributed dials ${fromAgent} → ${toAgent}`);
-      return res.status(200).json({ reattributed: true, from: fromAgent, to: toAgent });
+      console.log(`[sync-dials] reattributed dials ${fromAgent} → ${toAgent} from ${fromDate}`);
+      return res.status(200).json({ reattributed: true, from: fromAgent, to: toAgent, from_date: fromDate });
     }
 
     const agentMap = await buildAgentMap(sbKey);
