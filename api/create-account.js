@@ -47,8 +47,9 @@ export default async function handler(req, res) {
     const profileR2 = await fetch(`${SB_URL_CONST}/rest/v1/profiles?id=eq.${authUser2.id}&select=role&limit=1`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}` } });
     const profiles2 = await profileR2.json();
     if (!profiles2?.[0] || profiles2[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-    const { email: icEmail, name: icName, clientId: icClientId } = req.body || {};
+    const { email: icEmail, name: icName, clientId: icClientId, partyType: icPartyType } = req.body || {};
     if (!icEmail) return res.status(400).json({ error: 'email required' });
+    const icRole = icPartyType === 'agent' ? 'agent' : 'client';
     const sbH2 = { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}`, 'Content-Type': 'application/json' };
     let icUserId;
     const cr2 = await fetch(`${SB_URL_CONST}/auth/v1/admin/users`, { method: 'POST', headers: sbH2, body: JSON.stringify({ email: icEmail, email_confirm: true }) });
@@ -59,8 +60,19 @@ export default async function handler(req, res) {
       icUserId = (await lr2.json())?.users?.[0]?.id;
       if (!icUserId) return res.status(500).json({ error: 'Could not create or find user', detail: cd2 });
     }
-    await fetch(`${SB_URL_CONST}/rest/v1/profiles`, { method: 'POST', headers: { ...sbH2, Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: icUserId, name: icName || icEmail.split('@')[0], email: icEmail, role: 'client' }) });
-    if (icClientId) {
+    await fetch(`${SB_URL_CONST}/rest/v1/profiles`, { method: 'POST', headers: { ...sbH2, Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ id: icUserId, name: icName || icEmail.split('@')[0], email: icEmail, role: icRole }) });
+    if (icRole === 'agent') {
+      // Link or create agents row
+      const agR2 = await fetch(`${SB_URL_CONST}/rest/v1/agents?email=eq.${encodeURIComponent(icEmail)}&limit=1`, { headers: sbH2 });
+      const ags2 = await agR2.json();
+      if (ags2?.[0]?.id) {
+        await fetch(`${SB_URL_CONST}/rest/v1/agents?id=eq.${ags2[0].id}`, { method: 'PATCH', headers: { ...sbH2, Prefer: 'return=minimal' }, body: JSON.stringify({ profile_id: icUserId }) });
+      } else {
+        const allAgs = await (await fetch(`${SB_URL_CONST}/rest/v1/agents?select=id`, { headers: sbH2 })).json();
+        const maxNum = (allAgs || []).reduce((m, a) => { const n = parseInt((a.id || '').replace(/\D/g, ''), 10); return isNaN(n) ? m : Math.max(m, n); }, 0);
+        await fetch(`${SB_URL_CONST}/rest/v1/agents`, { method: 'POST', headers: { ...sbH2, Prefer: 'return=minimal' }, body: JSON.stringify({ id: 'a' + (maxNum + 1), name: icName || icEmail.split('@')[0], email: icEmail, active: true, status: 'signed', profile_id: icUserId, working: false, feedback: [], todos: [], lifetime_paid: 0 }) });
+      }
+    } else if (icClientId) {
       await fetch(`${SB_URL_CONST}/rest/v1/clients?id=eq.${icClientId}`, { method: 'PATCH', headers: { ...sbH2, Prefer: 'return=minimal' }, body: JSON.stringify({ profile_id: icUserId, email: icEmail }) });
     } else {
       const clR2 = await fetch(`${SB_URL_CONST}/rest/v1/clients?email=eq.${encodeURIComponent(icEmail)}&limit=1`, { headers: sbH2 });
