@@ -5026,7 +5026,11 @@ const ScreenAdmin = {
               ? e('div', { style: { textAlign: 'right' } },
                   e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 2 } }, 'EOM forecast'),
                   e('div', { style: { fontSize: 22, fontWeight: 700, color: eomForecast >= monthlyTarget ? 'var(--up)' : 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, fmtEur(eomForecast)),
-                  e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, daysLeft + ' dag' + (daysLeft !== 1 ? 'en' : '') + ' te gaan · dag ' + dayOfMonth + ' van ' + daysInMonth))
+                  e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, daysLeft + ' dag' + (daysLeft !== 1 ? 'en' : '') + ' te gaan · dag ' + dayOfMonth + ' van ' + daysInMonth),
+                  daysLeft > 0 && monthlyTarget > monthlyActual
+                    ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border-soft)', fontVariantNumeric: 'tabular-nums' } },
+                        'Nog ' + fmtEur(Math.ceil((monthlyTarget - monthlyActual) / daysLeft)) + '/dag nodig')
+                    : null)
               : e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Afgelopen maand')),
           e('div', null,
             e('div', { style: { height: 12, borderRadius: 6, background: 'var(--border)', overflow: 'hidden' } },
