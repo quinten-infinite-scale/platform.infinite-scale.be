@@ -114,11 +114,7 @@ const ScreenClient = {
       if (subId !== undefined) base = base.filter(a => a.sub === subId);
       const shows = base.filter(a => a.status === 'show');
       const deals = shows.filter(a => a.quoteApproved);
-      let rev = 0;
-      shows.forEach(a => {
-        const sub = a.sub && cl.subclients ? cl.subclients.find(sc => sc.id === a.sub) : null;
-        rev += (sub?.rate) || (cl.rate) || 0;
-      });
+      const rev = base.reduce((s, a) => s + (a.dealAmount || 0), 0);
       const showRate = base.length ? Math.round(shows.length / base.length * 100) : null;
       const showToDeal = shows.length ? Math.round(deals.length / shows.length * 100) : null;
       return { booked: base.length, shows: shows.length, deals: deals.length, rev, showRate, showToDeal };
