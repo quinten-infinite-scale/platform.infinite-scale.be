@@ -120,11 +120,13 @@ const ScreenClient = {
       return { booked: base.length, shows: shows.length, deals: deals.length, rev, showRate, showToDeal };
     };
 
-    const MonthPicker = (selectedYm, allTime) => e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-      allTime ? e('button', { onClick: () => this.setState({ cliStatsMonth: null }),
-        style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (!selectedYm ? 'var(--accent)' : 'var(--border)'), background: !selectedYm ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: !selectedYm ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, 'All time') : null,
-      months.map(m => e('button', { key: m.ym, onClick: () => this.setState({ cliStatsMonth: m.ym }),
-        style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (m.ym === selectedYm ? 'var(--accent)' : 'var(--border)'), background: m.ym === selectedYm ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: m.ym === selectedYm ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, m.label))));
+    const btnStyle = (active) => ({ padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border)'), background: active ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' });
+    const MonthPicker = (selectedYm, allTime) => {
+      const btns = [];
+      if (allTime) btns.push(e('button', { key: 'all', onClick: () => this.setState({ cliStatsMonth: null }), style: btnStyle(!selectedYm) }, 'All time'));
+      months.forEach(m => btns.push(e('button', { key: m.ym, onClick: () => this.setState({ cliStatsMonth: m.ym }), style: btnStyle(m.ym === selectedYm) }, m.label)));
+      return e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } }, ...btns);
+    };
 
     // ── AGENCY VIEW: per sub-client table ──────────────────────────────────
     if (isAgency) {
