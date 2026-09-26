@@ -15,7 +15,7 @@ const SC_DB = 'https://database.infinite-scale.be';
   }).catch(() => { window.__ctplOverridesLoaded = true; });
 })();
 
-async function scCreateAccount(app, clientId, subclientId, email, name) {
+async function scCreateAccount(app, clientId, subclientId, email, name, agencyName, agencyEmail) {
   const res = await fetch(SC_DB + '/auth/v1/admin/users', {
     method: 'POST',
     headers: { apikey: SC_KEY, Authorization: 'Bearer ' + SC_KEY, 'Content-Type': 'application/json' },
@@ -33,6 +33,15 @@ async function scCreateAccount(app, clientId, subclientId, email, name) {
   const newSubs = (cl.subclients || []).map(sc => sc.id === subclientId ? { ...sc, email, user_id: uid } : sc);
   await API.updateClient(clientId, { subclients: newSubs });
   app.mutLocal(d => { const c = d.clients.find(x => x.id === clientId); if (c) c.subclients = newSubs; });
+  // Send white-labeled welcome email with the lead agency's name and email
+  const session = typeof SB !== 'undefined' ? SB.getSession() : null;
+  if (session?.access_token) {
+    fetch('/api/create-account?action=invite-subclient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify({ email, name, agencyName, agencyEmail }),
+    }).catch(() => {});
+  }
   app.toast('Account created', name + ' can now log in', 'var(--up)');
 }
 
@@ -1976,7 +1985,7 @@ const ScreenAdmin = {
                             const email = (scPending[pendingKey] || '').trim();
                             if (!email) return this.toast('Error', 'Enter an email address first', 'var(--down)');
                             try {
-                              await scCreateAccount(this, ag.id, sc.id, email, sc.name);
+                              await scCreateAccount(this, ag.id, sc.id, email, sc.name, ag.name, ag.email);
                               this.setState(st => { const p = { ...(st.scPending || {}) }; delete p[pendingKey]; return { scPending: p }; });
                             } catch(err) { this.toast('Error', err.message, 'var(--down)'); }
                           }, 'primary', { padding: '6px 14px', fontSize: 12 })));

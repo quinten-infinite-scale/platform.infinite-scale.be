@@ -33,6 +33,42 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // POST ?action=invite-client — create auth account + send onboarding email (admin auth required)
+  // POST ?action=invite-subclient — send white-labeled welcome email to a sub-client (admin auth required)
+  if ((req.query?.action || req.body?.action) === 'invite-subclient') {
+    const SERVICE_KEY_IS = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const RESEND_KEY_IS = process.env.RESEND_API_KEY;
+    if (!SERVICE_KEY_IS) return res.status(500).json({ error: 'Service key not configured' });
+    const authHeader3 = req.headers['authorization'] || '';
+    const tok3 = authHeader3.startsWith('Bearer ') ? authHeader3.slice(7) : '';
+    if (!tok3) return res.status(401).json({ error: 'Unauthorized' });
+    const userR3 = await fetch(`${SB_URL_CONST}/auth/v1/user`, { headers: { apikey: SERVICE_KEY_IS, Authorization: `Bearer ${tok3}` } });
+    if (!userR3.ok) return res.status(401).json({ error: 'Unauthorized' });
+    const authUser3 = await userR3.json();
+    const profileR3 = await fetch(`${SB_URL_CONST}/rest/v1/profiles?id=eq.${authUser3.id}&select=role&limit=1`, { headers: { apikey: SERVICE_KEY_IS, Authorization: `Bearer ${SERVICE_KEY_IS}` } });
+    const profiles3 = await profileR3.json();
+    if (!profiles3?.[0] || profiles3[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { email: isEmail, name: isName, agencyName, agencyEmail } = req.body || {};
+    if (!isEmail) return res.status(400).json({ error: 'email required' });
+    const sbH3 = { apikey: SERVICE_KEY_IS, Authorization: `Bearer ${SERVICE_KEY_IS}`, 'Content-Type': 'application/json' };
+    // Generate password-setup link
+    const isLinkR = await fetch(`${SB_URL_CONST}/auth/v1/admin/generate_link`, { method: 'POST', headers: sbH3, body: JSON.stringify({ type: 'recovery', email: isEmail }) });
+    if (!isLinkR.ok) return res.status(500).json({ error: 'Failed to generate setup link' });
+    const isLinkData = await isLinkR.json();
+    if (!isLinkData.hashed_token) return res.status(500).json({ error: 'No hashed_token in link response' });
+    const isSetupUrl = `https://platform.infinite-scale.be/api/create-account?action=auth-redirect&token=${encodeURIComponent(isLinkData.hashed_token)}&type=recovery&new=1`;
+    if (!RESEND_KEY_IS || RESEND_KEY_IS === 're_placeholder') return res.status(200).json({ ok: true, emailSent: false });
+    const isDisplayName = isName || isEmail.split('@')[0];
+    const isAgencyLabel = agencyName || 'Infinite Scale';
+    const isAgencyContact = agencyEmail || 'quinten@infinite-scale.be';
+    const isHtml = `<div style="background:#0a0e1a;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><div style="max-width:540px;margin:0 auto;padding:40px 24px;"><div style="margin-bottom:32px;"><span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#67dcdf;font-weight:700;">${isAgencyLabel}</span></div><h1 style="margin:0 0 12px;font-size:28px;font-weight:700;color:#f0f4ff;letter-spacing:-.02em;line-height:1.15;">Welkom, ${isDisplayName}!</h1><p style="margin:0 0 32px;font-size:15px;color:#8090b0;line-height:1.7;">Je account op het ${isAgencyLabel} platform is aangemaakt. Klik hieronder om je wachtwoord in te stellen en in te loggen.</p><a href="${isSetupUrl}" style="display:inline-block;padding:15px 36px;border-radius:12px;background:#67dcdf;color:#071314;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:-.01em;">Wachtwoord instellen &rarr;</a><div style="margin-top:36px;padding:18px 20px;border-radius:12px;background:#111827;border:1px solid #1f2d3d;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#4a5a7a;letter-spacing:.08em;text-transform:uppercase;">Jouw inloggegevens</p><p style="margin:0 0 4px;font-size:13px;color:#a0b0d0;">Platform: <a href="https://platform.infinite-scale.be" style="color:#67dcdf;text-decoration:none;">platform.infinite-scale.be</a></p><p style="margin:0;font-size:13px;color:#a0b0d0;">E-mail: <strong style="color:#f0f4ff;">${isEmail}</strong></p></div><p style="margin-top:32px;font-size:12px;color:#2d3d55;line-height:1.6;">Deze link is 24 uur geldig. Vragen? Mail naar <a href="mailto:${isAgencyContact}" style="color:#3d5070;text-decoration:none;">${isAgencyContact}</a></p></div></div>`;
+    try {
+      const er3 = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND_KEY_IS}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'Infinite Scale <platform@infinite-scale.be>', to: [isEmail], subject: `Welkom bij ${isAgencyLabel} — stel je wachtwoord in`, html: isHtml }) });
+      const ed3 = await er3.json();
+      if (!er3.ok) return res.status(200).json({ ok: true, emailSent: false, emailError: ed3?.message });
+      return res.status(200).json({ ok: true, emailSent: true });
+    } catch (e3) { return res.status(200).json({ ok: true, emailSent: false, emailError: e3.message }); }
+  }
+
   if ((req.query?.action || req.body?.action) === 'invite-client') {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     const SERVICE_KEY_IC = process.env.SUPABASE_SERVICE_ROLE_KEY;
