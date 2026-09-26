@@ -24,6 +24,7 @@ const ScreenClient = {
 
   _clientDash(d, s, cl, appts, subName, isAgency) {
     const e = React.createElement;
+    const now = new Date();
     const live = appts.filter(a => !a.invoiced).slice(0, 12);
     const totalCalls = Object.values(d.dials).reduce((x, o) => x + (o[this.iso(this.today())] || 0), 0);
     const showN = appts.filter(a => a.status === 'show').length;
