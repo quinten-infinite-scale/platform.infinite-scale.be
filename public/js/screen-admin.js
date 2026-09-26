@@ -5105,10 +5105,27 @@ const ScreenAdmin = {
               }).catch(() => this.setState({ _ctData: CLOUDTALK_ACCOUNTS, _ctLoading: false }));
           }
           const ctData = s._ctData || CLOUDTALK_ACCOUNTS;
-          const saveCT = async (newData) => {
+          const saveCT = async (newData, prevData) => {
             this.setState({ _ctData: newData });
             const session = typeof SB !== 'undefined' ? SB.getSession() : null;
             const token = session?.access_token; if (!token) return;
+            // Detect agent changes and reattribute dials instantly
+            if (prevData) {
+              for (const [key, newNames] of Object.entries(newData)) {
+                const oldNames = prevData[key] || [];
+                const oldName = (Array.isArray(oldNames) ? oldNames[0] : oldNames) || '';
+                const newName = (Array.isArray(newNames) ? newNames[0] : newNames) || '';
+                if (oldName && newName && oldName.trim() !== newName.trim()) {
+                  const oldAg = agents.find(a => (a.name || '').toLowerCase().trim() === oldName.toLowerCase().trim());
+                  const newAg = agents.find(a => (a.name || '').toLowerCase().trim() === newName.toLowerCase().trim());
+                  if (oldAg?.id && newAg?.id && oldAg.id !== newAg.id) {
+                    fetch(`/api/sync-dials?action=reattribute&from=${oldAg.id}&to=${newAg.id}`, {
+                      headers: { Authorization: 'Bearer ' + token },
+                    }).catch(console.error);
+                  }
+                }
+              }
+            }
             await fetch('/api/db-write', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
               body: JSON.stringify({ method: 'upsert', table: 'platform_settings', conflict: 'key', body: { key: 'cloudtalk_accounts', value: newData } }) });
           };
@@ -5120,13 +5137,9 @@ const ScreenAdmin = {
             const copy = { ...ctData }; delete copy[key]; saveCT(copy);
           };
           const editCell = (key, idx, val) => {
+            const prevData = ctData;
             const copy = { ...ctData, [key]: [...(ctData[key] || [])] };
-            copy[key][idx] = val; saveCT(copy);
-          };
-          const addSlot = (key) => saveCT({ ...ctData, [key]: [...(ctData[key] || []), ''] });
-          const removeSlot = (key, idx) => {
-            const arr = (ctData[key] || []).filter((_, i) => i !== idx);
-            saveCT({ ...ctData, [key]: arr });
+            copy[key][idx] = val; saveCT(copy, prevData);
           };
 
           const selectSt = { padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', minWidth: 120, cursor: 'pointer' };
@@ -5136,13 +5149,9 @@ const ScreenAdmin = {
               const namesArr = Array.isArray(names) ? names : (names != null ? [String(names)] : []);
               return e('div', { key, style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
                 e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'var(--accent)18', borderRadius: 6, padding: '3px 10px', flexShrink: 0, fontFamily: "'JetBrains Mono'", minWidth: 80, textAlign: 'center' } }, 'Account ' + key),
-                namesArr.map((nm, idx) =>
-                  e('div', { key: idx, style: { display: 'flex', alignItems: 'center', gap: 4 } },
-                    e('select', { value: nm, onChange: ev => editCell(key, idx, ev.target.value), style: selectSt },
-                      e('option', { value: '' }, '— Kies agent —'),
-                      ...agents.map(a => e('option', { key: a.id, value: a.name || a.id }, a.name || a.id))),
-                    namesArr.length > 1 ? e('button', { onClick: () => removeSlot(key, idx), title: 'Verwijder slot', style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 2px' } }, '×') : null)),
-                e('button', { onClick: () => addSlot(key), title: 'Voeg slot toe', style: { padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, '+ slot'),
+                e('select', { value: namesArr[0] || '', onChange: ev => editCell(key, 0, ev.target.value), style: selectSt },
+                  e('option', { value: '' }, '— Kies agent —'),
+                  ...agents.map(a => e('option', { key: a.id, value: a.name || a.id }, a.name || a.id))),
                 e('button', { onClick: () => removeRow(key), title: 'Verwijder account', style: { padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--down)', fontSize: 12, cursor: 'pointer' } }, '🗑'));
             }),
             e('button', { onClick: addRow, style: { alignSelf: 'flex-start', padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginTop: 4 } }, '+ Account toevoegen'));

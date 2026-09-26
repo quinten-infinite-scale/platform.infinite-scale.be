@@ -19,18 +19,60 @@ const CT_KEY    = process.env.CLOUDTALK_API_KEY    || '';
 const CT_SECRET = process.env.CLOUDTALK_API_SECRET || '';
 const SB_URL    = 'https://database.infinite-scale.be';
 
-// Map CloudTalk agent email (lowercase) → platform agent ID
-// Updated 2026-09-22: callagent7 reassigned from Jimmy to Tinne Jacobs
-const AGENT_MAP = {
-  'senne.db@infinite-scale.be':      'a1',   // Senne De Braekeler
-  'quinten@infinite-scale.be':       'a11',  // Quinten Eeckhoudt
-  'callagent@infinite-scale.be':     'a4',   // Bram Sanders
-  'callagent1@infinite-scale.be':    'a9',   // Lothar
-  'callagent2@infinite-scale.be':    'a12',  // Rick Hoekstra
-  'callagent4@infinite-scale.be':    'a15',  // Rabih Ibrahim
-  'callagent5@infinite-scale.be':    'a16',  // Romy Zwiers (+ Lisa De Coninck shares this account)
-  'callagent7@infinite-scale.be':    'a23',  // Tinne Jacobs (replaced Jimmy on this account)
+// Admin/internal emails that are always mapped (not in cloudtalk_accounts UI)
+const ADMIN_EMAIL_MAP = {
+  'senne.db@infinite-scale.be': 'a1',
+  'quinten@infinite-scale.be':  'a11',
 };
+
+// CloudTalk account number → CT login email
+// 1 → callagent@, 2 → callagent1@, 3 → callagent2@, N≥4 → callagentN@
+function ctEmailForAccount(n) {
+  const N = Number(n);
+  if (N === 1) return 'callagent@infinite-scale.be';
+  if (N === 2) return 'callagent1@infinite-scale.be';
+  if (N === 3) return 'callagent2@infinite-scale.be';
+  return `callagent${N}@infinite-scale.be`;
+}
+
+// Build dynamic agent map from platform_settings.cloudtalk_accounts + agents table
+async function buildAgentMap(sbKey) {
+  const [settingsRes, agentsRes] = await Promise.all([
+    fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.cloudtalk_accounts&select=value`, {
+      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+    }),
+    fetch(`${SB_URL}/rest/v1/agents?select=id,name`, {
+      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+    }),
+  ]);
+
+  const settings = await settingsRes.json();
+  const agents   = await agentsRes.json();
+
+  let ctAccounts = {};
+  if (settings?.[0]?.value) {
+    ctAccounts = typeof settings[0].value === 'string'
+      ? JSON.parse(settings[0].value)
+      : settings[0].value;
+  }
+
+  const nameToId = {};
+  for (const a of (agents || [])) {
+    if (a.name) nameToId[a.name.toLowerCase().trim()] = a.id;
+  }
+
+  const map = { ...ADMIN_EMAIL_MAP };
+  for (const [accountNum, names] of Object.entries(ctAccounts)) {
+    const namesArr = Array.isArray(names) ? names : (names ? [String(names)] : []);
+    const agentName = namesArr[0]; // one agent per account
+    if (!agentName) continue;
+    const agentId = nameToId[agentName.toLowerCase().trim()];
+    if (!agentId) continue;
+    map[ctEmailForAccount(accountNum)] = agentId;
+  }
+
+  return map;
+}
 
 function basicAuth() {
   return 'Basic ' + Buffer.from(`${CT_KEY}:${CT_SECRET}`).toString('base64');
@@ -187,6 +229,28 @@ export default async function handler(req, res) {
   if (!sbKey) return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' });
 
   try {
+    // Reattribute action: move all dials from one agent_id to another instantly
+    if (req.query.action === 'reattribute') {
+      const fromAgent = req.query.from;
+      const toAgent   = req.query.to;
+      if (!fromAgent || !toAgent) return res.status(400).json({ error: 'Missing from/to params' });
+      await Promise.all([
+        fetch(`${SB_URL}/rest/v1/dials?agent_id=eq.${fromAgent}`, {
+          method: 'PATCH',
+          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ agent_id: toAgent }),
+        }),
+        fetch(`${SB_URL}/rest/v1/dials_hourly?agent_id=eq.${fromAgent}`, {
+          method: 'PATCH',
+          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ agent_id: toAgent }),
+        }),
+      ]);
+      console.log(`[sync-dials] reattributed dials ${fromAgent} → ${toAgent}`);
+      return res.status(200).json({ reattributed: true, from: fromAgent, to: toAgent });
+    }
+
+    const agentMap = await buildAgentMap(sbKey);
     const ctAgents = await getCtAgents();
 
     // Build email → cloudtalk id map
@@ -197,11 +261,11 @@ export default async function handler(req, res) {
 
     // Probe mode: show agent list + mapping
     if (req.query.probe === 'true') {
-      return res.status(200).json({ probe: true, ctAgents, emailToCtId });
+      return res.status(200).json({ probe: true, ctAgents, emailToCtId, agentMap });
     }
 
     // Build list of (platformAgentId, ctAgentId) pairs we can sync
-    const agentPairs = Object.entries(AGENT_MAP)
+    const agentPairs = Object.entries(agentMap)
       .map(([email, platId]) => ({ platId, ctId: emailToCtId[email], email }))
       .filter(p => p.ctId);
 
