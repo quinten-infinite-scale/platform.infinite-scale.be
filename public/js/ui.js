@@ -207,6 +207,7 @@ const UI = {
   },
   Line(values, color, labels, formatter, breakdowns, allLabels) {
     const e = React.createElement;
+    if (!values || !values.length) return e('div', { style: { width: '100%', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-mute)', fontSize: 12 } }, 'No data');
     const W = 600, Hh = 160, padX = 8, padY = 12;
     const max = Math.max(...values, 0.001);
     const min = Math.min(...values, 0);
@@ -310,9 +311,10 @@ const UI = {
       const flat = max === min, rng = flat ? 1 : (max - min), n = values.length;
       return values.map((v, i) => ({ x: padX + (i / (n - 1 || 1)) * (W - padX * 2), y: flat ? Hh / 2 : Hh - padY - ((v - min) / rng) * (Hh - padY * 2), v }));
     };
-    const ptsA = mkPts(seriesA), ptsB = mkPts(seriesB);
+    if (!seriesA || !seriesA.length) return e('div', { style: { width: '100%', height: Hh, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-mute)', fontSize: 12 } }, 'No data');
+    const ptsA = mkPts(seriesA), ptsB = mkPts(seriesB && seriesB.length ? seriesB : seriesA.map(() => 0));
     const lineA = smooth(ptsA), lineB = smooth(ptsB);
-    const areaA = lineA + ` L${ptsA[ptsA.length-1].x.toFixed(2)},${(Hh-padY).toFixed(2)} L${ptsA[0].x.toFixed(2)},${(Hh-padY).toFixed(2)} Z`;
+    const areaA = ptsA.length ? lineA + ` L${ptsA[ptsA.length-1].x.toFixed(2)},${(Hh-padY).toFixed(2)} L${ptsA[0].x.toFixed(2)},${(Hh-padY).toFixed(2)} Z` : '';
     const uid = 'ld' + Math.random().toString(36).slice(2, 6);
     const fA = fmtA || (v => String(v)), fB = fmtB || (v => String(v));
 
