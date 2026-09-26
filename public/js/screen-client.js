@@ -109,8 +109,8 @@ const ScreenClient = {
     const selMonth = s.cliStatsMonth || months[0].ym;
     const prevMonth = (() => { const i = months.findIndex(m => m.ym === selMonth); return i < months.length - 1 ? months[i + 1].ym : null; })();
 
-    const getStats = (ym, subId) => {
-      let base = allAppts.filter(a => (a.dateAppt || '').startsWith(ym));
+    const getStats = (ymOrNull, subId) => {
+      let base = ymOrNull ? allAppts.filter(a => (a.dateAppt || '').startsWith(ymOrNull)) : allAppts;
       if (subId !== undefined) base = base.filter(a => a.sub === subId);
       const shows = base.filter(a => a.status === 'show');
       const deals = shows.filter(a => a.quoteApproved);
@@ -120,6 +120,46 @@ const ScreenClient = {
       return { booked: base.length, shows: shows.length, deals: deals.length, rev, showRate, showToDeal };
     };
 
+    const MonthPicker = (selectedYm, allTime) => e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+      allTime ? e('button', { onClick: () => this.setState({ cliStatsMonth: null }),
+        style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (!selectedYm ? 'var(--accent)' : 'var(--border)'), background: !selectedYm ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: !selectedYm ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, 'All time') : null,
+      months.map(m => e('button', { key: m.ym, onClick: () => this.setState({ cliStatsMonth: m.ym }),
+        style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (m.ym === selectedYm ? 'var(--accent)' : 'var(--border)'), background: m.ym === selectedYm ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: m.ym === selectedYm ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, m.label))));
+
+    // ── AGENCY VIEW: per sub-client table ──────────────────────────────────
+    if (isAgency) {
+      const subs = cl.subclients || [];
+      // null selMonth = all time for agency view
+      const agencyMonth = s.cliStatsMonth !== undefined ? s.cliStatsMonth : null;
+      const rateColor = r => r >= 70 ? 'var(--up)' : r >= 50 ? 'var(--warn)' : 'var(--down)';
+      const cols = ['Sub-client', 'Afspraken', 'Shows', 'Deals', 'Show rate', 'Show→Deal', 'Revenue'];
+      const subData = subs.map(sub => ({ sub, st: getStats(agencyMonth, sub.id) })).filter(x => x.st.booked > 0);
+
+      return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+        MonthPicker(agencyMonth, true),
+        UI.C({ padding: 0, overflow: 'hidden' },
+          e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+            UI.Hd('Per sub-client' + (agencyMonth ? ' — ' + (months.find(m => m.ym === agencyMonth)?.label || agencyMonth) : ''), { fontSize: 14 }),
+            e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, subs.length + ' sub-clients')),
+          e('div', { style: { overflowX: 'auto' } },
+            e('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } },
+              e('thead', null,
+                e('tr', null,
+                  cols.map((h, i) => e('th', { key: h, style: { padding: '8px 12px', textAlign: i === 0 ? 'left' : 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--border-soft)', whiteSpace: 'nowrap' } }, h)))),
+              e('tbody', null,
+                subData.length === 0
+                  ? e('tr', null, e('td', { colSpan: 7, style: { padding: '20px 12px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen afspraken in deze periode'))
+                  : subData.map(({ sub, st }) => e('tr', { key: sub.id, style: { borderBottom: '1px solid var(--border-soft)' } },
+                      e('td', { style: { padding: '9px 12px', fontWeight: 600, color: 'var(--text)' } }, sub.name),
+                      e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, st.booked),
+                      e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: st.shows > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: 700 } }, st.shows),
+                      e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: st.deals > 0 ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 700 } }, st.deals),
+                      e('td', { style: { padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: st.showRate == null ? 'var(--text-mute)' : rateColor(st.showRate) } }, st.showRate != null ? st.showRate + '%' : '—'),
+                      e('td', { style: { padding: '9px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, st.showToDeal != null ? st.showToDeal + '%' : '—'),
+                      e('td', { style: { padding: '9px 12px', textAlign: 'right', fontFamily: "'JetBrains Mono'", fontWeight: 700, color: st.rev > 0 ? 'var(--up)' : 'var(--text-mute)' } }, st.rev > 0 ? this.euro(st.rev) : '—'))))))));
+    }
+
+    // ── CLIENT / SUB-CLIENT VIEW: per month ────────────────────────────────
     const curStats = getStats(selMonth);
     const prevStats = prevMonth ? getStats(prevMonth) : null;
 
@@ -144,33 +184,11 @@ const ScreenClient = {
           e('div', { style: { width: rate + '%', height: '100%', background: color, borderRadius: 4, transition: 'width .3s' } })));
     };
 
-    // Sub-client rows for agency
-    const subs = isAgency ? (cl.subclients || []) : [];
-    const expanded = s._cliStatsExp || new Set();
-    const hasSubRows = subs.length > 0;
-
-    const subRows = hasSubRows ? subs.map(sub => {
-      const st = getStats(selMonth, sub.id);
-      if (st.booked === 0 && st.shows === 0) return null;
-      return e('div', { key: sub.id, style: { display: 'flex', gap: 10, flexWrap: 'wrap', padding: '10px 0', borderTop: '1px solid var(--border-soft)', paddingLeft: 12 } },
-        e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontWeight: 700, minWidth: 140 } }, '↳ ' + sub.name),
-        e('div', { style: { fontSize: 12, color: 'var(--text-dim)' } }, st.booked + ' booked · ' + st.shows + ' shows · ' + st.deals + ' deals'),
-        st.showRate != null ? e('div', { style: { fontSize: 12, fontWeight: 700, color: st.showRate >= 70 ? 'var(--up)' : st.showRate >= 50 ? 'var(--warn)' : 'var(--down)' } }, st.showRate + '% show rate') : null,
-        st.rev > 0 ? e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--up)', marginLeft: 'auto' } }, this.euro(st.rev)) : null);
-    }).filter(Boolean) : [];
-
-    const monthHistory = months.map(m => {
-      const st = getStats(m.ym);
-      return { ...m, ...st };
-    });
+    const monthHistory = months.map(m => ({ ...m, ...getStats(m.ym) }));
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
-      // Month picker
-      e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-        months.map(m => e('button', { key: m.ym, onClick: () => this.setState({ cliStatsMonth: m.ym }),
-          style: { padding: '6px 14px', borderRadius: 8, border: '1px solid ' + (m.ym === selMonth ? 'var(--accent)' : 'var(--border)'), background: m.ym === selMonth ? 'oklch(0.22 0.06 194 / .5)' : 'var(--surface)', color: m.ym === selMonth ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' } }, m.label))),
+      MonthPicker(selMonth, false),
 
-      // KPI cards
       e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
         Stat('Afspraken', String(curStats.booked), delta(curStats.booked, prevStats?.booked), prevMonth ? 'vs ' + (prevStats?.booked ?? 0) + ' vorige maand' : null),
         Stat('Shows', String(curStats.shows), delta(curStats.shows, prevStats?.shows), prevMonth ? 'vs ' + (prevStats?.shows ?? 0) + ' vorige maand' : null),
@@ -179,19 +197,10 @@ const ScreenClient = {
         Stat('Show→Deal', curStats.showToDeal != null ? curStats.showToDeal + '%' : '—', delta(curStats.showToDeal, prevStats?.showToDeal, 'pp'), null),
         Stat('Revenue', this.euro(curStats.rev), delta(curStats.rev, prevStats?.rev), prevMonth ? 'vs ' + this.euro(prevStats?.rev ?? 0) + ' vorige maand' : null)),
 
-      // Show rate visual
       curStats.booked > 0 ? UI.C({},
         UI.Hd('Show rate — ' + (months.find(m => m.ym === selMonth)?.label || selMonth), { fontSize: 14, marginBottom: 12 }),
         e(RateBar, { rate: curStats.showRate ?? 0 })) : null,
 
-      // Sub-client breakdown for agencies
-      hasSubRows && subRows.length > 0 ? UI.C({ padding: 0, overflow: 'hidden' },
-        e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
-          UI.Hd('Per sub-client', { fontSize: 14 }),
-          e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, subs.length + ' sub-clients')),
-        e('div', { style: { padding: '0 18px 8px' } }, subRows)) : null,
-
-      // Monthly history table
       UI.C({ padding: 0, overflow: 'hidden' },
         e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)' } },
           UI.Hd('Historiek per maand', { fontSize: 14 })),
@@ -202,7 +211,7 @@ const ScreenClient = {
                 ['Maand', 'Afspraken', 'Shows', 'Deals', 'Show rate', 'Show→Deal', 'Revenue'].map((h, i) =>
                   e('th', { key: h, style: { padding: '8px 12px', textAlign: i === 0 ? 'left' : 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--border-soft)', whiteSpace: 'nowrap' } }, h)))),
             e('tbody', null,
-              monthHistory.filter(m => m.booked > 0).map((m, i) => {
+              monthHistory.filter(m => m.booked > 0).map((m) => {
                 const isSelected = m.ym === selMonth;
                 return e('tr', { key: m.ym, onClick: () => this.setState({ cliStatsMonth: m.ym }), style: { borderBottom: '1px solid var(--border-soft)', cursor: 'pointer', background: isSelected ? 'oklch(0.22 0.06 194 / .2)' : 'transparent' } },
                   e('td', { style: { padding: '9px 12px', fontWeight: 600, color: isSelected ? 'var(--accent)' : 'var(--text)' } }, m.label),
