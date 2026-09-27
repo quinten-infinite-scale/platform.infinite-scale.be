@@ -979,13 +979,16 @@ const ScreenAdmin = {
     };
 
     // Month totals
-    const monthOmzet = monthAppts.reduce((s2, a) => s2 + getRate(a), 0);
+    const apptOmzet = monthAppts.reduce((s2, a) => s2 + getRate(a), 0);
+    const monthlyFees = d.clients.filter(c => c.monthly_fee > 0 && c.status !== 'inactive');
+    const monthlyFeeTotal = monthlyFees.reduce((s2, c) => s2 + (c.monthly_fee || 0), 0);
+    const monthOmzet = apptOmzet + monthlyFeeTotal;
     const monthKosten = monthAppts.reduce((s2, a) => s2 + getPayout(a), 0);
     const monthWinst = monthOmzet - monthKosten;
     const monthRatio = monthOmzet > 0 ? monthWinst / monthOmzet : 0;
     const netProfit = monthWinst - TOTAL_FIXED - totalExtraCosts;
     const netMargin = monthOmzet > 0 ? Math.round(netProfit / monthOmzet * 100) : null;
-    const avgDayOmzet = allDays.length > 0 ? monthOmzet / allDays.length : 0;
+    const avgDayOmzet = allDays.length > 0 ? apptOmzet / allDays.length : 0;
     const dayPcts = allDays.map(day => { const dt = dayTotals(day.appts); return avgDayOmzet > 0 ? (dt.omzet - avgDayOmzet) / avgDayOmzet : 0; });
     const bestDayPct = dayPcts.length > 0 ? Math.max(...dayPcts) : null;
     const worstDayPct = dayPcts.length > 0 ? Math.min(...dayPcts) : null;
@@ -1299,13 +1302,15 @@ const ScreenAdmin = {
             UI.Hd('Netto resultaat', { fontSize: 13, marginBottom: 10 }),
             e('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
               [
-                { l: 'Omzet', v: monthOmzet, c: 'var(--info)' },
+                { l: 'Omzet (afspraken)', v: apptOmzet, c: 'var(--info)' },
+                monthlyFeeTotal > 0 ? { l: 'Maandelijkse fees (' + monthlyFees.map(c => c.name.split(' ')[0]).join(', ') + ')', v: monthlyFeeTotal, c: 'var(--info)' } : null,
+                { l: 'Totale omzet', v: monthOmzet, c: 'var(--info)', bold: true },
                 { l: '− Kosten agents', v: monthKosten, c: 'var(--warn)' },
                 { l: '= Bruto winst', v: monthWinst, c: monthWinst >= 0 ? 'var(--up)' : 'var(--down)', bold: true },
                 { l: '− Vaste kosten', v: TOTAL_FIXED, c: 'var(--text-mute)' },
                 { l: '− Extra kosten', v: totalExtraCosts, c: 'var(--text-mute)' },
                 { l: '= Netto winst', v: netProfit, c: netProfit >= 0 ? 'var(--up)' : 'var(--down)', bold: true, big: true },
-              ].map((row, i) => e('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', padding: row.big ? '8px 0 0' : '2px 0', borderTop: row.big ? '2px solid var(--border)' : 'none', marginTop: row.big ? 4 : 0 } },
+              ].filter(Boolean).map((row, i) => e('div', { key: i, style: { display: 'flex', justifyContent: 'space-between', padding: row.big ? '8px 0 0' : '2px 0', borderTop: row.big ? '2px solid var(--border)' : 'none', marginTop: row.big ? 4 : 0 } },
                 e('span', { style: { fontSize: row.big ? 13 : 12, color: 'var(--text-mute)', fontWeight: row.bold ? 700 : 400 } }, row.l),
                 e('span', { style: css(mono, { fontWeight: row.bold ? 800 : 600, fontSize: row.big ? 17 : 12.5, color: row.c }) }, this.euro(row.v)))),
               netMargin !== null ? e('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 6 } },
