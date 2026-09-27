@@ -164,7 +164,7 @@ async function processLead(entry) {
   const mapping = mappingRows.find(m => m.facebook_form_id === form_id) || mappingRows.find(m => !m.facebook_form_id);
 
   const pipelineId = mapping?.target_pipeline_id || 'meta_ads';
-  const stageId    = mapping?.target_stage_id    || 'nieuwe_leads';
+  const stageId    = mapping?.target_stage_id    || 'new_lead';
   const ownerId    = mapping?.owner_id            || null;
   const fieldMap   = (() => { try { return typeof mapping?.field_map === 'string' ? JSON.parse(mapping.field_map) : (mapping?.field_map || {}); } catch(_) { return {}; } })();
   const mappingId  = mapping?.id || null;
