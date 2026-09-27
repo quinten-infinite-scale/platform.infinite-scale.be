@@ -162,7 +162,7 @@ const ScreenAdmin = {
             { label: 'Dials today', align: 'right', render: x => UI.Mono((d.dials[x.id] || {})[today] || 0, { fontWeight: 700, color: 'var(--text)' }) },
             { label: 'Appts today', align: 'right', render: x => UI.Mono(d.appointments.filter(a => a.agent === x.id && a.dateLog === today).length, { fontWeight: 700, color: 'var(--text)' }) },
             { label: 'Clients', align: 'right', render: x => String((x.clients || []).length) },
-          ], d.agents.filter(a => a.active), { min: 520 })),
+          ], [...d.agents.filter(a => a.active)].sort((a, b) => { if (a.working !== b.working) return a.working ? -1 : 1; return ((d.dials[b.id] || {})[today] || 0) - ((d.dials[a.id] || {})[today] || 0); }), { min: 520 })),
         UI.Col({ gap: 18 },
           UI.C({}, UI.Hd('Open hiring', { fontSize: 15, marginBottom: 12 }),
             e('div', { style: { display: 'flex', flexDirection: 'column', gap: 9 } },
@@ -1936,8 +1936,9 @@ const ScreenAdmin = {
 
   _admClients(d, s) {
     const e = React.createElement;
-    const agencies = d.clients.filter(x => x.type === 'agency');
-    const directs = d.clients.filter(x => x.type !== 'agency');
+    const clientSort = (a, b) => { const aAct = (a.status || 'inactive') === 'active'; const bAct = (b.status || 'inactive') === 'active'; if (aAct !== bAct) return aAct ? -1 : 1; return (a.name || '').localeCompare(b.name || ''); };
+    const agencies = d.clients.filter(x => x.type === 'agency').sort(clientSort);
+    const directs = d.clients.filter(x => x.type !== 'agency').sort(clientSort);
     const directCols = [
       { label: 'Client', render: x => UI.Row({ gap: 6 }, e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.name), x.whatsapp_enabled ? e('span', { title: 'WhatsApp automations on', style: { fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 20, color: 'var(--up)', border: '1px solid var(--up)', opacity: 0.8 } }, 'WA') : null) },
       { label: 'Status', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); this.cycleClientStatus(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.status || 'inactive')) },
@@ -2013,12 +2014,16 @@ const ScreenAdmin = {
         { label: 'Stage', align: 'center', render: x => UI.Pill({ launched: 'Launched', started: 'Started', signed: 'Signed' }[x.status] || x.status, 'var(--violet)', 'oklch(0.30 0.05 295)') },
         { label: 'Clients', render: x => [...new Set((x.clients || []).filter(c => d.clients.find(cl => cl.id === c)).map(c => this.clientName(c, d).split(' ')[0]))].join(', ') },
         { label: 'Dials today', align: 'right', render: x => UI.Mono((d.dials[x.id] || {})[today] || 0, { fontWeight: 700 }) },
-      ], d.agents.map(x => ({ ...x, _onClick: () => this.openModal('agentProfile', { id: x.id }) })), { min: 720 })));
+      ], [...d.agents].sort((a, b) => {
+        if ((a.active !== false) !== (b.active !== false)) return (a.active !== false) ? -1 : 1;
+        if (a.working !== b.working) return a.working ? -1 : 1;
+        return ((d.dials[b.id] || {})[today] || 0) - ((d.dials[a.id] || {})[today] || 0);
+      }).map(x => ({ ...x, _onClick: () => this.openModal('agentProfile', { id: x.id }) })), { min: 720 })));
   },
 
   _admSalespeople(d, s) {
     const e = React.createElement;
-    const salespeople = d.salespeople || [];
+    const salespeople = [...(d.salespeople || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const modal = s._spModal;
     const form = s._spForm || {};
 
@@ -2079,7 +2084,7 @@ const ScreenAdmin = {
 
   _admManagers(d, s) {
     const e = React.createElement;
-    const managers = d.managers || [];
+    const managers = [...(d.managers || [])].sort((a, b) => { const aAct = a.active !== false; const bAct = b.active !== false; if (aAct !== bAct) return aAct ? -1 : 1; return (a.name || '').localeCompare(b.name || ''); });
     const modal = s._mgModal;
     const form = s._mgForm || {};
 

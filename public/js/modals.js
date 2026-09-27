@@ -722,7 +722,7 @@ const Modals = {
       const clientSection = e('div', null,
         UI.Sub('Client assignments & rates', { marginBottom: 9 }),
         e('div', { style: { display: 'flex', flexDirection: 'column', gap: 7 } },
-          d.clients.map(c => {
+          [...d.clients].sort((a2, b2) => { const aA = (a2.status || 'inactive') === 'active'; const bA = (b2.status || 'inactive') === 'active'; return aA !== bA ? (aA ? -1 : 1) : (a2.name || '').localeCompare(b2.name || ''); }).map(c => {
             const assigned = (a.clients || []).includes(c.id);
             const savedRate = (a.rates || {})[c.id] || 0;
             const editing = !!f['editingRate_' + c.id];
@@ -1268,7 +1268,7 @@ const Modals = {
             e('input', { value: f.feedbackInput || '', placeholder: 'Add feedback note…', onChange: ev => this.setForm('feedbackInput', ev.target.value), onKeyDown: ev => { if (ev.key === 'Enter') this.addAgentFeedback(a.id, f.feedbackInput || ''); }, style: { flex: 1, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, outline: 'none' } }),
             UI.Btn('Add', () => this.addAgentFeedback(a.id, f.feedbackInput || ''), 'soft', { padding: '8px 12px', fontSize: 12 }))));
 
-      const assignedClients = d.clients.filter(c => (a.clients || []).includes(c.id));
+      const assignedClients = d.clients.filter(c => (a.clients || []).includes(c.id)).sort((a2, b2) => { const aA = (a2.status || 'inactive') === 'active'; const bA = (b2.status || 'inactive') === 'active'; return aA !== bA ? (aA ? -1 : 1) : (a2.name || '').localeCompare(b2.name || ''); });
       const clientsSection = assignedClients.length
         ? e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
             assignedClients.map(c => e('div', { key: c.id, style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
@@ -2183,7 +2183,7 @@ const Modals = {
     if (k === 'createAgent' || k === 'createClient') {
       const isC = k === 'createClient';
       const newType = f.newType || 'direct';
-      const agencies = isC ? (d.clients || []).filter(x => x.type === 'agency') : [];
+      const agencies = isC ? (d.clients || []).filter(x => x.type === 'agency').sort((a, b) => (a.name || '').localeCompare(b.name || '')) : [];
       return wrap(isC ? 'Add client' : 'Create call agent', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
         UI.Grid('1fr 1fr', 10, UI.Field('Name', UI.Input(f.name, v => this.setForm('name', v))), UI.Field('Email', UI.Input(f.email, v => this.setForm('email', v)))),
         UI.Grid('1fr 1fr', 10, UI.Field('Phone', UI.Input(f.phone, v => this.setForm('phone', v))), isC ? UI.Field('Rate / appt', UI.Input(f.rate, v => this.setForm('rate', v), '€45')) : UI.Field('VAT number', UI.Input(f.vat, v => this.setForm('vat', v)))),
@@ -2557,7 +2557,7 @@ const Modals = {
 
     const sec = (title) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', marginTop: 4, marginBottom: 2 } }, title);
 
-    const agencies = (d.clients || []).filter(x => x.type === 'agency');
+    const agencies = (d.clients || []).filter(x => x.type === 'agency').sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const clientType = f.ccType || 'direct';
 
     const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },

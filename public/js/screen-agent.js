@@ -743,7 +743,7 @@ const ScreenAgent = {
 
   _agentClients(d, s, me) {
     const e = React.createElement;
-    const mine = d.clients.filter(c => (me.clients || []).includes(c.id));
+    const mine = d.clients.filter(c => (me.clients || []).includes(c.id)).sort((a, b) => { const aAct = (a.status || 'inactive') === 'active'; const bAct = (b.status || 'inactive') === 'active'; return aAct !== bAct ? (aAct ? -1 : 1) : (a.name || '').localeCompare(b.name || ''); });
     return UI.Grid('repeat(auto-fit,minmax(260px,1fr))', 16,
       ...mine.map(c => UI.C({},
         UI.Row({ justifyContent: 'space-between', marginBottom: 10 }, UI.Hd(c.name, { fontSize: 16 }), UI.statusPill(c.status || 'inactive')),
