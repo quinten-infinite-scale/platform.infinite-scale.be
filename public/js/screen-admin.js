@@ -6292,12 +6292,12 @@ const ScreenAdmin = {
     // Load connection status once per mount
     if (metaStatus === undefined) {
       this.setState({ _metaStatus: null });
-      fetch('/api/meta-oauth?action=status', { headers: authHeader() })
+      fetch('/api/meta?action=status', { headers: authHeader() })
         .then(r => r.json()).then(d2 => this.setState({ _metaStatus: d2 })).catch(() => {});
     }
 
     const connectMeta = async () => {
-      const r = await fetch('/api/meta-oauth?action=login_url', { headers: authHeader() });
+      const r = await fetch('/api/meta?action=login_url', { headers: authHeader() });
       const data = await r.json().catch(() => ({}));
       if (data.url) window.open(data.url, '_blank', 'width=600,height=700');
       else this.toast('Fout', data.error || 'Kon login URL niet ophalen', 'var(--down)');
@@ -6305,13 +6305,13 @@ const ScreenAdmin = {
 
     const disconnectMeta = async () => {
       if (!confirm('Meta account ontkoppelen?')) return;
-      await fetch('/api/meta-oauth?action=disconnect', { headers: authHeader() });
+      await fetch('/api/meta?action=disconnect', { headers: authHeader() });
       this.setState({ _metaStatus: { connected: false } });
       this.toast('Meta', 'Account ontkoppeld', 'var(--text-mute)');
     };
 
     const subscribePage = async (pageId) => {
-      const r = await fetch('/api/meta-oauth?action=subscribe&page_id=' + pageId, { headers: authHeader() });
+      const r = await fetch('/api/meta?action=subscribe&page_id=' + pageId, { headers: authHeader() });
       const data = await r.json().catch(() => ({}));
       if (data.ok || data.success) this.toast('Meta', 'Pagina geabonneerd op leadgen events', 'var(--up)');
       else this.toast('Fout', JSON.stringify(data), 'var(--down)');
@@ -6324,7 +6324,7 @@ const ScreenAdmin = {
 
     const loadForms = (pageId) => {
       this.setState({ _metaFormsLoading: true, _metaForms: [] });
-      fetch('/api/meta-oauth?action=forms&page_id=' + pageId, { headers: authHeader() })
+      fetch('/api/meta?action=forms&page_id=' + pageId, { headers: authHeader() })
         .then(r => r.json()).then(data => this.setState({ _metaForms: (data.forms || []), _metaFormsLoading: false }))
         .catch(() => this.setState({ _metaFormsLoading: false }));
     };
@@ -6395,7 +6395,7 @@ const ScreenAdmin = {
                 e('div', { style: { fontSize: 13.5, color: 'var(--text-mute)' } }, 'Niet verbonden')),
               e('div', { style: { padding: 12, borderRadius: 10, background: 'var(--bg-2)', fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.6 } },
                 'Webhook URL: ',
-                e('code', { style: { fontFamily: 'monospace', color: 'var(--accent)' } }, 'https://platform.infinite-scale.be/api/webhook-meta')),
+                e('code', { style: { fontFamily: 'monospace', color: 'var(--accent)' } }, 'https://platform.infinite-scale.be/api/meta')),
               UI.Btn('Verbinden met Meta →', connectMeta, 'primary'))));
 
     // Pages subscriptions
@@ -6492,7 +6492,7 @@ const ScreenAdmin = {
       ['App Settings → Basic', 'Zet redirect URI én App Domains beiden in — één vergeten geeft misleidende fout over het andere'],
       ['App Live zetten', 'Development mode → Live: anders worden echte webhook-deliveries stil genegeerd (alleen de Test-knop werkt dan)'],
       ['Privacy Policy URL', 'Vereist voor publiceren: stel in via App Settings → Basic'],
-      ['Webhook registreren', 'Meta App → Webhooks → Page-object → leadgen aanvinken → callback: https://platform.infinite-scale.be/api/webhook-meta'],
+      ['Webhook registreren', 'Meta App → Webhooks → Page-object → leadgen aanvinken → callback: https://platform.infinite-scale.be/api/meta'],
       ['Lead Access', 'Meta Business Suite → Business Settings → Integrations → Lead Access — nieuw toegevoegde integraties krijgen nul toegang tenzij expliciet goedgekeurd (faalt stil!)'],
       ['Testen', 'developers.facebook.com/tools/lead-ads-testing — "Track status" toont per-app delivery + exacte foutcode'],
     ];
