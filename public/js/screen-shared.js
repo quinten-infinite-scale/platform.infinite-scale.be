@@ -134,7 +134,6 @@ const ScreenShared = {
                 : null))),
         e('button', { onClick: addSection, style: { alignSelf: 'flex-start', fontSize: 12.5, fontWeight: 700, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' } }, '+ Nieuwe sectie')));
   },
-  },
 
   _apptToolbar(d, s, opts) {
     const e = React.createElement; const q = s.q || ''; const fs = s.fstatus || 'all';
