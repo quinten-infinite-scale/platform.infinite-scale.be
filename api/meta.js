@@ -24,7 +24,7 @@ export const config = { api: { bodyParser: false } };
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://database.infinite-scale.be';
 const PLATFORM_URL = process.env.NEXT_PUBLIC_PLATFORM_URL || 'https://platform.infinite-scale.be';
-const REDIRECT_URI = `${PLATFORM_URL}/api/meta?action=callback`;
+const REDIRECT_URI = `${PLATFORM_URL}/api/meta-callback`;
 
 const SCOPES = [
   'pages_show_list',

@@ -23,7 +23,8 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/sign/:token*", "destination": "/sign.html" },
-    { "source": "/api/save-contract", "destination": "/api/enhance-contract?route=save" }
+    { "source": "/api/save-contract", "destination": "/api/enhance-contract?route=save" },
+    { "source": "/api/meta-callback", "destination": "/api/meta?action=callback" }
   ],
   "headers": [
     {
