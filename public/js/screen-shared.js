@@ -38,7 +38,11 @@ const ScreenShared = {
       isAdmin ? UI.C({},
         UI.Hd(nl ? 'Rechtenbeheer' : 'Rights management', { fontSize: 15, marginBottom: 6 }),
         UI.Sub(nl ? 'Beheer welke pagina\'s elk accounttype kan zien.' : 'Manage which pages each account type can see.', { marginBottom: 12 }),
-        UI.Btn(nl ? 'Rechten beheren →' : 'Manage rights →', () => this.go('rights'), 'soft')) : null);
+        UI.Btn(nl ? 'Rechten beheren →' : 'Manage rights →', () => this.go('rights'), 'soft')) : null,
+      isAdmin ? UI.C({},
+        UI.Hd('Meta Ads Integratie', { fontSize: 15, marginBottom: 6 }),
+        UI.Sub('Koppel Facebook/Instagram Lead Ads aan de Prospect CRM. Leads komen automatisch binnen via een webhook.', { marginBottom: 12 }),
+        UI.Btn('Meta Ads instellen →', () => this.go('meta'), 'soft')) : null);
   },
 
   _apptToolbar(d, s, opts) {

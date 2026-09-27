@@ -93,6 +93,7 @@ const ScreenAdmin = {
     if (r === 'managers') return this._admManagers(d, s);
     if (r === 'settings') { const session = typeof SB !== 'undefined' ? SB.getSession() : null; return this._settings(d, s, { name: (session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Admin'), email: session?.user?.email || 'quinten@infinite-scale.be' }); }
     if (r === 'rights') return this._admRights(d, s);
+    if (r === 'meta') return this._admMetaAds(d, s);
     return e('div', null, '');
   },
 
@@ -6274,6 +6275,242 @@ const ScreenAdmin = {
           e('div', { style: { fontSize: 17, fontWeight: 700, color: 'var(--text)' } }, 'Rechtenbeheer'),
           e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Bepaal per accounttype welke pagina\'s zichtbaar zijn. Wijzigingen worden direct opgeslagen.'))),
       ...Object.keys(ROLE_ROUTES).map(RoleSection));
+  },
+
+  _admMetaAds(d, s) {
+    const e = React.createElement;
+    const metaStatus = s._metaStatus; // null | { connected, user_name, connected_at, pages }
+    const metaMappings = (d.metaMappings || []);
+    const metaLog = (d.metaLeadLog || []).slice(0, 50);
+    const pipelines = (() => { try { return JSON.parse((d.settings || {}).prospect_pipelines || '[]'); } catch(_) { return []; } })();
+
+    const authHeader = () => {
+      const tok = typeof SB !== 'undefined' ? SB.getSession()?.access_token || '' : '';
+      return { Authorization: 'Bearer ' + tok };
+    };
+
+    // Load connection status once per mount
+    if (metaStatus === undefined) {
+      this.setState({ _metaStatus: null });
+      fetch('/api/meta-oauth?action=status', { headers: authHeader() })
+        .then(r => r.json()).then(d2 => this.setState({ _metaStatus: d2 })).catch(() => {});
+    }
+
+    const connectMeta = async () => {
+      const r = await fetch('/api/meta-oauth?action=login_url', { headers: authHeader() });
+      const data = await r.json().catch(() => ({}));
+      if (data.url) window.open(data.url, '_blank', 'width=600,height=700');
+      else this.toast('Fout', data.error || 'Kon login URL niet ophalen', 'var(--down)');
+    };
+
+    const disconnectMeta = async () => {
+      if (!confirm('Meta account ontkoppelen?')) return;
+      await fetch('/api/meta-oauth?action=disconnect', { headers: authHeader() });
+      this.setState({ _metaStatus: { connected: false } });
+      this.toast('Meta', 'Account ontkoppeld', 'var(--text-mute)');
+    };
+
+    const subscribePage = async (pageId) => {
+      const r = await fetch('/api/meta-oauth?action=subscribe&page_id=' + pageId, { headers: authHeader() });
+      const data = await r.json().catch(() => ({}));
+      if (data.ok || data.success) this.toast('Meta', 'Pagina geabonneerd op leadgen events', 'var(--up)');
+      else this.toast('Fout', JSON.stringify(data), 'var(--down)');
+    };
+
+    const editMapping = s._metaEditMapping;
+    const pages = (metaStatus && metaStatus.pages) ? metaStatus.pages : [];
+    const metaForms = s._metaForms || [];
+    const metaFormsLoading = s._metaFormsLoading || false;
+
+    const loadForms = (pageId) => {
+      this.setState({ _metaFormsLoading: true, _metaForms: [] });
+      fetch('/api/meta-oauth?action=forms&page_id=' + pageId, { headers: authHeader() })
+        .then(r => r.json()).then(data => this.setState({ _metaForms: (data.forms || []), _metaFormsLoading: false }))
+        .catch(() => this.setState({ _metaFormsLoading: false }));
+    };
+
+    const openNewMapping = () => {
+      const firstPage = pages[0];
+      this.setState({ _metaEditMapping: { id: null, label: '', facebook_page_id: firstPage ? firstPage.id : '', facebook_form_id: '', target_pipeline_id: 'meta_ads', target_stage_id: 'nieuwe_leads', owner_id: '', field_map: '{}' } });
+      if (firstPage) loadForms(firstPage.id);
+    };
+
+    const saveMapping = async () => {
+      const m = s._metaEditMapping;
+      if (!m || !m.facebook_page_id) { this.toast('Fout', 'Kies een Facebook pagina', 'var(--down)'); return; }
+      let fieldMapParsed = {};
+      try { fieldMapParsed = JSON.parse(m.field_map || '{}'); } catch(_) { this.toast('Fout', 'Field map is geen geldige JSON', 'var(--down)'); return; }
+      const body = { facebook_page_id: m.facebook_page_id, facebook_form_id: m.facebook_form_id || null, target_pipeline_id: m.target_pipeline_id || 'meta_ads', target_stage_id: m.target_stage_id || 'nieuwe_leads', owner_id: m.owner_id || null, field_map: fieldMapParsed, label: m.label || '', active: true };
+      if (m.id) {
+        await SB.patch('meta_lead_mappings', '?id=eq.' + m.id, body);
+        this.mutLocal(dd => { const i = (dd.metaMappings || []).findIndex(x => x.id === m.id); if (i >= 0) dd.metaMappings[i] = { ...dd.metaMappings[i], ...body }; });
+      } else {
+        body.id = 'mlm' + Date.now();
+        body.created_at = new Date().toISOString();
+        await SB.post('meta_lead_mappings', body);
+        this.mutLocal(dd => { dd.metaMappings = [...(dd.metaMappings || []), body]; });
+      }
+      this.setState({ _metaEditMapping: null });
+      this.toast('Meta', 'Mapping opgeslagen', 'var(--up)');
+    };
+
+    const deleteMapping = async (id) => {
+      if (!confirm('Mapping verwijderen?')) return;
+      await SB.del('meta_lead_mappings', '?id=eq.' + id);
+      this.mutLocal(dd => { dd.metaMappings = (dd.metaMappings || []).filter(x => x.id !== id); });
+    };
+
+    const reprocessLead = async (log) => {
+      await SB.del('meta_lead_log', '?id=eq.' + log.id);
+      this.mutLocal(dd => { dd.metaLeadLog = (dd.metaLeadLog || []).filter(x => x.id !== log.id); });
+      this.toast('Meta', 'Lead verwijderd uit log — verstuur opnieuw via Facebook Lead Ads Testing Tool', 'var(--accent)');
+    };
+
+    // Header
+    const header = e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 } },
+      e('button', { onClick: () => this.go('settings'), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 20, lineHeight: 1, padding: '4px 8px 4px 0' } }, '←'),
+      e('div', null,
+        e('div', { style: { fontSize: 17, fontWeight: 700, color: 'var(--text)' } }, 'Meta Ads Integratie'),
+        e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Koppel Facebook/Instagram Lead Ads aan de Prospect CRM.')));
+
+    // Connection card
+    const connectionCard = UI.C({},
+      UI.Hd('Meta-account', { fontSize: 15, marginBottom: 10 }),
+      metaStatus === null || metaStatus === undefined
+        ? e('div', { style: { color: 'var(--text-mute)', fontSize: 13 } }, 'Laden…')
+        : (metaStatus.connected
+          ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+              e('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                e('div', { style: { width: 10, height: 10, borderRadius: '50%', background: 'var(--up)', flexShrink: 0 } }),
+                e('div', null,
+                  e('div', { style: { fontSize: 13.5, fontWeight: 600, color: 'var(--text)' } }, 'Verbonden als ' + (metaStatus.user_name || '—')),
+                  e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Verbonden op ' + (metaStatus.connected_at ? new Date(metaStatus.connected_at).toLocaleDateString('nl-BE') : '—')))),
+              e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, pages.length + ' pagina' + (pages.length !== 1 ? "'s" : '') + ' beschikbaar'),
+              UI.Row({ gap: 8 },
+                UI.Btn('Herverbinden', connectMeta, 'soft'),
+                UI.Btn('Ontkoppelen', disconnectMeta, 'ghost')))
+          : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+              e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                e('div', { style: { width: 10, height: 10, borderRadius: '50%', background: 'var(--text-mute)', flexShrink: 0 } }),
+                e('div', { style: { fontSize: 13.5, color: 'var(--text-mute)' } }, 'Niet verbonden')),
+              e('div', { style: { padding: 12, borderRadius: 10, background: 'var(--bg-2)', fontSize: 12.5, color: 'var(--text-mute)', lineHeight: 1.6 } },
+                'Webhook URL: ',
+                e('code', { style: { fontFamily: 'monospace', color: 'var(--accent)' } }, 'https://platform.infinite-scale.be/api/webhook-meta')),
+              UI.Btn('Verbinden met Meta →', connectMeta, 'primary'))));
+
+    // Pages subscriptions
+    const pagesCard = (metaStatus && metaStatus.connected && pages.length)
+      ? UI.C({},
+          UI.Hd("Pagina-abonnementen", { fontSize: 15, marginBottom: 10 }),
+          UI.Sub("Elke pagina moet geabonneerd zijn op leadgen-events. Automatisch bij verbinden, maar hier handmatig te forceren.", { marginBottom: 10 }),
+          e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+            pages.map(p => e('div', { key: p.id, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 9, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+              e('div', null,
+                e('div', { style: { fontSize: 13, fontWeight: 600 } }, p.name),
+                e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: 'monospace', marginTop: 1 } }, p.id)),
+              UI.Btn('↻ Abonneer', () => subscribePage(p.id), 'soft')))))
+      : null;
+
+    // Mapping editor overlay
+    const mappingEditor = editMapping
+      ? e('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 } },
+          e('div', { style: { background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 28, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 } },
+            e('div', { style: { fontSize: 16, fontWeight: 700, marginBottom: 4 } }, editMapping.id ? 'Mapping bewerken' : 'Nieuwe mapping'),
+            UI.Field('Label (intern)', UI.Input(editMapping.label || '', v => this.setState(st => ({ _metaEditMapping: { ...st._metaEditMapping, label: v } })), 'bv. "DutchDandy - Contactformulier"')),
+            UI.Field('Facebook Pagina', e('select', {
+              value: editMapping.facebook_page_id || '',
+              onChange: ev => { const pid = ev.target.value; this.setState(st => ({ _metaEditMapping: { ...st._metaEditMapping, facebook_page_id: pid, facebook_form_id: '' } })); loadForms(pid); },
+              style: { width: '100%', padding: '9px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13, outline: 'none' },
+            }, e('option', { value: '' }, '— Kies pagina —'), ...pages.map(p => e('option', { key: p.id, value: p.id }, p.name)))),
+            UI.Field('Lead Form (leeg = alle formulieren op deze pagina)',
+              metaFormsLoading
+                ? e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', padding: '8px 0' } }, 'Formulieren laden…')
+                : e('select', {
+                    value: editMapping.facebook_form_id || '',
+                    onChange: ev => this.setState(st => ({ _metaEditMapping: { ...st._metaEditMapping, facebook_form_id: ev.target.value } })),
+                    style: { width: '100%', padding: '9px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13, outline: 'none' },
+                  }, e('option', { value: '' }, '— Alle formulieren (wildcard) —'), ...metaForms.map(f => e('option', { key: f.id, value: f.id }, f.name + (f.status !== 'ACTIVE' ? ' (' + f.status + ')' : ''))))),
+            UI.Grid('1fr 1fr', 10,
+              UI.Field('Doelpipeline', e('select', {
+                value: editMapping.target_pipeline_id || 'meta_ads',
+                onChange: ev => this.setState(st => ({ _metaEditMapping: { ...st._metaEditMapping, target_pipeline_id: ev.target.value } })),
+                style: { width: '100%', padding: '9px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13, outline: 'none' },
+              }, ...pipelines.map(p => e('option', { key: p.id, value: p.id }, p.name)))),
+              UI.Field('Beginstage', UI.Input(editMapping.target_stage_id || 'nieuwe_leads', v => this.setState(st => ({ _metaEditMapping: { ...st._metaEditMapping, target_stage_id: v } })), 'bv. nieuwe_leads'))),
+            UI.Field('Veld-mapping (JSON)',
+              e('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+                e('textarea', {
+                  value: editMapping.field_map || '{}',
+                  onChange: ev => this.setState(st => ({ _metaEditMapping: { ...st._metaEditMapping, field_map: ev.target.value } })),
+                  rows: 5,
+                  style: { width: '100%', padding: '9px 12px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 12, fontFamily: 'monospace', resize: 'vertical', outline: 'none', boxSizing: 'border-box' },
+                  placeholder: '{"full_name":"contact","email":"email","phone_number":"phone","company_name":"company"}',
+                }),
+                e('div', { style: { fontSize: 11, color: 'var(--text-mute)', lineHeight: 1.5 } }, 'Sleutels zijn de Facebook form-vraagnamen (field_data[].name). Waarden zijn CRM-veldnamen. Standaard: full_name→contact, email→email, phone_number→phone, company_name→company.'))),
+            UI.Row({ gap: 8, justifyContent: 'flex-end' },
+              UI.Btn('Annuleren', () => this.setState({ _metaEditMapping: null }), 'soft'),
+              UI.Btn('Opslaan', saveMapping, 'primary'))))
+      : null;
+
+    // Mappings table
+    const mappingsCard = UI.C({},
+      UI.Row({ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+        UI.Hd('Lead source mappings', { fontSize: 15 }),
+        (metaStatus && metaStatus.connected) ? UI.Btn('+ Mapping toevoegen', openNewMapping, 'primary') : null),
+      !(metaStatus && metaStatus.connected)
+        ? e('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Verbind eerst een Meta-account.')
+        : metaMappings.length === 0
+          ? e('div', { style: { padding: '20px 0', color: 'var(--text-mute)', fontSize: 13 } }, 'Nog geen mappings. Klik "+ Mapping toevoegen" om te starten.')
+          : UI.Table([
+              { label: 'Label / Pagina', render: m => e('div', null, e('div', { style: { fontWeight: 700, fontSize: 13 } }, m.label || '(geen label)'), e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Page: ' + ((pages.find(p => p.id === m.facebook_page_id) || {}).name || m.facebook_page_id))) },
+              { label: 'Formulier', render: m => e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, m.facebook_form_id ? m.facebook_form_id : e('em', null, 'Alle formulieren')) },
+              { label: 'Pipeline → Stage', render: m => e('div', { style: { fontSize: 12.5 } }, ((pipelines.find(p => p.id === m.target_pipeline_id) || {}).name || m.target_pipeline_id) + ' → ' + m.target_stage_id) },
+              { label: '', align: 'right', render: m => UI.Row({ gap: 6 },
+                UI.Btn('Bewerken', () => { this.setState({ _metaEditMapping: { ...m, field_map: typeof m.field_map === 'object' ? JSON.stringify(m.field_map, null, 2) : (m.field_map || '{}') } }); loadForms(m.facebook_page_id); }, 'soft'),
+                UI.Btn('×', () => deleteMapping(m.id), 'ghost')) },
+            ], metaMappings));
+
+    // Lead log
+    const statusColor = st => st === 'success' ? 'var(--up)' : st === 'failed' ? 'var(--down)' : 'var(--text-mute)';
+    const statusBg = st => st === 'success' ? 'oklch(0.25 0.07 145)' : st === 'failed' ? 'oklch(0.25 0.07 25)' : 'var(--bg-2)';
+    const logCard = UI.C({},
+      UI.Hd('Recente lead-ingestie', { fontSize: 15, marginBottom: 10 }),
+      metaLog.length === 0
+        ? e('div', { style: { color: 'var(--text-mute)', fontSize: 13, padding: '12px 0' } }, 'Nog geen leads ontvangen. Gebruik de ', e('a', { href: 'https://developers.facebook.com/tools/lead-ads-testing', target: '_blank', style: { color: 'var(--accent)' } }, 'Facebook Lead Ads Testing Tool'), ' om een testlead te genereren.')
+        : UI.Table([
+            { label: 'Ontvangen', render: r => e('div', { style: { fontSize: 12 } }, new Date(r.received_at).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) },
+            { label: 'Lead ID', render: r => e('span', { style: { fontFamily: 'monospace', fontSize: 11.5 } }, r.leadgen_id) },
+            { label: 'Status', render: r => UI.Pill({ success: 'Verwerkt', unmapped: 'Niet gemapt', failed: 'Mislukt' }[r.status] || r.status, statusColor(r.status), statusBg(r.status)) },
+            { label: 'Fout', render: r => r.error ? e('span', { style: { fontSize: 11.5, color: 'var(--down)' } }, (r.error || '').slice(0, 80)) : null },
+            { label: '', align: 'right', render: r => (r.status === 'failed' || r.status === 'unmapped') ? UI.Btn('↻ Herverwerk', () => reprocessLead(r), 'soft') : null },
+          ], metaLog));
+
+    // Setup checklist
+    const guideItems = [
+      ['Meta App producten', 'Facebook Login for Business + Marketing API + "Capture & manage ad leads with Marketing API" (aparte use case!) + "Manage everything on your Page"'],
+      ['Permissies', 'pages_show_list, leads_retrieval, pages_manage_ads, pages_manage_metadata, pages_read_engagement, business_management'],
+      ['App Settings → Basic', 'Zet redirect URI én App Domains beiden in — één vergeten geeft misleidende fout over het andere'],
+      ['App Live zetten', 'Development mode → Live: anders worden echte webhook-deliveries stil genegeerd (alleen de Test-knop werkt dan)'],
+      ['Privacy Policy URL', 'Vereist voor publiceren: stel in via App Settings → Basic'],
+      ['Webhook registreren', 'Meta App → Webhooks → Page-object → leadgen aanvinken → callback: https://platform.infinite-scale.be/api/webhook-meta'],
+      ['Lead Access', 'Meta Business Suite → Business Settings → Integrations → Lead Access — nieuw toegevoegde integraties krijgen nul toegang tenzij expliciet goedgekeurd (faalt stil!)'],
+      ['Testen', 'developers.facebook.com/tools/lead-ads-testing — "Track status" toont per-app delivery + exacte foutcode'],
+    ];
+    const guideCard = UI.C({},
+      UI.Hd('Instelling checklist', { fontSize: 15, marginBottom: 10 }),
+      e('div', { style: { display: 'flex', flexDirection: 'column', gap: 7 } },
+        guideItems.map(([title, desc]) => e('div', { key: title, style: { padding: '10px 12px', borderRadius: 9, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+          e('div', { style: { fontWeight: 600, color: 'var(--text)', fontSize: 13, marginBottom: 2 } }, title),
+          e('div', { style: { color: 'var(--text-mute)', fontSize: 12.5, lineHeight: 1.5 } }, desc)))));
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 780 } },
+      mappingEditor,
+      header,
+      connectionCard,
+      pagesCard,
+      mappingsCard,
+      logCard,
+      guideCard);
   },
 
 };

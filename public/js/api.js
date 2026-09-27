@@ -3,7 +3,7 @@ const API = {
 
   async loadAll(role, agentId, clientId, subClientId) {
     const [agents, clients, acRows, appointments, dials, dialsHourlyRows, eods, tickets,
-      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows, whatsappMessagesRows, managerFeedbackRows, checklistItemRows, checklistLogRows, whatsappTemplatesRows, salespeopleRows, managersRows] = await Promise.all([
+      recruits, prospects, contracts, events, notifications, schedules, activityLog, platformSettings, presenceRows, invoiceStateRows, whatsappMessagesRows, managerFeedbackRows, checklistItemRows, checklistLogRows, whatsappTemplatesRows, salespeopleRows, managersRows, metaMappingsRows, metaLeadLogRows] = await Promise.all([
       SB.get('agents', '?order=name'),
       SB.get('clients', '?order=name'),
       SB.get('agent_clients'),
@@ -51,6 +51,8 @@ const API = {
       })() : Promise.resolve([]),
       SB.get('salespeople', '?active=eq.true&order=name').catch(() => []),
       role === 'admin' ? SB.get('managers', '?active=eq.true&order=name').catch(() => []) : Promise.resolve([]),
+      role === 'admin' ? SB.get('meta_lead_mappings', '?order=created_at.asc').catch(() => []) : Promise.resolve([]),
+      role === 'admin' ? SB.get('meta_lead_log', '?order=received_at.desc&limit=100').catch(() => []) : Promise.resolve([]),
     ]);
 
     // Build dials map: { agentId: { date: count } }
@@ -224,6 +226,8 @@ const API = {
       checklistLogs: checklistLogRows || [],
       salespeople: salespeopleRows || [],
       managers: managersRows || [],
+      metaMappings: metaMappingsRows || [],
+      metaLeadLog: metaLeadLogRows || [],
     };
   },
 

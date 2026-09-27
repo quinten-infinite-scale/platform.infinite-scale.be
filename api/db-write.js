@@ -15,6 +15,7 @@ const ALLOWED_TABLES = new Set([
   'agent_schedules', 'activity_log', 'platform_settings', 'presence',
   'invoice_states', 'whatsapp_messages', 'client_whatsapp_templates',
   'dials', 'dials_hourly', 'profiles', 'coaching_feed',
+  'meta_lead_mappings', 'meta_lead_log',
 ]);
 
 const ALLOWED_BUCKETS = new Set(['contracts', 'coaching']);

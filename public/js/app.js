@@ -146,7 +146,15 @@ class Component extends DCLogic {
     try { tourSeen = !!localStorage.getItem(this._tourSeenKey(uid)); } catch(e) {}
     const tourStep = (freshLogin && !tourSeen && (role === 'agent' || role === 'client' || role === 'agency')) ? 0 : null;
     const { invApproved, invoiceStatus } = this._deriveInvState(data);
-    this.setState({ role, loading: false, data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus });
+    // Handle OAuth callback params (e.g. Meta OAuth redirect)
+    const _qs = new URLSearchParams(location.search);
+    const _initRoute = (_qs.get('route') && role === 'admin') ? _qs.get('route') : 'dashboard';
+    const _metaConnected = _qs.get('meta_connected');
+    const _metaError = _qs.get('meta_error');
+    if (_qs.get('route') || _metaConnected || _metaError) history.replaceState(null, '', location.pathname);
+    this.setState({ role, loading: false, data, route: _initRoute, notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus });
+    if (_metaConnected) setTimeout(() => this.toast('Meta', 'Account succesvol verbonden!', 'var(--up)'), 400);
+    if (_metaError) setTimeout(() => this.toast('Meta fout', decodeURIComponent(_metaError), 'var(--down)'), 400);
     if (freshLogin) setTimeout(() => this._logActivity('login', 'Logged in to platform'), 200);
     this._updatePresence('dashboard');
     this._startPolling();
