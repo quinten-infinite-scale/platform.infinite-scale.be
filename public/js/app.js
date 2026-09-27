@@ -1154,7 +1154,7 @@ class Component extends DCLogic {
     const subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
     const whatsappEnabled = f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false);
     const updates = {
-      name, contact_person: contact, email, rate,
+      name, contact_person: contact, email, phone, vat, rate,
       per_hour: perHour, monthly_fee: monthly, commission, close_fee: closeFee, setup_fee: setupFee, pay_days: payDays,
       status, crm, crm_on: crm !== 'none', kickoff, type,
       subclients: type === 'agency' ? subclients : (c.subclients || []),
@@ -1164,13 +1164,14 @@ class Component extends DCLogic {
       const cl = dd.clients.find(x => x.id === id); if (!cl) return;
       cl.name = name; cl.contactPerson = contact; cl.email = email;
       cl.phone = phone; cl.vat = vat; cl.rate = rate;
-      cl.per_hour = perHour; cl.monthly_fee = monthly; cl.commission = commission; cl.close_fee = closeFee;
+      cl.per_hour = perHour; cl.monthly_fee = monthly; cl.commission = commission;
+      cl.close_fee = closeFee; cl.closeFee = closeFee;
       cl.setup_fee = setupFee; cl.pay_days = payDays;
       cl.status = status; cl.crm = crm; cl.crmOn = crm !== 'none'; cl.kickoff = kickoff;
       cl.type = type; if (type === 'agency') cl.subclients = subclients;
       cl.whatsapp_enabled = whatsappEnabled;
     });
-    this.setForm('editing', false);
+    this.setState(s => ({ form: { id: s.form.id } }));
     const ok = await API.updateClient(id, updates);
     if (ok !== null) this.toast('Saved ✓', 'Client updated', 'var(--up)');
     else this.toast('Fout', 'Opslaan mislukt — check console', 'var(--down)');
