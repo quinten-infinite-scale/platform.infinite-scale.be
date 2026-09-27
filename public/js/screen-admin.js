@@ -2788,6 +2788,10 @@ const ScreenAdmin = {
     const metaCols = activePipelineId === 'meta_ads' ? [
       { label: 'AD Name', key: 'ad_name', w: 140, editable: true },
       { label: 'Lead ID', key: 'lead_id', w: 120, mono: true, editable: true },
+      { label: 'Agenda vol?', key: 'form_agenda_vol', w: 160 },
+      { label: 'Capaciteit?', key: 'form_capaciteit', w: 160 },
+      { label: 'Dealwaarde', key: 'form_deal_waarde', w: 120 },
+      { label: 'Afspraken/week', key: 'form_afspraken_pw', w: 110 },
     ] : [];
     const cols = [...baseCols, ...metaCols];
 

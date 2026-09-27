@@ -170,13 +170,22 @@ async function processLead(entry) {
   const mappingId  = mapping?.id || null;
   const status     = mapping ? 'success' : 'unmapped';
 
-  const DEFAULT_FIELD_MAP = { full_name: 'contact', email: 'email', phone_number: 'phone', company_name: 'company' };
+  const DEFAULT_FIELD_MAP = {
+    full_name: 'contact',
+    email: 'email',
+    phone_number: 'phone',
+    company_name: 'company',
+    'is_je_sales-agenda_momenteel_voldoende_gevuld_met_b2b-afspraken?': 'form_agenda_vol',
+    'heb_je_nu_de_capaciteit_(sales_team)_om_nieuwe_afspraken_effectief_te_lopen?': 'form_capaciteit',
+    'wat_is_de_gemiddelde_waarde_van_een_deal_bij_jullie?': 'form_deal_waarde',
+    'hoeveel_extra_afspraken_wil_je_per_week?': 'form_afspraken_pw',
+  };
   const effectiveMap = { ...DEFAULT_FIELD_MAP, ...fieldMap };
 
   const prospectFields = {
     pipeline_id: pipelineId, stage: stageId,
     lead_id: leadgen_id, form_id: form_id || '', ad_id: leadData.ad_id || '',
-    source: 'Meta forms', created_at: new Date().toISOString(),
+    lead_source: 'Meta Ads', source: 'Meta forms', created_at: new Date().toISOString(),
   };
   if (ownerId) prospectFields.assigned = ownerId;
 
