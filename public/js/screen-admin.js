@@ -2325,15 +2325,101 @@ const ScreenAdmin = {
     // Group feedback by date
     const fbDates = [...new Set(feedback.map(r => r.report_date))].sort((a, b) => b.localeCompare(a));
 
-    // ── Checklist section ─────────────────────────────────────────────────────
-    const checklistItems = d.checklistItems || [];
-    const checklistLogs = d.checklistLogs || [];
-    const todayLogs = checklistLogs.filter(l => l.log_date === todayStr);
-    const checklistDay = s._clDay || todayStr;
-    const clDayLogs = checklistLogs.filter(l => l.log_date === checklistDay);
+    // ── Checklist section (structured) ────────────────────────────────────────
+    const DAILY_CL = [
+      { id: 'voor-start', label: 'Voor de start (voor 08:00)', items: [
+        { id: 'dag-vds-1', text: "EOD's van gisteren doorgenomen: wie target gehaald, wie niet" },
+        { id: 'dag-vds-2', text: 'Morning meeting voorbereid: cijfers gisteren, shoutout, focuspunt van de dag' },
+      ]},
+      { id: 'blok-1', label: 'Blok 1 (08:00–12:00)', items: [
+        { id: 'dag-b1-1', text: '08:15 startcheck: iedereen die blok 1 koos is aan het bellen' },
+        { id: 'dag-b1-2', text: '09:00 morning meeting gegeven (max 15 min)' },
+        { id: 'dag-b1-3', text: 'Aanwezigheden morning meeting genoteerd' },
+        { id: 'dag-b1-4', text: '09:15–09:45 meegeluisterd + live feedback gegeven' },
+        { id: 'dag-b1-5', text: 'Feedback gelogd bij de beller' },
+        { id: 'dag-b1-6', text: '12:00 activiteitscheck: 2 uur niet gebeld = ondermaats blok geregistreerd' },
+      ]},
+      { id: 'blok-2', label: 'Blok 2 (13:00–17:00)', items: [
+        { id: 'dag-b2-1', text: '13:15 startcheck: iedereen die blok 2 koos is aan het bellen' },
+        { id: 'dag-b2-2', text: '13:15–13:45 meegeluisterd + live feedback gegeven' },
+        { id: 'dag-b2-3', text: 'Feedback gelogd bij de beller' },
+        { id: 'dag-b2-4', text: '17:00 activiteitscheck: ondermaatse blokken geregistreerd' },
+      ]},
+      { id: 'blok-3', label: 'Blok 3 (17:00–20:00)', items: [
+        { id: 'dag-b3-1', text: '17:15 startcheck: iedereen die blok 3 koos is aan het bellen' },
+        { id: 'dag-b3-2', text: '17:15–17:45 meegeluisterd + live feedback gegeven' },
+        { id: 'dag-b3-3', text: 'Feedback gelogd bij de beller' },
+        { id: 'dag-b3-4', text: '20:00 activiteitscheck: ondermaatse blokken geregistreerd' },
+      ]},
+      { id: 'avond', label: 'Avond (21:30)', items: [
+        { id: 'dag-av-1', text: "Alle EOD's ingevuld? Missers hebben een bericht gekregen" },
+        { id: 'dag-av-2', text: 'Dials, afspraken en pickup rate per beller vergeleken met target' },
+        { id: 'dag-av-3', text: 'Gezette afspraken van vandaag beluisterd: kwaliteit ok' },
+        { id: 'dag-av-4', text: 'No show opvolging checken' },
+        { id: 'dag-av-5', text: 'Waarschuwingen geregistreerd (3 op rij)' },
+      ]},
+    ];
+    const WEEKLY_CL = [
+      { id: 'ma', label: 'Maandag', items: [
+        { id: 'wk-ma-1', text: 'Onboarding nieuwe bellers: account platform, EOD uitgelegd, Slack, belaccount' },
+        { id: 'wk-ma-2', text: 'Morning meeting: gratitude-rondje, doelen en motivatie' },
+        { id: 'wk-ma-3', text: 'Teamtarget en individuele doelen herhaald' },
+      ]},
+      { id: 'wo', label: 'Woensdag', items: [
+        { id: 'wk-wo-1', text: 'Morning meeting Sales training gegeven' },
+      ]},
+      { id: 'vr-groep', label: 'Vrijdag: groepsevaluatie (= morning meeting)', items: [
+        { id: 'wk-vr-1', text: 'Teamtarget gehaald: ja of nee' },
+        { id: 'wk-vr-2', text: 'Dials en afspraken per beller overlopen' },
+        { id: 'wk-vr-3', text: 'No-show- en cancellationpercentage per beller overlopen, boven 25% doorgegeven aan founders' },
+        { id: 'wk-vr-4', text: 'Individuele doelen volgende week gezet' },
+        { id: 'wk-vr-5', text: 'Teamtarget volgende week gezet' },
+        { id: 'wk-vr-6', text: 'Setter van de week gekozen en aangekondigd (€50)' },
+      ]},
+      { id: 'vr-1op1', label: "Vrijdag: 1-op-1's", items: [
+        { id: 'wk-1v1-1', text: '1-op-1 met elke actieve beller (30 min): gesprekken beluisterd + training' },
+      ]},
+      { id: 'za', label: 'Zaterdag (deadline 20:00)', items: [
+        { id: 'wk-za-1', text: 'Iedereen heeft zijn weekschema ingevuld, missers hebben een bericht gekregen' },
+        { id: 'wk-za-2', text: 'Iedereen heeft minimaal 5 belblokken' },
+        { id: 'wk-za-3', text: 'Elk nieuw project heeft bellers toegewezen' },
+        { id: 'wk-za-4', text: 'Script en productkennis staan klaar in Slack' },
+        { id: 'wk-za-5', text: 'Alle bellers op nieuwe projecten zijn gebriefd' },
+        { id: 'wk-za-6', text: 'Onboardings voor maandag staan klaar' },
+      ]},
+      { id: 'doorlopend', label: 'Doorlopend', items: [
+        { id: 'wk-dl-1', text: 'Recruiting: kandidaten ingepland voor onboarding maandag' },
+      ]},
+    ];
+    const MONTHLY_CL = [
+      { id: 'maand', label: 'Maandelijks', items: [
+        { id: 'ma-cl-1', text: 'Alle cancellations van de maand overlopen' },
+        { id: 'ma-cl-2', text: 'Herplande afspraken gelogd' },
+        { id: 'ma-cl-3', text: "Maandschema's van alle bellers binnen" },
+      ]},
+    ];
 
-    const toggleChecklistItem = async (itemId) => {
-      const existing = clDayLogs.find(l => l.item_id === itemId);
+    const clTab = s._clTab || 'dagelijks';
+    const checklistLogs = d.checklistLogs || [];
+
+    // Date keys per frequency
+    const getWeekStart = (dt) => { const d2 = new Date(dt); d2.setHours(0,0,0,0); const dow = d2.getDay(); d2.setDate(d2.getDate() - (dow === 0 ? 6 : dow - 1)); return localISO(d2); };
+    const getMonthStart = (dt) => { const d2 = new Date(dt); return `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}-01`; };
+
+    const clDayKey = s._clDay || todayStr;
+    const clWeekKey = s._clWeek || getWeekStart(new Date());
+    const clMonthKey = s._clMonth || getMonthStart(new Date());
+
+    const activeLogKey = clTab === 'dagelijks' ? clDayKey : clTab === 'wekelijks' ? clWeekKey : clMonthKey;
+    const activeLogs = checklistLogs.filter(l => l.log_date === activeLogKey);
+
+    const activeSections = clTab === 'dagelijks' ? DAILY_CL : clTab === 'wekelijks' ? WEEKLY_CL : MONTHLY_CL;
+    const allActiveItems = activeSections.flatMap(sec => sec.items);
+    const completedCount = allActiveItems.filter(it => activeLogs.find(l => l.item_id === it.id && l.completed)).length;
+    const totalItems = allActiveItems.length;
+
+    const toggleClItem = async (itemId) => {
+      const existing = activeLogs.find(l => l.item_id === itemId);
       const newDone = existing ? !existing.completed : true;
       if (existing) {
         const r = await fetch(`${SB_URL}/rest/v1/manager_checklist_logs?id=eq.${existing.id}`, {
@@ -2347,47 +2433,31 @@ const ScreenAdmin = {
         const r = await fetch(`${SB_URL}/rest/v1/manager_checklist_logs`, {
           method: 'POST',
           headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-          body: JSON.stringify({ item_id: itemId, log_date: checklistDay, completed: true, completed_by: myEmail, completed_at: new Date().toISOString() }),
+          body: JSON.stringify({ item_id: itemId, log_date: activeLogKey, completed: true, completed_by: myEmail, completed_at: new Date().toISOString() }),
         });
         const rows = await r.json().catch(() => []);
         if (rows[0]) this.mutLocal(dd => { if (!dd.checklistLogs) dd.checklistLogs = []; dd.checklistLogs.push(rows[0]); });
       }
     };
 
-    const saveNewItem = async () => {
-      const text = (s._clNewText || '').trim();
-      if (!text) return;
-      const maxIdx = checklistItems.reduce((m, it) => Math.max(m, it.order_idx || 0), -1);
-      const r = await fetch(`${SB_URL}/rest/v1/manager_checklist_items`, {
-        method: 'POST',
-        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-        body: JSON.stringify({ text, order_idx: maxIdx + 1 }),
-      });
-      const rows = await r.json().catch(() => []);
-      if (rows[0]) this.mutLocal(dd => { if (!dd.checklistItems) dd.checklistItems = []; dd.checklistItems.push(rows[0]); });
-      this.setState({ _clNewText: '' });
-    };
-
-    const deleteItem = async (id) => {
-      await fetch(`${SB_URL}/rest/v1/manager_checklist_items?id=eq.${id}`, {
-        method: 'DELETE', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
-      });
-      this.mutLocal(dd => { dd.checklistItems = (dd.checklistItems || []).filter(it => it.id !== id); });
-    };
-
-    // History dates for checklist (past 14 working days)
+    // Date nav lists
     const clDateSet = new Set([todayStr]);
-    const now = new Date(); now.setHours(0,0,0,0);
+    const nowD = new Date(); nowD.setHours(0,0,0,0);
     for (let i = 1; clDateSet.size < 14; i++) {
-      const d2 = new Date(now); d2.setDate(now.getDate() - i);
+      const d2 = new Date(nowD); d2.setDate(nowD.getDate() - i);
       const dow = d2.getDay();
       if (dow !== 0 && dow !== 6) clDateSet.add(localISO(d2));
       if (i > 30) break;
     }
     const clDates = [...clDateSet].sort((a, b) => b.localeCompare(a));
 
-    const completedCount = checklistItems.filter(it => clDayLogs.find(l => l.item_id === it.id && l.completed)).length;
-    const totalItems = checklistItems.length;
+    const clWeekSet = new Set();
+    for (let i = 0; i < 8; i++) { const d2 = new Date(nowD); d2.setDate(nowD.getDate() - i * 7); clWeekSet.add(getWeekStart(d2)); }
+    const clWeeks = [...clWeekSet].sort((a, b) => b.localeCompare(a));
+
+    const clMonthSet = new Set();
+    for (let i = 0; i < 6; i++) { const d2 = new Date(nowD); d2.setDate(1); d2.setMonth(d2.getMonth() - i); clMonthSet.add(localISO(d2)); }
+    const clMonths = [...clMonthSet].sort((a, b) => b.localeCompare(a));
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 24 } },
       // ── Agent Feedback ──────────────────────────────────────────────────────
@@ -2426,37 +2496,48 @@ const ScreenAdmin = {
           }))),
       // ── Management Checklist ────────────────────────────────────────────────
       e('div', null,
+        // Header
         e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 } },
-          e('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
             e('div', { style: { fontWeight: 700, fontSize: 15, color: 'var(--text)' } }, '✅ Management Checklist'),
-            totalItems > 0 ? e('div', { style: { fontSize: 12, color: checklistDay === todayStr && completedCount === totalItems ? 'var(--up)' : 'var(--text-mute)', fontWeight: 600 } }, completedCount + '/' + totalItems) : null),
-          e('button', { onClick: () => this.setState({ _clEditMode: !s._clEditMode }), style: { padding: '5px 12px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: s._clEditMode ? 'var(--accent)' : 'var(--text-mute)', fontWeight: 600, fontSize: 12, cursor: 'pointer' } }, s._clEditMode ? '✓ Klaar' : '✏️ Bewerken')),
-        // Date selector
-        e('div', { style: { display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 8, marginBottom: 12 } },
-          clDates.map(date => e('button', { key: date, onClick: () => this.setState({ _clDay: date }),
-            style: { flexShrink: 0, padding: '4px 11px', borderRadius: 7, border: 'none', background: checklistDay === date ? 'var(--accent)' : 'var(--surface)', color: checklistDay === date ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: checklistDay === date ? 700 : 400, fontSize: 11.5, cursor: 'pointer' } },
-            date === todayStr ? 'Vandaag' : this.fmtFull(date)))),
-        checklistItems.length === 0 && !s._clEditMode ?
-          e('div', { style: { padding: 24, textAlign: 'center', color: 'var(--text-mute)', fontSize: 13, fontStyle: 'italic', borderRadius: 12, border: '1px dashed var(--border)' } },
-            'Nog geen checklist items. Klik "Bewerken" om items toe te voegen.') :
-        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 1, borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
-          ...checklistItems.map((item, idx) => {
-            const log = clDayLogs.find(l => l.item_id === item.id);
-            const done = log?.completed || false;
-            return e('div', { key: item.id, style: { display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', background: done ? 'oklch(0.18 0.06 145 / .2)' : idx % 2 === 0 ? 'var(--surface)' : 'var(--bg-1)', borderBottom: idx < checklistItems.length - 1 ? '1px solid var(--border-soft)' : 'none', transition: 'background .15s' } },
-              checklistDay === todayStr ? e('div', { onClick: () => toggleChecklistItem(item.id), style: { width: 20, height: 20, borderRadius: 5, border: done ? 'none' : '2px solid var(--border)', background: done ? 'var(--up)' : 'transparent', flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' } },
-                done ? e('svg', { width: 11, height: 11, viewBox: '0 0 24 24', fill: 'none', stroke: '#0a1a1a', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M20 6L9 17l-5-5' })) : null) :
-              e('div', { style: { width: 20, height: 20, borderRadius: 5, border: done ? 'none' : '2px solid var(--border)', background: done ? 'var(--up)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-                done ? e('svg', { width: 11, height: 11, viewBox: '0 0 24 24', fill: 'none', stroke: '#0a1a1a', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M20 6L9 17l-5-5' })) : null),
-              e('span', { style: { flex: 1, fontSize: 13, color: done ? 'var(--text-mute)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none', textDecorationColor: 'var(--up)', lineHeight: 1.4 } }, item.text),
-              done && log?.completed_at ? e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", flexShrink: 0 } }, new Date(log.completed_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null,
-              s._clEditMode ? e('button', { onClick: () => deleteItem(item.id), style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 14, padding: '0 2px', flexShrink: 0 } }, '×') : null);
-          }),
-          s._clEditMode ? e('div', { style: { display: 'flex', gap: 8, padding: '10px 14px', background: 'var(--surface)', borderTop: '1px solid var(--border-soft)' } },
-            e('input', { placeholder: 'Nieuw checklist item…', value: s._clNewText || '', onChange: ev => this.setState({ _clNewText: ev.target.value }),
-              onKeyDown: ev => { if (ev.key === 'Enter') saveNewItem(); },
-              style: { flex: 1, ...inputSt }, autoFocus: true }),
-            e('button', { onClick: saveNewItem, style: { padding: '7px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' } }, '+ Toevoegen')) : null)));
+            e('div', { style: { fontSize: 12, color: completedCount === totalItems ? 'var(--up)' : 'var(--text-mute)', fontWeight: 600 } }, completedCount + '/' + totalItems)),
+          // Frequency tabs
+          e('div', { style: { display: 'flex', gap: 4 } },
+            ['dagelijks', 'wekelijks', 'maandelijks'].map(tab =>
+              e('button', { key: tab, onClick: () => this.setState({ _clTab: tab }),
+                style: { padding: '4px 11px', borderRadius: 7, border: 'none', background: clTab === tab ? 'var(--accent)' : 'var(--surface)', color: clTab === tab ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: clTab === tab ? 700 : 400, fontSize: 11.5, cursor: 'pointer', textTransform: 'capitalize' } },
+                tab)))),
+        // Date navigator
+        e('div', { style: { display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 8, marginBottom: 14 } },
+          clTab === 'dagelijks' ? clDates.map(date => e('button', { key: date, onClick: () => this.setState({ _clDay: date }),
+              style: { flexShrink: 0, padding: '4px 11px', borderRadius: 7, border: 'none', background: clDayKey === date ? 'var(--accent)' : 'var(--surface)', color: clDayKey === date ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: clDayKey === date ? 700 : 400, fontSize: 11.5, cursor: 'pointer' } },
+              date === todayStr ? 'Vandaag' : this.fmtFull(date))) :
+          clTab === 'wekelijks' ? clWeeks.map(wk => e('button', { key: wk, onClick: () => this.setState({ _clWeek: wk }),
+              style: { flexShrink: 0, padding: '4px 11px', borderRadius: 7, border: 'none', background: clWeekKey === wk ? 'var(--accent)' : 'var(--surface)', color: clWeekKey === wk ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: clWeekKey === wk ? 700 : 400, fontSize: 11.5, cursor: 'pointer' } },
+              wk === getWeekStart(new Date()) ? 'Deze week' : 'Week ' + wk.slice(5, 7) + '/' + wk.slice(0, 4))) :
+          clMonths.map(mo => e('button', { key: mo, onClick: () => this.setState({ _clMonth: mo }),
+              style: { flexShrink: 0, padding: '4px 11px', borderRadius: 7, border: 'none', background: clMonthKey === mo ? 'var(--accent)' : 'var(--surface)', color: clMonthKey === mo ? 'oklch(0.12 0 0)' : 'var(--text-mute)', fontWeight: clMonthKey === mo ? 700 : 400, fontSize: 11.5, cursor: 'pointer' } },
+              mo === getMonthStart(new Date()) ? 'Deze maand' : new Date(mo).toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' })))),
+        // Sections
+        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+          ...activeSections.map(sec => {
+            const secItems = sec.items;
+            const secDone = secItems.filter(it => activeLogs.find(l => l.item_id === it.id && l.completed)).length;
+            return e('div', { key: sec.id },
+              e('div', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, paddingLeft: 2 } },
+                sec.label + (secDone === secItems.length ? ' ✓' : '')),
+              e('div', { style: { borderRadius: 10, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
+                ...secItems.map((item, idx) => {
+                  const log = activeLogs.find(l => l.item_id === item.id);
+                  const done = log?.completed || false;
+                  return e('div', { key: item.id, onClick: () => toggleClItem(item.id),
+                    style: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: done ? 'oklch(0.18 0.06 145 / .15)' : idx % 2 === 0 ? 'var(--surface)' : 'var(--bg-1)', borderBottom: idx < secItems.length - 1 ? '1px solid var(--border-soft)' : 'none', cursor: 'pointer', transition: 'background .12s' } },
+                    e('div', { style: { width: 18, height: 18, borderRadius: 4, border: done ? 'none' : '2px solid var(--border)', background: done ? 'var(--up)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .12s' } },
+                      done ? e('svg', { width: 10, height: 10, viewBox: '0 0 24 24', fill: 'none', stroke: '#0a1a1a', strokeWidth: 3.5, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M20 6L9 17l-5-5' })) : null),
+                    e('span', { style: { flex: 1, fontSize: 13, color: done ? 'var(--text-mute)' : 'var(--text)', textDecoration: done ? 'line-through' : 'none', textDecorationColor: 'var(--up)', lineHeight: 1.45 } }, item.text),
+                    done && log?.completed_at ? e('span', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", flexShrink: 0 } }, new Date(log.completed_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null);
+                })));
+          }))));
   },
 
   _admTimeline(d, s) {

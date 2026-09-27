@@ -43,7 +43,7 @@ const ScreenShared = {
         UI.Hd('Meta Ads Integratie', { fontSize: 15, marginBottom: 6 }),
         UI.Sub('Koppel Facebook/Instagram Lead Ads aan de Prospect CRM. Leads komen automatisch binnen via een webhook.', { marginBottom: 12 }),
         UI.Btn('Meta Ads instellen →', () => this.go('meta'), 'soft')) : null,
-      isAdmin ? this._navCustomizer(d, s) : null);
+      isAdmin ? ScreenShared._navCustomizer.call(this, d, s) : null);
   },
 
   _navCustomizer(d, s) {
