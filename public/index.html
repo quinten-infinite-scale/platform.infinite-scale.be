@@ -3,7 +3,7 @@
 <head>
 <script>!function(){var MOON='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><\/svg>';var SUN='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"\/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"\/><\/svg>';window.ispApplyTheme=function(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('isp-theme',theme);var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=theme==='light'?SUN:MOON;};var t=localStorage.getItem('isp-theme');if(t)document.documentElement.setAttribute('data-theme',t);document.addEventListener('click',function(e){if(e.target.closest('#isp-theme-btn')){var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';window.ispApplyTheme(next);}});document.addEventListener('DOMContentLoaded',function(){var cur=document.documentElement.getAttribute('data-theme')||'dark';var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=cur==='light'?SUN:MOON;});}();</script>
 <script>!function(){try{var h=new URLSearchParams(location.hash.slice(1));var at=h.get('access_token'),rt=h.get('refresh_token'),ei=parseInt(h.get('expires_in')||'3600'),ea=h.get('expires_at');if(at){var payload=JSON.parse(atob(at.split('.')[1]));var user={id:payload.sub,email:payload.email,role:payload.role,app_metadata:payload.app_metadata||{},user_metadata:payload.user_metadata||{}};localStorage.setItem('is_session',JSON.stringify({access_token:at,refresh_token:rt,expires_in:ei,expires_at:ea?parseInt(ea):Math.floor(Date.now()/1000)+ei,user:user}));history.replaceState(null,'',location.pathname+location.search);}}catch(e){}}();</script>
-<script>!function(){var V="20260924g";if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
+<script>!function(){var V="20260928g";if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -22,7 +22,7 @@
 <script src="./js/screen-admin.js?v=20260928b"></script>
 <script src="./js/pdf-ttf.js?v=20260922d"></script>
 <script src="./js/modals.js?v=20260927a"></script>
-<script src="./js/app.js?v=20260928e"></script>
+<script src="./js/app.js?v=20260928f"></script>
 <script src="./js/api.js?v=20260927a"></script>
 </head>
 <body>
@@ -869,10 +869,81 @@ class Component extends DCLogic {
       admin: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['salespeople', 'Salespeople', 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M12 14c-4.418 0-8 1.79-8 4v1h16v-1c0-2.21-3.582-4-8-4M20 8v6M17 11h6'], ['managers', 'Managers', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6M12 3h9M12 7h9'], ['targets', 'Targets', 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'], ['opa', 'OPA', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M22 8h-6M22 12h-5M22 16h-6'], ['clientsuccess', 'Client Success', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['coaching', 'Coaching', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['whatsapp', 'WhatsApp', 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['tickets', 'Tickets', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12v4M10 14h4'], ['roadmap', '€100K Roadmap', 'M3 17l4-8 4 4 4-6 4 10M3 3h18v18H3z'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
     };
     const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
-    out.nav = (navDefs[s.role] || []).map(([key, label, icon]) => {
-      const active = s.route === key;
-      return { label, icon, badge: (badges[s.role] && badges[s.role][key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') };
-    });
+    const _rp = (d.settings || {}).role_permissions;
+    const _rolePerms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
+    const DEFAULT_ADMIN_SECTIONS = [
+      { key: 'overview',    label: 'Overzicht',          items: ['dashboard', 'finances', 'stats', 'activity'] },
+      { key: 'floor',       label: 'Floor',              items: ['apptadmin', 'eodadmin', 'rooster', 'todos', 'tickets'] },
+      { key: 'acquisition', label: 'Acquisitie',         items: ['prospects', 'recruitment', 'targets', 'roadmap'] },
+      { key: 'team_ops',    label: 'Team Operations',    items: ['agents', 'salespeople', 'managers', 'opa', 'coaching'] },
+      { key: 'client_ops',  label: 'Client Operations',  items: ['clients', 'clientsuccess', 'whatsapp', 'timeline'] },
+      { key: 'legal',       label: 'Legal',              items: ['contracts'] },
+    ];
+    const ADMIN_SECTIONS = (() => {
+      const raw = (d.settings || {}).nav_sections_config;
+      if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(_) {} }
+      return DEFAULT_ADMIN_SECTIONS;
+    })();
+    let _secState;
+    try { _secState = JSON.parse(localStorage.getItem('isp-nav-sections') || 'null'); } catch(_) { _secState = null; }
+    if (!_secState || typeof _secState !== 'object') _secState = Object.fromEntries(ADMIN_SECTIONS.map(sec2 => [sec2.key, true]));
+    const navSectionOpen = s.navSectionOpen || _secState;
+    const allNavItems = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false));
+    const itemsByKey = Object.fromEntries(allNavItems.map(x => [x[0], x]));
+    const BADGE_STYLE = 'font-size:11px; font-weight:700; font-family:JetBrains Mono,monospace; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 7px;';
+    const pushNavItem = (key, label, icon, badge, active, indented) => {
+      const pad = indented ? 'padding:8px 12px 8px 24px;' : 'padding:9px 12px;';
+      const fs = indented ? 'font-size:13px;' : 'font-size:13.5px;';
+      const activeStyle = 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);';
+      const idleStyle = 'background:transparent; color:var(--text-mute);';
+      out.nav.push({
+        label, icon, badge: badge || '',
+        onClick: () => this.go(key),
+        style: `display:flex; align-items:center; gap:11px; ${pad} border-radius:10px; border:none; cursor:pointer; ${fs} font-weight:600; transition:all .12s; ${active ? activeStyle : idleStyle}`,
+        hoverStyle: 'background:var(--surface); color:var(--text);',
+        iconStyle: 'flex:none;',
+        labelStyle: 'flex:1; text-align:left;',
+        badgeStyle: BADGE_STYLE,
+      });
+    };
+    out.nav = [];
+    if (s.role === 'admin') {
+      ADMIN_SECTIONS.forEach(sec => {
+        const open = navSectionOpen[sec.key] !== false;
+        const secBadgeNum = !open ? sec.items.reduce((acc, k) => acc + (badges.admin[k] ? parseInt(badges.admin[k]) || 0 : 0), 0) : 0;
+        const badgeText = (secBadgeNum > 0 ? secBadgeNum + ' ' : '') + (open ? '▾' : '▸');
+        out.nav.push({
+          label: sec.label, icon: '', badge: badgeText,
+          onClick: () => {
+            const next = { ...navSectionOpen, [sec.key]: !open };
+            try { localStorage.setItem('isp-nav-sections', JSON.stringify(next)); } catch(_) {}
+            this.setState({ navSectionOpen: next });
+          },
+          style: 'display:flex; align-items:center; gap:6px; width:100%; padding:5px 8px 5px 10px; margin-top:8px; border-radius:7px; border:none; background:transparent; cursor:pointer; color:var(--text-mute); transition:color .12s;',
+          hoverStyle: 'color:var(--text);',
+          iconStyle: 'display:none;',
+          labelStyle: 'font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; flex:1; text-align:left; font-family:JetBrains Mono,monospace;',
+          badgeStyle: 'font-size:10.5px; font-weight:700; font-family:monospace; background:transparent; color:inherit; padding:0 2px; border-radius:0;',
+        });
+        if (open) {
+          sec.items.forEach(key => {
+            const item = itemsByKey[key];
+            if (!item) return;
+            const [, label, icon] = item;
+            pushNavItem(key, label, icon, badges.admin[key], s.route === key, true);
+          });
+        }
+      });
+      const settingsItem = itemsByKey['settings'];
+      if (settingsItem) {
+        const [, label, icon] = settingsItem;
+        pushNavItem('settings', label, icon, '', s.route === 'settings', false);
+      }
+    } else {
+      allNavItems.forEach(([key, label, icon]) => {
+        pushNavItem(key, label, icon, (badges[s.role] && badges[s.role][key]) || '', s.route === key, false);
+      });
+    }
 
     // Notifications
     const myNotifs = d.notifs[s.role] || [];
