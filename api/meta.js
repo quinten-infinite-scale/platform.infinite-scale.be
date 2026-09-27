@@ -217,8 +217,8 @@ export default async function handler(req, res) {
     let body;
     try { body = JSON.parse(rawBody.toString('utf8')); } catch { return res.status(400).end(); }
 
-    res.status(200).json({ ok: true });
-
+    // Collect leads before responding so we can await them after
+    const leads = [];
     for (const pageEntry of (body.entry || [])) {
       for (const change of (pageEntry.changes || [])) {
         if (change.field !== 'leadgen') continue;
@@ -229,10 +229,14 @@ export default async function handler(req, res) {
           form_id: v.form_id || '',
           ad_id: v.ad_id || '',
         };
-        if (!lead.leadgen_id) continue;
-        processLead(lead).catch(err => console.error('[meta] processLead error:', err));
+        if (lead.leadgen_id) leads.push(lead);
       }
     }
+
+    res.status(200).json({ ok: true });
+
+    // Await processing to keep the serverless function alive until done
+    await Promise.all(leads.map(lead => processLead(lead).catch(err => console.error('[meta] processLead error:', err))));
     return;
   }
 
