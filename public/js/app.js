@@ -1421,18 +1421,24 @@ class Component extends DCLogic {
     const _rolePerms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
 
     // Admin sidebar sections — only applied for admin role
-    const ADMIN_SECTIONS = [
-      { key: 'overview',    label: 'Overzicht',     items: ['dashboard', 'finances', 'stats', 'activity'] },
-      { key: 'operations',  label: 'Operaties',     items: ['apptadmin', 'eodadmin', 'rooster', 'todos', 'tickets'] },
-      { key: 'acquisition', label: 'Acquisitie',    items: ['prospects', 'recruitment', 'targets', 'roadmap'] },
-      { key: 'team',        label: 'Team',          items: ['agents', 'salespeople', 'managers', 'opa', 'coaching'] },
-      { key: 'clients',     label: 'Klanten',       items: ['clients', 'clientsuccess', 'contracts', 'whatsapp', 'timeline'] },
+    const DEFAULT_ADMIN_SECTIONS = [
+      { key: 'overview',    label: 'Overzicht',          items: ['dashboard', 'finances', 'stats', 'activity'] },
+      { key: 'floor',       label: 'Floor',              items: ['apptadmin', 'eodadmin', 'rooster', 'todos', 'tickets'] },
+      { key: 'acquisition', label: 'Acquisitie',         items: ['prospects', 'recruitment', 'targets', 'roadmap'] },
+      { key: 'team_ops',    label: 'Team Operations',    items: ['agents', 'salespeople', 'managers', 'opa', 'coaching'] },
+      { key: 'client_ops',  label: 'Client Operations',  items: ['clients', 'clientsuccess', 'whatsapp', 'timeline'] },
+      { key: 'legal',       label: 'Legal',              items: ['contracts'] },
     ];
+    const ADMIN_SECTIONS = (() => {
+      const raw = (d.settings || {}).nav_sections_config;
+      if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(_) {} }
+      return DEFAULT_ADMIN_SECTIONS;
+    })();
 
     // Load section collapse state from localStorage (true = open)
     let _secState;
     try { _secState = JSON.parse(localStorage.getItem('isp-nav-sections') || 'null'); } catch(_) { _secState = null; }
-    if (!_secState || typeof _secState !== 'object') _secState = { overview: true, operations: true, acquisition: true, team: true, clients: true };
+    if (!_secState || typeof _secState !== 'object') _secState = Object.fromEntries(ADMIN_SECTIONS.map(s => [s.key, true]));
     const navSectionOpen = s.navSectionOpen || _secState;
 
     const allNavItems = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false));

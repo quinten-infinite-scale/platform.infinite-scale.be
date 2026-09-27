@@ -6361,9 +6361,10 @@ const ScreenAdmin = {
     };
 
     const reprocessLead = async (log) => {
+      if (!confirm('Verwijder dit log-item zodat dezelfde lead opnieuw verwerkt wordt als hij opnieuw binnenkomt?')) return;
       await SB.del('meta_lead_log', '?id=eq.' + log.id);
       this.mutLocal(dd => { dd.metaLeadLog = (dd.metaLeadLog || []).filter(x => x.id !== log.id); });
-      this.toast('Meta', 'Lead verwijderd uit log — verstuur opnieuw via Facebook Lead Ads Testing Tool', 'var(--accent)');
+      this.toast('Meta', 'Log verwijderd. Stuur de lead opnieuw via Lead Ads Testing Tool om opnieuw te verwerken.', 'var(--accent)');
     };
 
     // Header
@@ -6385,7 +6386,7 @@ const ScreenAdmin = {
                 e('div', null,
                   e('div', { style: { fontSize: 13.5, fontWeight: 600, color: 'var(--text)' } }, 'Verbonden als ' + (metaStatus.user_name || '—')),
                   e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Verbonden op ' + (metaStatus.connected_at ? new Date(metaStatus.connected_at).toLocaleDateString('nl-BE') : '—')))),
-              e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, pages.length + ' pagina' + (pages.length !== 1 ? "'s" : '') + ' beschikbaar'),
+              e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, pages.length + ' pagina' + (pages.length !== 1 ? "'s" : '') + ' beschikbaar (alleen pagina\'s waarvan je admin bent)'),
               UI.Row({ gap: 8 },
                 UI.Btn('Herverbinden', connectMeta, 'soft'),
                 UI.Btn('Ontkoppelen', disconnectMeta, 'ghost')))
@@ -6460,7 +6461,10 @@ const ScreenAdmin = {
       !(metaStatus && metaStatus.connected)
         ? e('div', { style: { padding: '20px 0', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Verbind eerst een Meta-account.')
         : metaMappings.length === 0
-          ? e('div', { style: { padding: '20px 0', color: 'var(--text-mute)', fontSize: 13 } }, 'Nog geen mappings. Klik "+ Mapping toevoegen" om te starten.')
+          ? e('div', { style: { padding: '16px', borderRadius: 10, background: 'oklch(0.22 0.04 260 / .4)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text)', lineHeight: 1.6 } },
+              e('div', { style: { fontWeight: 700, marginBottom: 4 } }, '⚠ Geen lead-mappings ingesteld'),
+              e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, 'Zonder mapping komen leads binnen in de standaard pipeline "Meta Ads b2b acquisition", stage "Nieuwe leads". Voeg een mapping toe om leads naar een specifieke pipeline/stage te sturen en automatisch toe te wijzen aan een medewerker.'),
+              e('div', { style: { marginTop: 10 } }, UI.Btn('+ Mapping toevoegen', openNewMapping, 'primary')))
           : UI.Table([
               { label: 'Label / Pagina', render: m => e('div', null, e('div', { style: { fontWeight: 700, fontSize: 13 } }, m.label || '(geen label)'), e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Page: ' + ((pages.find(p => p.id === m.facebook_page_id) || {}).name || m.facebook_page_id))) },
               { label: 'Formulier', render: m => e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)' } }, m.facebook_form_id ? m.facebook_form_id : e('em', null, 'Alle formulieren')) },
@@ -6480,9 +6484,11 @@ const ScreenAdmin = {
         : UI.Table([
             { label: 'Ontvangen', render: r => e('div', { style: { fontSize: 12 } }, new Date(r.received_at).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) },
             { label: 'Lead ID', render: r => e('span', { style: { fontFamily: 'monospace', fontSize: 11.5 } }, r.leadgen_id) },
-            { label: 'Status', render: r => UI.Pill({ success: 'Verwerkt', unmapped: 'Niet gemapt', failed: 'Mislukt' }[r.status] || r.status, statusColor(r.status), statusBg(r.status)) },
-            { label: 'Fout', render: r => r.error ? e('span', { style: { fontSize: 11.5, color: 'var(--down)' } }, (r.error || '').slice(0, 80)) : null },
-            { label: '', align: 'right', render: r => (r.status === 'failed' || r.status === 'unmapped') ? UI.Btn('↻ Herverwerk', () => reprocessLead(r), 'soft') : null },
+            { label: 'Status', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+                UI.Pill({ success: 'Verwerkt', unmapped: 'Geen mapping (standaard)', failed: 'Mislukt' }[r.status] || r.status, statusColor(r.status), statusBg(r.status)),
+                r.status === 'unmapped' ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Lead staat in CRM — voeg een mapping toe voor meer controle') : null) },
+            { label: 'Prospect', render: r => r.prospect_id ? e('span', { style: { fontFamily: 'monospace', fontSize: 11, color: 'var(--text-mute)' } }, r.prospect_id.slice(0, 12) + '…') : (r.error ? e('span', { style: { fontSize: 11.5, color: 'var(--down)' } }, (r.error || '').slice(0, 70)) : null) },
+            { label: '', align: 'right', render: r => r.status === 'failed' ? UI.Btn('↻ Herverwerk', () => reprocessLead(r), 'soft') : null },
           ], metaLog));
 
     // Setup checklist
