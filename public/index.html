@@ -19,10 +19,10 @@
 <script src="./js/screen-client.js?v=20260926a"></script>
 <script src="./js/screen-subclient.js?v=20260922d"></script>
 <script src="./js/screen-roadmap.js?v=20260922d"></script>
-<script src="./js/screen-admin.js?v=20260927a"></script>
+<script src="./js/screen-admin.js?v=20260928a"></script>
 <script src="./js/pdf-ttf.js?v=20260922d"></script>
 <script src="./js/modals.js?v=20260927a"></script>
-<script src="./js/app.js?v=20260927a"></script>
+<script src="./js/app.js?v=20260928a"></script>
 <script src="./js/api.js?v=20260927a"></script>
 </head>
 <body>
@@ -158,13 +158,22 @@
             <div style="font-size:11px; color:var(--text-mute); font-family:'JetBrains Mono';">{{ roleLabel }}</div>
           </div>
         </div>
-        <nav style="flex:1; overflow-y:auto; padding:12px 10px; display:flex; flex-direction:column; gap:2px;">
+        <nav style="flex:1; overflow-y:auto; padding:10px 10px 6px; display:flex; flex-direction:column; gap:1px;">
           <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
-            <button onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="background:var(--surface); color:var(--text);">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="{{ n.icon }}"/></svg>
-              <span style="flex:1; text-align:left;">{{ n.label }}</span>
-              <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px; font-weight:700; font-family:'JetBrains Mono'; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 7px;">{{ n.badge }}</span></sc-if>
-            </button>
+            <sc-if value="{{ n.isSection }}">
+              <button onClick="{{ n.onClick }}" style="display:flex; align-items:center; gap:6px; width:100%; padding:5px 8px 5px 10px; margin-top:8px; border-radius:7px; border:none; background:transparent; cursor:pointer; color:var(--text-mute); transition:color .12s;" style-hover="color:var(--text);">
+                <span style="font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; flex:1; text-align:left; font-family:'JetBrains Mono';">{{ n.label }}</span>
+                <sc-if value="{{ n.secBadge }}" hint-placeholder-val="{{ false }}"><span style="font-size:10px; font-weight:700; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 6px; margin-right:2px;">{{ n.secBadge }}</span></sc-if>
+                <span style="font-size:10px; opacity:.6;">{{ n.chevron }}</span>
+              </button>
+            </sc-if>
+            <sc-if value="{{ n.isItem }}">
+              <button onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="background:var(--surface); color:var(--text);">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="{{ n.icon }}"/></svg>
+                <span style="flex:1; text-align:left;">{{ n.label }}</span>
+                <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px; font-weight:700; font-family:'JetBrains Mono'; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 7px;">{{ n.badge }}</span></sc-if>
+              </button>
+            </sc-if>
           </sc-for>
         </nav>
         <div style="padding:12px 10px; border-top:1px solid var(--border-soft);">

@@ -1419,10 +1419,61 @@ class Component extends DCLogic {
     const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
     const _rp = (d.settings || {}).role_permissions;
     const _rolePerms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
-    out.nav = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false)).map(([key, label, icon]) => {
-      const active = s.route === key;
-      return { label, icon, badge: (badges[s.role] && badges[s.role][key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') };
-    });
+
+    // Admin sidebar sections — only applied for admin role
+    const ADMIN_SECTIONS = [
+      { key: 'overview',    label: 'Overzicht',     items: ['dashboard', 'finances', 'stats', 'activity'] },
+      { key: 'operations',  label: 'Operaties',     items: ['apptadmin', 'eodadmin', 'rooster', 'todos', 'tickets'] },
+      { key: 'acquisition', label: 'Acquisitie',    items: ['prospects', 'recruitment', 'targets', 'roadmap'] },
+      { key: 'team',        label: 'Team',          items: ['agents', 'salespeople', 'managers', 'opa', 'coaching'] },
+      { key: 'clients',     label: 'Klanten',       items: ['clients', 'clientsuccess', 'contracts', 'whatsapp', 'timeline'] },
+    ];
+
+    // Load section collapse state from localStorage (true = open)
+    let _secState;
+    try { _secState = JSON.parse(localStorage.getItem('isp-nav-sections') || 'null'); } catch(_) { _secState = null; }
+    if (!_secState || typeof _secState !== 'object') _secState = { overview: true, operations: true, acquisition: true, team: true, clients: true };
+    const navSectionOpen = s.navSectionOpen || _secState;
+
+    const allNavItems = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false));
+    const itemsByKey = Object.fromEntries(allNavItems.map(x => [x[0], x]));
+
+    out.nav = [];
+    if (s.role === 'admin') {
+      const sectionedKeys = new Set(ADMIN_SECTIONS.flatMap(sec => sec.items));
+      ADMIN_SECTIONS.forEach(sec => {
+        const open = navSectionOpen[sec.key] !== false;
+        const chevron = open ? '▾' : '▸';
+        // Count badges in section for header summary when collapsed
+        const secBadge = !open ? ADMIN_SECTIONS.find(ss => ss.key === sec.key)?.items.reduce((acc, k) => acc + (badges.admin[k] ? parseInt(badges.admin[k]) || 0 : 0), 0) : 0;
+        out.nav.push({ isSection: true, isItem: false, label: sec.label, chevron, secBadge: secBadge > 0 ? String(secBadge) : '', sectionOpen: open, onClick: () => {
+          const next = { ...navSectionOpen, [sec.key]: !open };
+          try { localStorage.setItem('isp-nav-sections', JSON.stringify(next)); } catch(_) {}
+          this.setState({ navSectionOpen: next });
+        }});
+        if (open) {
+          sec.items.forEach(key => {
+            const item = itemsByKey[key];
+            if (!item) return;
+            const [, label, icon] = item;
+            const active = s.route === key;
+            out.nav.push({ isSection: false, isItem: true, label, icon, badge: (badges.admin[key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:8px 12px 8px 24px; border-radius:10px; border:none; cursor:pointer; font-size:13px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') });
+          });
+        }
+      });
+      // Settings always at bottom, outside sections
+      const settingsItem = itemsByKey['settings'];
+      if (settingsItem) {
+        const [, label, icon] = settingsItem;
+        const active = s.route === 'settings';
+        out.nav.push({ isSection: false, isItem: true, label, icon, badge: '', onClick: () => this.go('settings'), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') });
+      }
+    } else {
+      allNavItems.forEach(([key, label, icon]) => {
+        const active = s.route === key;
+        out.nav.push({ isSection: false, isItem: true, label, icon, badge: (badges[s.role] && badges[s.role][key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') });
+      });
+    }
     console.log('[NAV]', s.role, out.nav.map(n=>n.label));
 
     // Notifications

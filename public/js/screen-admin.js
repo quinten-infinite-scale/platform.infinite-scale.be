@@ -6299,7 +6299,7 @@ const ScreenAdmin = {
     const connectMeta = async () => {
       const r = await fetch('/api/meta?action=login_url', { headers: authHeader() });
       const data = await r.json().catch(() => ({}));
-      if (data.url) window.open(data.url, '_blank', 'width=600,height=700');
+      if (data.url) window.location.href = data.url;
       else this.toast('Fout', data.error || 'Kon login URL niet ophalen', 'var(--down)');
     };
 
