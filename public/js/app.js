@@ -1444,26 +1444,49 @@ class Component extends DCLogic {
     const allNavItems = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false));
     const itemsByKey = Object.fromEntries(allNavItems.map(x => [x[0], x]));
 
+    // Shared style helpers
+    const BADGE_STYLE = 'font-size:11px; font-weight:700; font-family:JetBrains Mono,monospace; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 7px;';
+    const pushNavItem = (key, label, icon, badge, active, indented) => {
+      const pad = indented ? 'padding:8px 12px 8px 24px;' : 'padding:9px 12px;';
+      const fs = indented ? 'font-size:13px;' : 'font-size:13.5px;';
+      const activeStyle = 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);';
+      const idleStyle = 'background:transparent; color:var(--text-mute);';
+      out.nav.push({
+        label, icon, badge: badge || '',
+        onClick: () => this.go(key),
+        style: `display:flex; align-items:center; gap:11px; ${pad} border-radius:10px; border:none; cursor:pointer; ${fs} font-weight:600; transition:all .12s; ${active ? activeStyle : idleStyle}`,
+        hoverStyle: 'background:var(--surface); color:var(--text);',
+        iconStyle: 'flex:none;',
+        labelStyle: 'flex:1; text-align:left;',
+        badgeStyle: BADGE_STYLE,
+      });
+    };
+
     out.nav = [];
     if (s.role === 'admin') {
-      const sectionedKeys = new Set(ADMIN_SECTIONS.flatMap(sec => sec.items));
       ADMIN_SECTIONS.forEach(sec => {
         const open = navSectionOpen[sec.key] !== false;
-        const chevron = open ? '▾' : '▸';
-        // Count badges in section for header summary when collapsed
-        const secBadge = !open ? ADMIN_SECTIONS.find(ss => ss.key === sec.key)?.items.reduce((acc, k) => acc + (badges.admin[k] ? parseInt(badges.admin[k]) || 0 : 0), 0) : 0;
-        out.nav.push({ isSection: true, isItem: false, label: sec.label, chevron, secBadge: secBadge > 0 ? String(secBadge) : '', sectionOpen: open, onClick: () => {
-          const next = { ...navSectionOpen, [sec.key]: !open };
-          try { localStorage.setItem('isp-nav-sections', JSON.stringify(next)); } catch(_) {}
-          this.setState({ navSectionOpen: next });
-        }});
+        const secBadgeNum = !open ? sec.items.reduce((acc, k) => acc + (badges.admin[k] ? parseInt(badges.admin[k]) || 0 : 0), 0) : 0;
+        const badgeText = (secBadgeNum > 0 ? secBadgeNum + ' ' : '') + (open ? '▾' : '▸');
+        out.nav.push({
+          label: sec.label, icon: '', badge: badgeText,
+          onClick: () => {
+            const next = { ...navSectionOpen, [sec.key]: !open };
+            try { localStorage.setItem('isp-nav-sections', JSON.stringify(next)); } catch(_) {}
+            this.setState({ navSectionOpen: next });
+          },
+          style: 'display:flex; align-items:center; gap:6px; width:100%; padding:5px 8px 5px 10px; margin-top:8px; border-radius:7px; border:none; background:transparent; cursor:pointer; color:var(--text-mute); transition:color .12s;',
+          hoverStyle: 'color:var(--text);',
+          iconStyle: 'display:none;',
+          labelStyle: 'font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; flex:1; text-align:left; font-family:JetBrains Mono,monospace;',
+          badgeStyle: 'font-size:10.5px; font-weight:700; font-family:monospace; background:transparent; color:inherit; padding:0 2px; border-radius:0;',
+        });
         if (open) {
           sec.items.forEach(key => {
             const item = itemsByKey[key];
             if (!item) return;
             const [, label, icon] = item;
-            const active = s.route === key;
-            out.nav.push({ isSection: false, isItem: true, label, icon, badge: (badges.admin[key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:8px 12px 8px 24px; border-radius:10px; border:none; cursor:pointer; font-size:13px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') });
+            pushNavItem(key, label, icon, badges.admin[key], s.route === key, true);
           });
         }
       });
@@ -1471,16 +1494,13 @@ class Component extends DCLogic {
       const settingsItem = itemsByKey['settings'];
       if (settingsItem) {
         const [, label, icon] = settingsItem;
-        const active = s.route === 'settings';
-        out.nav.push({ isSection: false, isItem: true, label, icon, badge: '', onClick: () => this.go('settings'), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') });
+        pushNavItem('settings', label, icon, '', s.route === 'settings', false);
       }
     } else {
       allNavItems.forEach(([key, label, icon]) => {
-        const active = s.route === key;
-        out.nav.push({ isSection: false, isItem: true, label, icon, badge: (badges[s.role] && badges[s.role][key]) || '', onClick: () => this.go(key), style: 'display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:10px; border:none; cursor:pointer; font-size:13.5px; font-weight:600; transition:all .12s; ' + (active ? 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);' : 'background:transparent; color:var(--text-mute);') });
+        pushNavItem(key, label, icon, (badges[s.role] && badges[s.role][key]) || '', s.route === key, false);
       });
     }
-    console.log('[NAV]', s.role, out.nav.map(n=>n.label));
 
     // Notifications
     const myNotifs = d.notifs[s.role] || [];
