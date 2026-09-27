@@ -3256,8 +3256,8 @@ const ScreenAdmin = {
         onClick: ev => {
           ev.stopPropagation();
           if (isOpen) { this.setState({ _recruitFilterOpen: null, _recruitFilterPos: null }); return; }
-          const rect = ev.currentTarget.getBoundingClientRect();
-          const clampedX = Math.min(rect.left, (window.innerWidth || 1200) - 170);
+          const rect = ev.target.getBoundingClientRect();
+          const clampedX = Math.min(Math.max(0, rect.left + rect.width / 2 - 75), (window.innerWidth || 1200) - 170);
           this.setState({ _recruitFilterOpen: col.key, _recruitFilterPos: { x: clampedX, y: rect.bottom + 4 } });
         }
       },
