@@ -1190,11 +1190,18 @@ const Modals = {
       const vacancyOptions = [['needed', 'Agent needed ⚠️'], ['filled', 'Position filled ✓'], ['open', 'Position open']];
       const vacancyColors = { needed: 'var(--warn)', filled: 'var(--up)', open: 'var(--info)' };
       const agentStartDate = f.agentStartDate !== undefined ? f.agentStartDate : (c.agentStartDate || '');
-      const linkedAgentId = f.linkedAgentId !== undefined ? f.linkedAgentId : (c.linkedAgentId || '');
+      // Parse linkedAgentIds: stored as JSON array string or legacy single ID string
+      const parseAgentIds = raw => {
+        if (!raw) return [];
+        try { const p = JSON.parse(raw); return Array.isArray(p) ? p.filter(Boolean) : (p ? [p] : []); } catch { return raw ? [raw] : []; }
+      };
+      const linkedAgentIds = f.linkedAgentIds !== undefined ? f.linkedAgentIds : parseAgentIds(c.linkedAgentId);
       const linkedRecruitId = f.linkedRecruitId !== undefined ? f.linkedRecruitId : (c.linkedRecruitId || '');
       const agentVacancy = f.agentVacancy !== undefined ? f.agentVacancy : (c.agentVacancy || 'needed');
       const activeAgents = d.agents.filter(a => a.active);
-      const agentOptions = [{ v: '', l: 'No agent linked yet…' }, ...activeAgents.map(a => ({ v: a.id, l: a.name }))];
+      const addAgentId = f.addAgentId !== undefined ? f.addAgentId : '';
+      const availableToAdd = activeAgents.filter(a => !linkedAgentIds.includes(a.id));
+      const addAgentOptions = [{ v: '', l: 'Selecteer call agent…' }, ...availableToAdd.map(a => ({ v: a.id, l: a.name }))];
       const recruitOptions = [{ v: '', l: 'No recruit linked…' }, ...(d.recruits || []).filter(r => r.stage !== 'not_qualified').map(r => ({ v: r.id, l: r.name + ' (' + r.stage + ')' }))];
       const kickoffVal = f.kickoff !== undefined ? f.kickoff : (c.kickoff ? c.kickoff.slice(0, 10) : '');
       const detailSubclients = c.type === 'agency' ? (c.subclients || []) : [];
@@ -1202,6 +1209,25 @@ const Modals = {
       const detailSelSub = f.tlDetailSubclient !== undefined ? f.tlDetailSubclient : (currentTimelineSub ? currentTimelineSub.id : '');
       const detailSubOpts = [{ v: '', l: 'Alle subclients / geen specifiek' }, ...detailSubclients.map(sc => ({ v: sc.id, l: sc.name }))];
       const needsLeadlist = f.needsLeadlist !== undefined ? f.needsLeadlist : !!(c.needsLeadlist);
+      const agentChips = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+        linkedAgentIds.length === 0
+          ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic', padding: '6px 0' } }, 'Nog geen agent gekoppeld')
+          : linkedAgentIds.map(aid => {
+              const ag = d.agents.find(a => a.id === aid);
+              if (!ag) return null;
+              return e('div', { key: aid, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 8, background: 'oklch(0.18 0.05 145 / .25)', border: '1px solid var(--up)' } },
+                e('span', { style: { fontWeight: 600, fontSize: 13, color: 'var(--up)' } }, ag.name),
+                e('button', { onClick: () => this.setForm('linkedAgentIds', linkedAgentIds.filter(x => x !== aid)),
+                  style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 16, lineHeight: 1, padding: '0 2px' } }, '×'));
+            }),
+        availableToAdd.length > 0
+          ? e('div', { style: { display: 'flex', gap: 8 } },
+              UI.Select(addAgentId, v => this.setForm('addAgentId', v), addAgentOptions),
+              e('button', {
+                onClick: () => { if (addAgentId) { this.setForm('linkedAgentIds', [...linkedAgentIds, addAgentId]); this.setForm('addAgentId', ''); } },
+                style: { padding: '8px 14px', borderRadius: 8, background: addAgentId ? 'var(--accent)' : 'var(--bg-2)', color: addAgentId ? '#fff' : 'var(--text-mute)', border: '1px solid var(--border)', fontWeight: 700, fontSize: 13, cursor: addAgentId ? 'pointer' : 'default', whiteSpace: 'nowrap' }
+              }, '+ Voeg toe'))
+          : null);
       const body = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
         detailSubclients.length > 0 ? UI.Field('Subclient', UI.Select(detailSelSub, v => this.setForm('tlDetailSubclient', v), detailSubOpts)) : null,
         UI.Field('Kickoff call datum', e('input', { type: 'date', value: kickoffVal, onChange: ev => this.setForm('kickoff', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
@@ -1218,7 +1244,7 @@ const Modals = {
               return e('button', { key: val, onClick: () => this.setForm('agentVacancy', val),
                 style: { flex: 1, padding: '9px 10px', borderRadius: 10, border: '2px solid ' + (active ? col : 'var(--border)'), background: active ? 'oklch(0.18 0.04 120 / .3)' : 'transparent', color: active ? col : 'var(--text-mute)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', transition: 'all .15s', textAlign: 'center' } }, lbl);
             }))),
-        UI.Field('Link to existing agent', UI.Select(linkedAgentId, v => this.setForm('linkedAgentId', v), agentOptions)),
+        UI.Field('Call agents', agentChips),
         UI.Field('Link to potential recruit', UI.Select(linkedRecruitId, v => this.setForm('linkedRecruitId', v), recruitOptions)));
       return wrap(c.name + ' — timeline', body,
         [UI.Btn('Verwijder van timeline', () => { if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timeline_stage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); this.closeModal(); } }, 'danger', { marginRight: 'auto' }),
@@ -1227,7 +1253,9 @@ const Modals = {
            const subPatch = detailSubclients.length > 0
              ? detailSubclients.map(sc => ({ ...sc, timeline_selected: detailSelSub ? sc.id === detailSelSub : false }))
              : null;
-           this.saveTimelineData(c.id, agentStartDate, linkedAgentId, linkedRecruitId, agentVacancy, kickoffVal, subPatch, needsLeadlist);
+           // Serialize array; use first ID for backward-compat single-agent reads
+           const agentIdsSerialized = linkedAgentIds.length === 0 ? null : linkedAgentIds.length === 1 ? linkedAgentIds[0] : JSON.stringify(linkedAgentIds);
+           this.saveTimelineData(c.id, agentStartDate, agentIdsSerialized, linkedRecruitId, agentVacancy, kickoffVal, subPatch, needsLeadlist);
            this.closeModal();
          }, 'primary')], '520px');
     }

@@ -2593,12 +2593,15 @@ const ScreenAdmin = {
           style: { minHeight: 120, borderRadius: 10, padding: '8px 6px', background: isOver ? 'oklch(0.22 0.05 240 / .18)' : 'var(--surface)', border: `1.5px solid ${isOver ? sg.color : 'var(--border-soft)'}`, transition: 'border-color 0.15s, background 0.15s', display: 'flex', flexDirection: 'column', gap: 8 } },
           cards.length === 0 ? e('div', { style: { textAlign: 'center', color: 'var(--text-mute)', fontSize: 11.5, padding: '18px 4px', fontStyle: 'italic' } }, 'Drop here') : null,
           cards.map(c => {
-            const linkedAgent = c.linkedAgentId ? d.agents.find(a => a.id === c.linkedAgentId) : null;
+            const parseAgentIds = raw => { if (!raw) return []; try { const p = JSON.parse(raw); return Array.isArray(p) ? p.filter(Boolean) : (p ? [p] : []); } catch { return raw ? [raw] : []; } };
+            const linkedAgentIds = parseAgentIds(c.linkedAgentId);
+            const linkedAgents = linkedAgentIds.map(aid => d.agents.find(a => a.id === aid)).filter(Boolean);
             const linkedRecruit = c.linkedRecruitId ? (d.recruits || []).find(r => r.id === c.linkedRecruitId) : null;
-            const linkedName = linkedAgent ? linkedAgent.name : linkedRecruit ? linkedRecruit.name : null;
+            const linkedName = linkedAgents.length > 0 ? linkedAgents.map(a => a.name).join(', ') : linkedRecruit ? linkedRecruit.name : null;
+            const isLinkedToAgent = linkedAgents.length > 0;
             const koDate = c.kickoff ? c.kickoff.slice(0, 10) : null;
             const daysSinceKo = koDate ? Math.round((new Date(todayStr) - new Date(koDate)) / 86400000) : null;
-            const hasAgent = !!(linkedAgent || linkedRecruit);
+            const hasAgent = !!(linkedAgents.length > 0 || linkedRecruit);
             const needsAgent = !hasAgent && sg.id === 'agent_matching';
             const cardBorder = hasAgent ? '1.5px solid var(--up)' : needsAgent ? '1.5px solid var(--down)' : '1px solid var(--border-soft)';
             const timelineSubclient = (c.subclients || []).find(sc => sc.timeline_selected);
@@ -2616,7 +2619,7 @@ const ScreenAdmin = {
                 e('button', { onClick: ev => { ev.stopPropagation(); if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timeline_stage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); } }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, padding: '0 0 0 4px', lineHeight: 1 } }, '×')),
               koDate ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 3 } }, '📅 Kickoff: ' + this.fmtFull(koDate)) : null,
               c.agentStartDate ? e('div', { style: { fontSize: 11, color: 'var(--up)', marginBottom: 3, fontWeight: 600 } }, '🚀 Start agent: ' + this.fmtFull(c.agentStartDate)) : null,
-              linkedName ? e('div', { style: { fontSize: 11.5, color: linkedAgent ? 'var(--up)' : 'var(--accent)', fontWeight: 600, marginBottom: 3 } }, '→ ' + linkedName + (linkedAgent ? '' : ' (recruit)')) : e('div', { style: { fontSize: 11, color: 'var(--warn)', marginBottom: 3 } }, '⚠ Geen agent'),
+              linkedName ? e('div', { style: { fontSize: 11.5, color: isLinkedToAgent ? 'var(--up)' : 'var(--accent)', fontWeight: 600, marginBottom: 3 } }, '→ ' + linkedName + (isLinkedToAgent ? '' : ' (recruit)')) : e('div', { style: { fontSize: 11, color: 'var(--warn)', marginBottom: 3 } }, '⚠ Geen agent'),
               daysSinceKo !== null ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, `Dag ${daysSinceKo}`) : null,
               c.needsLeadlist ? e('div', { style: { marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'oklch(0.20 0.06 60 / .25)', border: '1px solid var(--warn)', borderRadius: 5, padding: '2px 6px' } }, '📋 Leadlist') : null);
           })
