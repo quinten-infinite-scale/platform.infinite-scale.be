@@ -28,15 +28,15 @@ const SB = (() => {
         headers: headers(),
         body: JSON.stringify({ refresh_token: _session.refresh_token }),
       });
+      const rd = await r.json().catch(() => ({}));
       if (!r.ok) {
-        // Only clear session on explicit auth failures (401/403), not transient network errors
-        if (r.status === 401 || r.status === 403) {
+        // Clear session on auth failures or invalid/expired refresh token
+        if (r.status === 401 || r.status === 403 || rd.error_code === 'refresh_token_not_found' || rd.error_code === 'refresh_token_already_used') {
           _session = null; localStorage.removeItem('is_session');
         }
         return false;
       }
-      const d = await r.json();
-      if (d.access_token) { _saveSession(d); return true; }
+      if (rd.access_token) { _saveSession(rd); return true; }
       return false;
     } catch(e) {
       // Network failure — keep session in memory so next request can retry
@@ -97,9 +97,11 @@ const SB = (() => {
   function getSession() { return _session; }
 
   async function get(table, query = '') {
-    if (!await _refreshIfNeeded()) return [];
+    const refreshed = await _refreshIfNeeded();
+    // If refresh failed and no session, fall back to anon-key reads (limited by RLS)
+    const tok = refreshed && _session?.access_token ? _session.access_token : key;
     const r = await fetch(`${url}/rest/v1/${table}${query}`, {
-      headers: authHeaders(_session.access_token),
+      headers: authHeaders(tok),
     });
     if (!r.ok) return [];
     return r.json();
