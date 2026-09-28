@@ -1377,7 +1377,7 @@ const ScreenAdmin = {
       })();
       const maxHour = activeQuick === 'today' ? Math.min(nowLocalHour, 23) : 23;
       const dayAppts = d.appointments.filter(a => a.dateLog === hourlyDate);
-      for (let h = 0; h <= maxHour; h++) {
+      for (let h = 1; h <= maxHour; h++) {
         const hourCount = Object.keys(d.dialsHourly).reduce((x, id) => x + (((d.dialsHourly[id] || {})[hourlyDate] || {})[h] || 0), 0);
         dialSeries.push(hourCount);
         apptSeries.push(0); // no per-hour appt data; show as 0
