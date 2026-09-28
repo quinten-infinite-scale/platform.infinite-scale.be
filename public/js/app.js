@@ -1441,6 +1441,7 @@ class Component extends DCLogic {
     ];
     const ADMIN_SECTIONS = (() => {
       const raw = (d.settings || {}).nav_sections_config;
+      if (Array.isArray(raw) && raw.length) return raw;
       if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(_) {} }
       return DEFAULT_ADMIN_SECTIONS;
     })();
