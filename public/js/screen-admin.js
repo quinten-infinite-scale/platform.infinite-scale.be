@@ -1375,13 +1375,13 @@ const ScreenAdmin = {
         const m = now.getUTCMonth() + 1;
         return (utcH + (m >= 4 && m <= 9 ? 2 : 1)) % 24;
       })();
-      const maxHour = activeQuick === 'today' ? Math.min(nowLocalHour, 19) : 19;
+      const maxHour = activeQuick === 'today' ? Math.min(nowLocalHour, 23) : 23;
       const dayAppts = d.appointments.filter(a => a.dateLog === hourlyDate);
-      for (let h = 9; h <= maxHour; h++) {
+      for (let h = 0; h <= maxHour; h++) {
         const hourCount = Object.keys(d.dialsHourly).reduce((x, id) => x + (((d.dialsHourly[id] || {})[hourlyDate] || {})[h] || 0), 0);
         dialSeries.push(hourCount);
         apptSeries.push(0); // no per-hour appt data; show as 0
-        labels.push(h + ':00');
+        labels.push(h === 0 ? '12 AM' : h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h - 12) + ' PM');
         isoLabels.push(hourlyDate);
         apptBreakdowns.push([]);
         dialBreakdowns.push(activeAgents.map((ag, ai) => ({ label: ag.name.split(' ')[0], value: ((d.dialsHourly[ag.id] || {})[hourlyDate] || {})[h] || 0, color: agentPalette[ai % agentPalette.length] })).filter(b => b.value > 0));

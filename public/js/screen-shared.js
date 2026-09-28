@@ -60,7 +60,7 @@ const ScreenShared = {
     const TAB_LABELS = { dashboard:'Dashboard', finances:'Finances', stats:'Statistics', activity:'Activity', apptadmin:'Appointments', eodadmin:'EOD Reports', rooster:'Roosters', todos:'To-Do', tickets:'Tickets', prospects:'Prospect CRM', recruitment:'Recruitment', targets:'Targets', roadmap:'€100K Roadmap', agents:'Call Agents', salespeople:'Salespeople', managers:'Managers', opa:'OPA', coaching:'Coaching', clients:'Clients', clientsuccess:'Client Success', contracts:'Contracts', whatsapp:'WhatsApp', timeline:'Project Timeline' };
 
     const rawCfg = (d.settings || {}).nav_sections_config;
-    const savedSections = (() => { try { const p = JSON.parse(rawCfg || ''); if (Array.isArray(p) && p.length) return p; } catch(_) {} return null; })();
+    const savedSections = (() => { try { if (Array.isArray(rawCfg) && rawCfg.length) return rawCfg; const p = JSON.parse(rawCfg || ''); if (Array.isArray(p) && p.length) return p; } catch(_) {} return null; })();
     const editing = s._navEdit !== undefined ? s._navEdit : null;
     const sections = editing !== null ? editing : (savedSections || DEFAULT_SECTIONS);
 
