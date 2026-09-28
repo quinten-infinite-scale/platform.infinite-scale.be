@@ -211,8 +211,8 @@ class Component extends DCLogic {
     if (this._syncDialsTimer) clearInterval(this._syncDialsTimer);
     this._pollTimer = setInterval(() => this._poll(), 5000);
     this._heartbeatTimer = setInterval(() => this._updatePresence(this.state.route), 30000);
-    // Trigger CloudTalk → Supabase dials sync every 2 minutes (admin only)
-    this._syncDialsTimer = setInterval(() => this._triggerDialsSync(), 120000);
+    // Trigger CloudTalk → Supabase dials sync every 60 seconds (admin only)
+    this._syncDialsTimer = setInterval(() => this._triggerDialsSync(), 60000);
   }
 
   async _triggerDialsSync() {
