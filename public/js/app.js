@@ -1153,6 +1153,8 @@ class Component extends DCLogic {
     const type = f.editType !== undefined ? f.editType : (c.type || 'direct');
     const subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
     const whatsappEnabled = f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false);
+    console.log('[saveClientEdits] closeFee=', closeFee, 'editCloseFee=', f.editCloseFee, 'c.close_fee=', c.close_fee);
+    window.__sceDebug = { closeFee, editCloseFee: f.editCloseFee, cCloseFee: c.close_fee, id };
     const updates = {
       name, contact_person: contact, email, phone, vat, rate,
       per_hour: perHour, monthly_fee: monthly, commission, close_fee: closeFee, setup_fee: setupFee, pay_days: payDays,
