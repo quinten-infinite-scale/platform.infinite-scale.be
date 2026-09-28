@@ -781,10 +781,10 @@ class Component extends DCLogic {
     if (apptError) { this.setState(s => ({ form: { ...s.form, apptError, apptSubmitting: false } })); this.toast('Fout', apptError, 'var(--down)'); return; }
     this.setState(s => ({ form: { ...s.form, apptError: null } }));
     const c = this.state.data.clients.find(x => x.id === f.client);
-    let amount = c ? c.rate : 0;
+    let amount = c ? (c.rate ?? 0) : 0;
     if (f.sub && c && c.subclients) {
       const sc = c.subclients.find(s => s.id === f.sub);
-      if (sc) amount = sc.rate || amount;
+      if (sc) amount = sc.rate ?? amount;
     }
     const RN_RATES = { 'Airco': { revenue: 25, payout: 8 }, 'Thuisbatt': { revenue: 40, payout: 12 }, 'Zonnepanelen': { revenue: 50, payout: 15 }, 'Keukens': { revenue: 55, payout: 15 }, 'Badkamers': { revenue: 55, payout: 15 }, 'Ramen en deuren': { revenue: 70, payout: 15 }, 'Crepi': { revenue: 70, payout: 15 }, 'Dak': { revenue: 80, payout: 20 }, 'Chapewerken': { revenue: 25, payout: 12 } };
     const dateLogged = this.iso(this.today());
