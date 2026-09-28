@@ -242,7 +242,10 @@ class Component extends DCLogic {
           if (!action) action = kindAction(rec.kind);
           const n = { id: rec.id, text: rec.text, time: rec.time, read: rec.read, kind: rec.kind, action };
           this.mutLocal(dd => { if (!dd.notifs[role]) dd.notifs[role] = []; dd.notifs[role].unshift(n); });
-          if (!rec.read) this.toast(rec.text, '', kindAction(rec.kind) ? 'var(--accent)' : 'var(--info)');
+          // Only toast for notifications created within the last 5 minutes — prevents
+          // stale notifications from inactive agents firing on every fresh page load.
+          const notifAge = Date.now() - new Date(rec.created_at || rec.time || 0).getTime();
+          if (!rec.read && notifAge < 5 * 60 * 1000) this.toast(rec.text, '', kindAction(rec.kind) ? 'var(--accent)' : 'var(--info)');
         }
       }
 
@@ -329,11 +332,15 @@ class Component extends DCLogic {
           };
           const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
           const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
-          // Add to local state unless MTD full refresh already covered this appointment's month
+          // Add to local state unless MTD full refresh already covered this appointment's month.
+          // Also suppress toast/notification for pre-existing appointments surfaced by full refresh
+          // (they are not "new" — they were already in the DB when the page loaded).
           const coveredByMtd = doFullRefresh && (appt.dateLog || '').startsWith(ym2);
-          if (!coveredByMtd) this.mutLocal(dd => { if (!dd.appointments.find(a => a.id === appt.id)) dd.appointments.unshift(appt); });
-          this._pushAdminNotif(`${agentName} booked ${appt.lead} for ${clientName}`, 'appt', { route: 'apptadmin', modal: 'appointmentDetail', modalForm: { id: appt.id } });
-          this.toast('New appointment', `${agentName} · ${appt.lead} · ${clientName}`, 'var(--info)');
+          if (!coveredByMtd) {
+            this.mutLocal(dd => { if (!dd.appointments.find(a => a.id === appt.id)) dd.appointments.unshift(appt); });
+            this._pushAdminNotif(`${agentName} booked ${appt.lead} for ${clientName}`, 'appt', { route: 'apptadmin', modal: 'appointmentDetail', modalForm: { id: appt.id } });
+            this.toast('New appointment', `${agentName} · ${appt.lead} · ${clientName}`, 'var(--info)');
+          }
         }
       }
 

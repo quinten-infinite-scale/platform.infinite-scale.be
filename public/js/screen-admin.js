@@ -2771,7 +2771,10 @@ const ScreenAdmin = {
 
     // ── Columns ───────────────────────────────────────────────────────────────
     const baseCols = [
+      { label: 'Naam', key: 'contact', w: 130, bold: true, editable: true },
       { label: 'Bedrijf', key: 'company', w: 155, bold: true, editable: true },
+      { label: 'E-mail', key: 'email', w: 175, mono: true, editable: true },
+      { label: 'Telefoon', key: 'phone', w: 115, mono: true, editable: true },
       { label: 'Status', key: 'status', w: 155, statusCol: true },
       { label: 'Lead Source', key: 'lead_source', w: 120, pill: true, editable: true, editSelect: ['Cold Calling', 'Cold Email', 'Meta Ads', 'Website', 'Direct Inbound', 'Referral'] },
       { label: 'Afspraak datum', key: 'appointment_date', w: 110, datePick: true },
@@ -2779,9 +2782,8 @@ const ScreenAdmin = {
       { label: 'CLOSER Score', key: 'closer_score_total', w: 95, closerScoreCol: true },
       { label: 'Laatste contact', key: 'last_followup', w: 100, datePick: true },
       { label: 'Opmerking beller', key: 'caller_note', w: 185, editable: true },
-      { label: 'E-mail', key: 'email', w: 175, mono: true, editable: true },
-      { label: 'Telefoon', key: 'phone', w: 115, mono: true, editable: true },
       { label: 'Datum', key: 'created_at', w: 88, date: true },
+
       { label: 'Bron', key: 'source', w: 95, pill: true, editable: true, editSelect: ['LinkedIn', 'Cold email', 'Referral', 'Meta forms', 'Website', 'Cold call'] },
       { label: 'Omzet', key: 'revenue', w: 80, editable: true },
       { label: 'Sales pers.', key: 'assigned', w: 105, editable: true, editSelect: ['', ...(d.salespeople || []).map(sp => sp.name)] },
