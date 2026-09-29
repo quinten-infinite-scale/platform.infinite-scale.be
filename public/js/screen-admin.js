@@ -1585,7 +1585,7 @@ const ScreenAdmin = {
           UI.Hd('Dials & Appointments', { fontSize: 15 }),
           UI.C({ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, background: 'none', border: 'none', boxShadow: 'none' },
             UI.Donut(overall.nsPct, 'var(--down)', overall.nsPct + '%', 'No-show rate · selected range'))),
-        UI.LineDual(dialSeries, 'var(--accent)', apptSeries, 'var(--info)', labels.filter((_, i) => i % labelStep === 0), v => String(v) + ' dials', v => String(v) + ' appts', labels, { dowLabels: isoLabels, hourMarkers: (activeQuick === 'today' || activeQuick === 'yesterday') && !hourlyHasData })),
+        UI.LineDual(dialSeries, 'var(--accent)', apptSeries, 'var(--info)', labels.filter((_, i) => i % labelStep === 0), v => String(v) + ' dials', v => String(v) + ' appts', labels, { dowLabels: hourlyHasData ? null : isoLabels, hourMarkers: (activeQuick === 'today' || activeQuick === 'yesterday') && !hourlyHasData })),
 
       UI.C({},
         UI.Row({ justifyContent: 'space-between', marginBottom: 16 },
