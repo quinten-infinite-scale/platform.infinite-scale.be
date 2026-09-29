@@ -103,15 +103,20 @@ const ScreenAdmin = {
     const today = this.iso(this.today());
     const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
     const aRate = (a) => { if (a.client === 'c15') return rnAgentPay(a) ?? 0; const ag = d.agents.find(g => g.id === a.agent); if (!ag) return 0; const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? ((ag.rates||{})[a.sub]||(ag.rates||{})[a.client]||0) : 0; return (ag && ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client])) || 0; };
-    // Expected: all billable appointments logged this month (regardless of invoiced status)
-    const curMonthBillable = d.appointments.filter(a => a.dateLog && a.dateLog.startsWith(currentYM) && a.status !== 'cancel' && a.status !== 'no_show');
+    // Expected: shows by dateAppt (when meeting happened), open/pending by dateLog (when booked) — matches OPA logic
+    const curMonthShows   = d.appointments.filter(a => a.dateAppt && a.dateAppt.startsWith(currentYM) && a.status === 'show');
+    const curMonthOpen    = d.appointments.filter(a => a.dateLog && a.dateLog.startsWith(currentYM) && a.status !== 'cancel' && a.status !== 'no_show' && a.status !== 'show');
+    const curMonthBillable = [...curMonthShows, ...curMonthOpen];
     const expected = curMonthBillable.reduce((x, a) => x + cRate(a), 0);
     // Invoiced: all appointments formally marked as invoiced
     const invoiced = d.appointments.filter(a => a.invoiced && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
     const received = d.appointments.filter(a => a.paid && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
-    const agentCost = curMonthBillable.filter(a => a.status === 'show').reduce((x, a) => x + aRate(a), 0);
-    const revToday = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + cRate(a), 0);
-    const costToday = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + aRate(a), 0);
+    const agentCost = curMonthShows.reduce((x, a) => x + aRate(a), 0);
+    // revToday: shows by dateAppt (meetings happening today) + open by dateLog (booked today) — matches OPA
+    const todayShows  = d.appointments.filter(a => a.dateAppt === today && a.status === 'show');
+    const todayOpen   = d.appointments.filter(a => a.dateLog  === today && a.status !== 'cancel' && a.status !== 'show');
+    const revToday    = [...todayShows, ...todayOpen].reduce((x, a) => x + cRate(a), 0);
+    const costToday   = [...todayShows, ...todayOpen].reduce((x, a) => x + aRate(a), 0);
     const pnl = expected - agentCost;
     const pnlToday = revToday - costToday;
     const margin = expected > 0 ? Math.round(pnl / expected * 100) : null;
@@ -864,9 +869,11 @@ const ScreenAdmin = {
       return ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client] || 0) + (a.dealCommission || 0);
     };
 
+    // Shows by dateAppt (when meeting happened), open/pending by dateLog (when booked) — matches OPA and Dashboard logic
     const monthAppts = d.appointments.filter(a => {
-      const ym = (a.dateLog || '').slice(0, 7);
-      return ym === monthYM && a.status !== 'cancel' && a.status !== 'no_show';
+      if (a.status === 'cancel' || a.status === 'no_show') return false;
+      if (a.status === 'show') return (a.dateAppt || '').slice(0, 7) === monthYM;
+      return (a.dateLog || '').slice(0, 7) === monthYM;
     });
 
     // Fixed costs (defaults = Aug 2026 actuals from Excel)
@@ -933,7 +940,7 @@ const ScreenAdmin = {
     const allDays = [];
     for (let i = 1; i <= daysInMonth; i++) {
       const dayStr = monthYM + '-' + String(i).padStart(2, '0');
-      const dayAppts = monthAppts.filter(a => (a.dateLog || '').slice(0, 10) === dayStr);
+      const dayAppts = monthAppts.filter(a => a.status === 'show' ? (a.dateAppt || '').slice(0, 10) === dayStr : (a.dateLog || '').slice(0, 10) === dayStr);
       if (dayAppts.length === 0) continue;
       const d0 = new Date(dayStr + 'T12:00:00');
       const dayNames = ['zo','ma','di','wo','do','vr','za'];
