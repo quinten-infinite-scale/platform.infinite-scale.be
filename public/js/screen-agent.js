@@ -26,7 +26,7 @@ const ScreenAgent = {
     const dialsT = agDials[today] || 0, dialsY = agDials[yest] || 1;
     const apT = d.appointments.filter(a => a.agent === me.id && a.dateLog === today);
     const apY = d.appointments.filter(a => a.agent === me.id && a.dateLog === yest);
-    const agentPay = a => { const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? (a.agentRate != null ? a.agentRate : ((me.rates||{})[a.sub]||(me.rates||{})[a.client]||0)) : 0; return a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0)); };
+    const agentPay = a => { const cl = d.clients.find(c => c.id === a.client); const myRate = a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? 0) : ((me.rates||{})[a.sub]||(me.rates||{})[a.client]||0)); if (cl && cl.closeFee && myRate === 0 && !a.quoteApproved) return 0; return myRate; };
     const moneyT = apT.reduce((x, a) => x + agentPay(a), 0);
     const moneyY = apY.reduce((x, a) => x + agentPay(a), 0) || 1;
     const pct = (a, b) => Math.round(((a - b) / (b || 1)) * 100);
@@ -69,7 +69,7 @@ const ScreenAgent = {
         const isCloseFee = cl && cl.closeFee;
         const isRenocheck = r.client === 'c15';
         if (r.status === 'cancel') return e('div', { style: { textAlign: 'right' } }, UI.Mono('—', { fontWeight: 700, color: 'var(--text-mute)' }));
-        if (isCloseFee) { const ep = r.quoteApproved ? (r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client])) : null; return e('div', { style: { textAlign: 'right' } }, UI.Mono(ep ? this.euro(ep) : 'On close', { fontWeight: 700, color: ep ? 'var(--up)' : 'var(--text-mute)' })); }
+        if (isCloseFee) { const myApptRate = r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client]||0); if (myApptRate === 0) { const ep = r.quoteApproved ? (r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client])) : null; return e('div', { style: { textAlign: 'right' } }, UI.Mono(ep ? this.euro(ep) : 'On close', { fontWeight: 700, color: ep ? 'var(--up)' : 'var(--text-mute)' })); } }
         const rate = isRenocheck ? (r.agentRate != null ? r.agentRate : (rnAgentPay(r) ?? 0)) : (r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client]));
         const isShow = r.status === 'show';
         return e('div', { style: { textAlign: 'right' } }, UI.Mono(rate != null ? this.euro(rate) : '—', { fontWeight: 700, color: isShow ? 'var(--up)' : 'oklch(0.62 0.06 256)' }), r.dealCommission != null && isShow ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
@@ -559,7 +559,7 @@ const ScreenAgent = {
         UI.Bars(payLabels.map((l, i) => ({ label: l, value: payAppts[i] })), 'var(--info)')));
 
     const apptThisMonth = a => a.agent === me.id && (a.dateLog || '').startsWith(currentYM);
-    const agentRate = a => { const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return (a.quoteApproved ? ((me.rates||{})[a.sub]||(me.rates||{})[a.client]||0) : 0) + (a.dealCommission||0); return ((me.rates || {})[a.sub] || (me.rates || {})[a.client] || 0) + (a.dealCommission || 0); };
+    const agentRate = a => { const cl = d.clients.find(c => c.id === a.client); const myR = (me.rates||{})[a.sub]||(me.rates||{})[a.client]||0; if (cl && cl.closeFee && myR === 0 && !a.quoteApproved) return a.dealCommission||0; return myR + (a.dealCommission || 0); };
     // running = all non-cancel this month (open + shows) = potential earnings
     const runningThisMonth = d.appointments.filter(a => apptThisMonth(a) && a.status === 'open').reduce((x, a) => x + agentRate(a), 0);
     const running = d.appointments.filter(a => apptThisMonth(a) && a.status === 'show').reduce((x, a) => x + agentRate(a), 0);

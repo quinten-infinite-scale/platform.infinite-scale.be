@@ -99,57 +99,74 @@ async function handleMetaLeads(req, res, rawBody) {
   let payload;
   try { payload = JSON.parse(rawBody); } catch { return res.status(400).json({ error: 'Invalid JSON' }); }
 
-  for (const entry of (payload?.entry || [])) {
-    for (const change of (entry?.changes || [])) {
-      if (change?.field !== 'leadgen') continue;
-      const val = change?.value || {};
-      const leadId = val.leadgen_id;
-      const adName = val.ad_name || '';
-      const adId = String(val.ad_id || '');
-      const formId = String(val.form_id || '');
+  // Respond 200 immediately so Meta doesn't retry on slow processing
+  res.status(200).json({ ok: true });
 
-      let fieldData = val.field_data || [];
-      if (!fieldData.length && leadId) {
-        try {
-          const gr = await fetch(`https://graph.facebook.com/v19.0/${leadId}?access_token=${process.env.WHATSAPP_ACCESS_TOKEN}&fields=field_data`);
-          const gd = await gr.json();
-          fieldData = gd?.field_data || [];
-        } catch(err) { console.error('[meta-leads] Graph fetch failed:', err.message); }
-      }
+  const processLeadEntry = async (entry, change) => {
+    if (change?.field !== 'leadgen') return;
+    const val = change?.value || {};
+    const leadId = val.leadgen_id;
+    const adName = val.ad_name || '';
+    const adId = String(val.ad_id || '');
+    const formId = String(val.form_id || '');
 
-      const company = fieldVal(fieldData, 'company_name', 'bedrijfsnaam', 'company') || '';
-      const contact = fieldVal(fieldData, 'full_name', 'naam', 'name') || (fieldVal(fieldData, 'first_name') + ' ' + fieldVal(fieldData, 'last_name')).trim();
-      const email   = fieldVal(fieldData, 'email', 'work_email');
-      const phone   = fieldVal(fieldData, 'phone_number', 'telefoonnummer', 'phone');
+    if (!leadId) return;
 
-      if (!company && !contact && !email) { console.warn('[meta-leads] No usable data, skipping'); continue; }
+    // Deduplication: skip if already inserted
+    try {
+      const existing = await sbGet(`prospects?lead_id=eq.${encodeURIComponent(leadId)}&select=id`);
+      if (existing && existing.length > 0) { console.log('[meta-leads] Duplicate, skipping:', leadId); return; }
+    } catch(err) { console.error('[meta-leads] Dedup check failed:', err.message); }
 
-      // Look up form mapping from platform_settings
-      let pipelineId = 'meta_ads', stage = 'new_lead', assigned = '', mappedSource = 'Meta forms';
+    let fieldData = val.field_data || [];
+    if (!fieldData.length && leadId) {
       try {
-        const settRows = await sbGet('platform_settings?key=eq.meta_lead_forms&select=value');
-        const forms = JSON.parse(settRows?.[0]?.value || '[]');
-        const mapping = forms.find(f => String(f.form_id) === String(formId));
-        if (mapping) {
-          pipelineId = mapping.pipeline_id || pipelineId;
-          stage = mapping.stage || stage;
-          assigned = mapping.assigned || assigned;
-          mappedSource = mapping.source || mappedSource;
-        }
-      } catch(err) { console.error('[meta-leads] Form mapping lookup failed:', err.message); }
-
-      const row = {
-        id: 'p' + Date.now() + Math.floor(Math.random() * 1000),
-        pipeline_id: pipelineId, stage, source: mappedSource,
-        company: company || contact || 'Unknown', contact, email, phone,
-        ad_name: adName, lead_id: String(leadId || ''), ad_id: adId, form_id: formId,
-        assigned, status: 'new', notes: '', caller_note: '',
-      };
-      await sbInsert('prospects', row);
-      console.log('[meta-leads] Inserted:', row.company, '→', pipelineId, '/', stage);
+        const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.META_PAGE_ACCESS_TOKEN;
+        const gr = await fetch(`https://graph.facebook.com/v19.0/${leadId}?access_token=${accessToken}&fields=field_data`);
+        const gd = await gr.json();
+        fieldData = gd?.field_data || [];
+      } catch(err) { console.error('[meta-leads] Graph fetch failed:', err.message); }
     }
-  }
-  return res.status(200).json({ ok: true });
+
+    const company = fieldVal(fieldData, 'company_name', 'bedrijfsnaam', 'company') || '';
+    const contact = fieldVal(fieldData, 'full_name', 'naam', 'name') || (fieldVal(fieldData, 'first_name') + ' ' + fieldVal(fieldData, 'last_name')).trim();
+    const email   = fieldVal(fieldData, 'email', 'work_email');
+    const phone   = fieldVal(fieldData, 'phone_number', 'telefoonnummer', 'phone');
+
+    if (!company && !contact && !email) { console.warn('[meta-leads] No usable data, skipping'); return; }
+
+    // Look up form mapping from platform_settings
+    let pipelineId = 'meta_ads', stage = 'new_lead', assigned = '', mappedSource = 'Meta forms';
+    try {
+      const settRows = await sbGet('platform_settings?key=eq.meta_lead_forms&select=value');
+      const forms = JSON.parse(settRows?.[0]?.value || '[]');
+      const mapping = forms.find(f => String(f.form_id) === String(formId));
+      if (mapping) {
+        pipelineId = mapping.pipeline_id || pipelineId;
+        stage = mapping.stage || stage;
+        assigned = mapping.assigned || assigned;
+        mappedSource = mapping.source || mappedSource;
+      }
+    } catch(err) { console.error('[meta-leads] Form mapping lookup failed:', err.message); }
+
+    const row = {
+      id: 'p' + Date.now() + Math.floor(Math.random() * 1000),
+      pipeline_id: pipelineId, stage, source: mappedSource, lead_source: 'Meta Ads',
+      company: company || contact || 'Unknown', contact, email, phone,
+      ad_name: adName, lead_id: String(leadId), ad_id: adId, form_id: formId,
+      assigned, status: 'new', notes: '', caller_note: '',
+      created_at: new Date().toISOString(),
+    };
+    await sbInsert('prospects', row);
+    console.log('[meta-leads] Inserted:', row.company, '→', pipelineId, '/', stage);
+  };
+
+  await Promise.all(
+    (payload?.entry || []).flatMap(entry =>
+      (entry?.changes || []).map(change => processLeadEntry(entry, change).catch(err => console.error('[meta-leads] error:', err.message)))
+    )
+  );
+  return;
 }
 
 // ─── GET handler ─────────────────────────────────────────────────────────────

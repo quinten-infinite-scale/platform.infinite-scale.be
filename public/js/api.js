@@ -102,6 +102,7 @@ const API = {
         timelineStage: c.timeline_stage || null,
         needsLeadlist: !!c.needs_leadlist,
         closeFee: c.close_fee || null,
+        timelineChecklist: c.timeline_checklist || null,
       };
       if (role === 'agent') {
         delete norm.rate;

@@ -416,7 +416,18 @@ const ScreenClient = {
     // Billing table columns (includes status buttons + subclient col for agencies)
     const isDimmed = r => r.status === 'cancel' || r.status === 'no_show';
     const billingCols = forHistory => [
-      { label: 'Datum', render: r => UI.Mono(this.fmtDate(r.dateAppt || r.dateLog), { fontSize: 12, color: isDimmed(r) ? 'var(--text-mute)' : undefined }) },
+      { label: 'Datum', render: r => {
+        const apptDate = (r.dateAppt || '').slice(0, 10);
+        const logDate = (r.dateLog || '').slice(0, 10);
+        const saveDate = async (newDate) => {
+          if (!newDate || newDate === apptDate) return;
+          await SB.patch('appointments', '?id=eq.' + r.id, { date_appt: newDate });
+          this.mutLocal('appointments', a => a.id === r.id ? { ...a, dateAppt: newDate } : a);
+        };
+        return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+          e('input', { type: 'date', defaultValue: apptDate || logDate, disabled: isDimmed(r), onChange: ev => saveDate(ev.target.value), style: { fontSize: 11.5, fontFamily: "'JetBrains Mono', monospace", background: 'transparent', border: 'none', borderBottom: isDimmed(r) ? 'none' : '1px dashed var(--border)', color: isDimmed(r) ? 'var(--text-mute)' : 'var(--text)', padding: '1px 2px', cursor: isDimmed(r) ? 'default' : 'pointer', width: 110 } }),
+          apptDate && apptDate !== logDate ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono', monospace" } }, 'gelogd: ' + logDate) : null);
+      } },
       { label: 'Lead', render: r => e('span', { style: { fontWeight: 600, color: isDimmed(r) ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDimmed(r) ? 'line-through' : 'none' } }, r.lead) },
       { label: 'Agent', render: r => e('span', { style: { color: isDimmed(r) ? 'var(--text-mute)' : undefined } }, this.agentName(r.agent, d)) },
       isAgency ? { label: 'Client', render: r => { const sc = (cl.subclients || []).find(x => x.id === r.sub || x.name === r.sub); return e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, sc ? sc.name : '—'); } } : null,

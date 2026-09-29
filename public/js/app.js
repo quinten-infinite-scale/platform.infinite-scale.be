@@ -155,7 +155,17 @@ class Component extends DCLogic {
     this.setState({ role, loading: false, data, route: _initRoute, notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus });
     if (_metaConnected) setTimeout(() => this.toast('Meta', 'Account succesvol verbonden!', 'var(--up)'), 400);
     if (_metaError) setTimeout(() => this.toast('Meta fout', decodeURIComponent(_metaError), 'var(--down)'), 400);
-    if (freshLogin) setTimeout(() => this._logActivity('login', 'Logged in to platform'), 200);
+    if (freshLogin) {
+      let loginDetails = 'Logged in to platform';
+      if (role === 'subclient' && subClientId) {
+        const allCl = await SB.get('clients', '?select=id,name,subclients').catch(() => []) || [];
+        for (const cl of allCl) {
+          const sc = (cl.subclients || []).find(x => x.id === subClientId);
+          if (sc) { loginDetails = 'Logged in as subclient: ' + sc.name + ' (' + cl.name + ')'; break; }
+        }
+      }
+      setTimeout(() => this._logActivity('login', loginDetails), 200);
+    }
     this._updatePresence('dashboard');
     this._startPolling();
     // Persist to cache for instant loads next time (exclude heavy/transient fields)
@@ -455,6 +465,10 @@ class Component extends DCLogic {
     } else if ((s.role === 'client' || s.role === 'agency') && this.myClientId) {
       const me = (s.data.clients || []).find(c => c.id === this.myClientId);
       userName = me?.name || '';
+    } else if (s.role === 'subclient' && this.myClientId) {
+      const cl = (s.data.clients || []).find(c => c.id === this.myClientId);
+      const sc = cl && this.scSubId ? (cl.subclients || []).find(x => x.id === this.scSubId) : null;
+      userName = sc ? sc.name : (cl?.name || 'Subclient');
     } else if (s.role === 'admin') {
       const sess = SB.getSession();
       userName = sess?.user?.email?.split('@')[0] || 'Admin';
