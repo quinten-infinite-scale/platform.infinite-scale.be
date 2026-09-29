@@ -1380,7 +1380,7 @@ const ScreenAdmin = {
       for (let h = 1; h <= maxHour; h++) {
         const hourCount = Object.keys(d.dialsHourly).reduce((x, id) => x + (((d.dialsHourly[id] || {})[hourlyDate] || {})[h] || 0), 0);
         dialSeries.push(hourCount);
-        apptSeries.push(0); // no per-hour appt data; show as 0
+        apptSeries.push(dayAppts.length); // show total day appointments as flat reference line
         labels.push(h === 0 ? '12 AM' : h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h - 12) + ' PM');
         isoLabels.push(hourlyDate);
         apptBreakdowns.push([]);
@@ -1403,8 +1403,12 @@ const ScreenAdmin = {
       }
     }
 
-    const totalDials = dialSeries.reduce((a, b) => a + b, 0);
-    const totalAppts = apptSeries.reduce((a, b) => a + b, 0);
+    const totalDials = hourlyHasData
+      ? Object.keys(d.dials).reduce((x, id) => x + ((d.dials[id] || {})[hourlyDate] || 0), 0)
+      : dialSeries.reduce((a, b) => a + b, 0);
+    const totalAppts = hourlyHasData
+      ? d.appointments.filter(a => a.dateLog === hourlyDate).length
+      : apptSeries.reduce((a, b) => a + b, 0);
     const convPct = totalDials > 0 ? (totalAppts / totalDials * 100).toFixed(1) : '—';
 
     const ratio = list => {
