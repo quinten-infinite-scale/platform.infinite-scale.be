@@ -546,7 +546,7 @@ class Component extends DCLogic {
         }
       } catch {}
       // closeFee clients (deal-based)
-      if (cl && cl.closeFee) return ap?.quoteApproved ? cl.closeFee : 0;
+      if (cl && cl.closeFee) return ap?.quoteApproved ? cl.closeFee : (cl.rate || 0);
       // Subclient rate, else client rate
       if (ap?.sub && cl?.subclients) {
         const sc = cl.subclients.find(s => s.id === ap.sub || s.name === ap.sub);
@@ -1186,14 +1186,16 @@ class Component extends DCLogic {
     else this.toast('Fout', 'Opslaan mislukt — check console', 'var(--down)');
   }
 
-  async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus, kickoff, subclients, needsLeadlist) {
-    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed', ...(kickoff !== undefined ? { kickoff: kickoff || null } : {}), ...(kickoff === '' ? { timeline_stage: null } : {}), ...(subclients ? { subclients } : {}), ...(needsLeadlist !== undefined ? { needs_leadlist: !!needsLeadlist } : {}) };
+  async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus, kickoff, subclients, needsLeadlist, tlChecklist) {
+    const checklistJson = tlChecklist ? JSON.stringify(tlChecklist) : null;
+    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed', ...(kickoff !== undefined ? { kickoff: kickoff || null } : {}), ...(kickoff === '' ? { timeline_stage: null } : {}), ...(subclients ? { subclients } : {}), ...(needsLeadlist !== undefined ? { needs_leadlist: !!needsLeadlist } : {}), ...(checklistJson !== null ? { timeline_checklist: checklistJson } : {}) };
     this.mutLocal(d => {
       const c = d.clients.find(x => x.id === clientId); if (!c) return;
       c.agentStartDate = agentStartDate; c.linkedAgentId = linkedAgentId; c.linkedRecruitId = linkedRecruitId; c.agentVacancy = agentStatus;
       if (kickoff !== undefined) c.kickoff = kickoff || null;
       if (subclients) c.subclients = subclients;
       if (needsLeadlist !== undefined) c.needsLeadlist = !!needsLeadlist;
+      if (tlChecklist !== undefined) c.timelineChecklist = checklistJson;
     });
     await API.updateClient(clientId, updates);
     this.toast('Saved', 'Timeline updated', 'var(--up)');

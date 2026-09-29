@@ -101,7 +101,7 @@ const ScreenAdmin = {
     const now = new Date();
     const currentYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     const today = this.iso(this.today());
-    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : (cl.rate || 0); if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
     const aRate = (a) => { if (a.client === 'c15') return rnAgentPay(a) ?? 0; const ag = d.agents.find(g => g.id === a.agent); if (!ag) return 0; const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? ((ag.rates||{})[a.sub]||(ag.rates||{})[a.client]||0) : 0; return (ag && ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client])) || 0; };
     // Expected: shows by dateAppt (when meeting happened), open/pending by dateLog (when booked) — matches OPA logic
     const curMonthShows   = d.appointments.filter(a => a.dateAppt && a.dateAppt.startsWith(currentYM) && a.status === 'show');
@@ -1765,7 +1765,7 @@ const ScreenAdmin = {
         const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
         const cl = d.clients.find(c => c.id === r.client);
         const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
-        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; return 0; } } catch {} if (cl && cl.closeFee) return r.quoteApproved ? cl.closeFee : 0; if (sub && sub.rate != null) return sub.rate; return (cl && cl.rate) || 0; })();
+        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; return 0; } } catch {} if (cl && cl.closeFee) return r.quoteApproved ? cl.closeFee : (cl.rate || 0); if (sub && sub.rate != null) return sub.rate; return (cl && cl.rate) || 0; })();
         return e('div', { style: { textAlign: 'right' } },
           UI.Mono(displayAmt ? this.euro(displayAmt) : '—', { fontWeight: 700, color: displayAmt ? 'var(--text)' : 'var(--text-mute)' }),
           agentRate ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, 'Agent: ' + this.euro(agentRate) + (r.agentRate != null ? ' ✱' : '')) : null,
@@ -5060,7 +5060,7 @@ const ScreenAdmin = {
     const dayOfMonth = isCurrentMonth ? parseInt(today.slice(8, 10)) : daysInMonth;
     const daysLeft = isCurrentMonth ? daysInMonth - dayOfMonth : 0;
 
-    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : (cl.rate || 0); if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
     const monthlyActual = (d.appointments || []).filter(a => a.dateLog && a.dateLog.startsWith(monthStr) && a.status !== 'cancel' && a.status !== 'no_show')
       .reduce((sum, a) => sum + cRate(a), 0);
 
@@ -5869,7 +5869,7 @@ const ScreenAdmin = {
     const agents = (d.agents || []).filter(a => a.active !== false);
 
     // cRate — client billing rate (same logic used everywhere)
-    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e2) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : 0; if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e2) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : (cl.rate || 0); if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
     // agCost — what we pay the agent per appointment
     const agCost = (a) => { const ag = (d.agents||[]).find(g => g.id === a.agent); if (!ag) return 0; return (ag.rates && ((ag.rates[a.sub]) || (ag.rates[a.client]))) || 0; };
 
