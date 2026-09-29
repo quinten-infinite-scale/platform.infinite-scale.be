@@ -1209,6 +1209,56 @@ const Modals = {
       const detailSelSub = f.tlDetailSubclient !== undefined ? f.tlDetailSubclient : (currentTimelineSub ? currentTimelineSub.id : '');
       const detailSubOpts = [{ v: '', l: 'Alle subclients / geen specifiek' }, ...detailSubclients.map(sc => ({ v: sc.id, l: sc.name }))];
       const needsLeadlist = f.needsLeadlist !== undefined ? f.needsLeadlist : !!(c.needsLeadlist);
+
+      // Checklist
+      const CHECKLIST_ITEMS = [
+        { section: 'Leads', items: [
+          { id: 'lead_bron', label: 'Bron leadlijst bepaald: eigen prospectie of Excel via template' },
+          { id: 'power_dialer', label: 'Power dialer nodig: ja of nee' },
+        ]},
+        { section: 'Materiaal (Slack)', items: [
+          { id: 'belscript', label: 'Belscript' },
+          { id: 'productkennis', label: 'Productkennis' },
+          { id: 'agenda', label: 'Agenda' },
+        ]},
+        { section: 'Team', items: [
+          { id: 'agent_gematcht', label: 'Agent(s) gematcht aan het project' },
+          { id: 'briefing_gedaan', label: 'Briefing gedaan' },
+          { id: 'klant_toegewezen', label: 'Klant toegewezen aan agent in het platform' },
+          { id: 'manager_luistert', label: 'Manager luistert mee tot de eerste afspraak' },
+        ]},
+        { section: 'Communicatie', items: [
+          { id: 'whatsapp_groep', label: 'WhatsApp-groep aangemaakt: klant, agent, manager' },
+        ]},
+      ];
+      const parseChecklist = raw => { try { return JSON.parse(raw || '{}'); } catch { return {}; } };
+      const tlChecklist = f.tlChecklist !== undefined ? f.tlChecklist : parseChecklist(c.timelineChecklist);
+      const tlChecklistOpen = f.tlChecklistOpen !== undefined ? f.tlChecklistOpen : false;
+      const totalItems = CHECKLIST_ITEMS.reduce((n, s) => n + s.items.length, 0);
+      const doneItems = CHECKLIST_ITEMS.reduce((n, s) => n + s.items.filter(it => tlChecklist[it.id]).length, 0);
+      const allDone = doneItems === totalItems;
+      const checklistSection = e('div', { style: { border: '1px solid ' + (allDone ? 'var(--up)' : 'var(--border)'), borderRadius: 10, overflow: 'hidden' } },
+        e('button', {
+          onClick: () => this.setForm('tlChecklistOpen', !tlChecklistOpen),
+          style: { width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: allDone ? 'oklch(0.18 0.05 145 / .2)' : 'var(--bg-2)', border: 'none', cursor: 'pointer', gap: 10 }
+        },
+          e('span', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            e('span', { style: { fontWeight: 700, fontSize: 13, color: allDone ? 'var(--up)' : 'var(--text)' } }, '✅ Checklist'),
+            e('span', { style: { fontSize: 11.5, color: allDone ? 'var(--up)' : 'var(--text-mute)', fontWeight: 600 } }, doneItems + '/' + totalItems + ' voltooid')),
+          e('span', { style: { fontSize: 12, color: 'var(--text-mute)', transform: tlChecklistOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' } }, '▼')),
+        tlChecklistOpen ? e('div', { style: { padding: '4px 14px 14px', display: 'flex', flexDirection: 'column', gap: 12 } },
+          CHECKLIST_ITEMS.map(sec =>
+            e('div', { key: sec.section },
+              e('div', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '10px 0 6px' } }, sec.section),
+              e('div', { style: { display: 'flex', flexDirection: 'column', gap: 5 } },
+                sec.items.map(it => {
+                  const checked = !!(tlChecklist[it.id]);
+                  return e('label', { key: it.id, style: { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '7px 10px', borderRadius: 8, background: checked ? 'oklch(0.18 0.05 145 / .15)' : 'transparent', cursor: 'pointer', border: '1px solid ' + (checked ? 'var(--up)' : 'var(--border-soft)') } },
+                    e('input', { type: 'checkbox', checked, onChange: ev => { const next = { ...tlChecklist, [it.id]: ev.target.checked }; this.setForm('tlChecklist', next); const j = JSON.stringify(next); API.updateClient(c.id, { timeline_checklist: j }); this.mutLocal(d2 => { const cl = d2.clients.find(x => x.id === c.id); if (cl) cl.timelineChecklist = j; }); }, style: { width: 15, height: 15, accentColor: 'var(--up)', cursor: 'pointer', flexShrink: 0, marginTop: 1 } }),
+                    e('span', { style: { fontSize: 12.5, color: checked ? 'var(--up)' : 'var(--text-dim)', fontWeight: checked ? 600 : 400, lineHeight: 1.4, textDecoration: checked ? 'line-through' : 'none', textDecorationColor: 'var(--up)' } }, it.label));
+                }))))
+        ) : null);
+
       const agentChips = e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
         linkedAgentIds.length === 0
           ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic', padding: '6px 0' } }, 'Nog geen agent gekoppeld')
@@ -1235,6 +1285,7 @@ const Modals = {
           e('input', { type: 'checkbox', checked: needsLeadlist, onChange: ev => this.setForm('needsLeadlist', ev.target.checked), style: { width: 16, height: 16, accentColor: 'var(--warn)', cursor: 'pointer' } }),
           e('span', { style: { fontWeight: 700, fontSize: 13, color: needsLeadlist ? 'var(--warn)' : 'var(--text-dim)' } }, '📋 Leadlist aanmaken'),
           needsLeadlist ? e('span', { style: { fontSize: 11, color: 'var(--warn)', marginLeft: 4 } }, '— nog te doen') : e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 4 } }, '— niet vereist')),
+        checklistSection,
         UI.Field('Agent startdatum (effectieve opstart)', e('input', { type: 'date', value: agentStartDate, onChange: ev => this.setForm('agentStartDate', ev.target.value), style: { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--accent)', fontSize: 13, outline: 'none', boxSizing: 'border-box' } })),
         UI.Field('Vacancy status',
           e('div', { style: { display: 'flex', gap: 8 } },
@@ -1255,7 +1306,7 @@ const Modals = {
              : null;
            // Serialize array; use first ID for backward-compat single-agent reads
            const agentIdsSerialized = linkedAgentIds.length === 0 ? null : linkedAgentIds.length === 1 ? linkedAgentIds[0] : JSON.stringify(linkedAgentIds);
-           this.saveTimelineData(c.id, agentStartDate, agentIdsSerialized, linkedRecruitId, agentVacancy, kickoffVal, subPatch, needsLeadlist);
+           this.saveTimelineData(c.id, agentStartDate, agentIdsSerialized, linkedRecruitId, agentVacancy, kickoffVal, subPatch, needsLeadlist, tlChecklist);
            this.closeModal();
          }, 'primary')], '520px');
     }
