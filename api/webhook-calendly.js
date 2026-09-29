@@ -29,7 +29,9 @@ async function sbGet(path) {
   return r.json().catch(() => []);
 }
 async function sbPatch(table, query, body) {
-  return fetch(`${SB_URL}/rest/v1/${table}${query}`, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body) });
+  const r = await fetch(`${SB_URL}/rest/v1/${table}${query}`, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body) });
+  if (!r.ok) { const err = await r.text().catch(() => ''); console.error(`[calendly] sbPatch ${table}${query} failed ${r.status}: ${err}`); }
+  return r;
 }
 
 function getRawBody(req) {
@@ -160,9 +162,8 @@ export default async function handler(req, res) {
 
     const updates = {
       ...(meetingStage ? { stage: meetingStage } : {}),
-      calendly_event_uri: eventUri,
-      calendly_event_start: startTime,
-      calendly_event_name: eventName,
+      calendly_event_id: eventUri,
+      appointment_date: startTime ? startTime.slice(0, 10) : null,
       next_action_type: 'meeting',
       next_action_date: startTime ? startTime.slice(0, 10) : null,
       next_action_notes: `Meeting gepland: ${eventName}${startTime ? ' op ' + new Date(startTime).toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' }) : ''}`,
@@ -181,8 +182,8 @@ export default async function handler(req, res) {
       : `Meeting geannuleerd${cancelReason ? ': ' + cancelReason : ''}`;
 
     const updates = {
-      calendly_event_uri: null,
-      calendly_event_start: null,
+      calendly_event_id: null,
+      appointment_date: null,
       next_action_type: isRescheduled ? 'herplan_call' : 'follow_up_call',
       next_action_date: new Date().toISOString().slice(0, 10),
       next_action_notes: note,
