@@ -512,7 +512,9 @@ class Component extends DCLogic {
 
   // ---- Account Switcher (admin impersonation) ----
   _switchToAccount(role, agentId, clientId, subClientId, displayName) {
-    const prev = { role: this.state.role, agentId: this.myAgentId, clientId: this.myClientId, scClientId: this.scClientId, scSubId: this.scSubId };
+    // Always save the original admin state so nested switches restore correctly
+    const existing = this.state._impersonate;
+    const prev = existing ? existing.prev : { role: this.state.role, agentId: this.myAgentId, clientId: this.myClientId, scClientId: this.scClientId, scSubId: this.scSubId };
     this.myAgentId = agentId || null;
     this.myClientId = clientId || null;
     this.scClientId = clientId || null;
