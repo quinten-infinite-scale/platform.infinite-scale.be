@@ -99,7 +99,7 @@ export default async function handler(req, res) {
 
   // Only fetch appointments still in 'open' status — clients who've reviewed all theirs get no reminder
   const apptRes = await fetch(
-    `${SB_URL}/rest/v1/appointments?date_appt=gte.${currentYM}-01&date_appt=lte.${monthEnd}&invoiced=eq.false&status=eq.open&select=client_id`,
+    `${SB_URL}/rest/v1/appointments?date_appt=gte.${currentYM}-01&date_appt=lte.${monthEnd}&invoiced=eq.false&status=eq.open&select=client_id,sub_client_id`,
     { headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey } }
   );
   const appts = await apptRes.json();
@@ -108,9 +108,10 @@ export default async function handler(req, res) {
   }
 
   const clientIds = [...new Set(appts.map(a => a.client_id))];
+  const subClientIds = [...new Set(appts.map(a => a.sub_client_id).filter(Boolean))];
 
   const [clientRes, contractRes] = await Promise.all([
-    fetch(`${SB_URL}/rest/v1/clients?id=in.(${clientIds.join(',')})&select=id,name,email,billing_confirmed`, {
+    fetch(`${SB_URL}/rest/v1/clients?id=in.(${clientIds.join(',')})&select=id,name,email,billing_confirmed,subclients`, {
       headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey },
     }),
     fetch(`${SB_URL}/rest/v1/contracts?party_type=eq.client&status=eq.signed&select=email,party&order=signed_at.desc`, {
@@ -219,6 +220,8 @@ export default async function handler(req, res) {
   };
 
   const results = [];
+
+  // Send to parent clients
   for (const cl of clients) {
     const email = cl.email || contracts.find(c => c.party && c.party.toLowerCase().includes(cl.name.toLowerCase()))?.email;
     if (!email) { results.push({ id: cl.id, skipped: 'no email' }); continue; }
@@ -232,6 +235,36 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error(`[invoice-reminder] failed to send to ${email}:`, err.message);
       results.push({ id: cl.id, email, trigger, sent: false, error: err.message });
+    }
+  }
+
+  // Send to subclients with open appointments
+  if (subClientIds.length > 0) {
+    // Build a lookup: subClientId -> { name, email } from parent client's subclients array
+    const subClientMap = {};
+    for (const cl of allClients) {
+      const subs = Array.isArray(cl.subclients) ? cl.subclients : [];
+      for (const sc of subs) {
+        if (sc.id && subClientIds.includes(sc.id)) {
+          subClientMap[sc.id] = { name: sc.name || cl.name, email: sc.email };
+        }
+      }
+    }
+
+    for (const scId of subClientIds) {
+      const sc = subClientMap[scId];
+      if (!sc?.email) { results.push({ subClientId: scId, skipped: 'no email' }); continue; }
+
+      const pending = appts.filter(a => a.sub_client_id === scId).length;
+      const html = buildEmail({ name: sc.name }, pending, trigger);
+
+      try {
+        await sendEmail(sc.email, subjects[trigger], html);
+        results.push({ subClientId: scId, email: sc.email, trigger, sent: true });
+      } catch (err) {
+        console.error(`[invoice-reminder] failed to send to subclient ${sc.email}:`, err.message);
+        results.push({ subClientId: scId, email: sc.email, trigger, sent: false, error: err.message });
+      }
     }
   }
 
