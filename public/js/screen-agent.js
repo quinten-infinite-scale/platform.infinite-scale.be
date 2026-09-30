@@ -372,12 +372,18 @@ const ScreenAgent = {
     const fDateFrom = s.fDateFrom !== undefined ? s.fDateFrom : '';
     const fDateTo = s.fDateTo !== undefined ? s.fDateTo : '';
     const fclient = s.fclient || 'all';
+    const fsubclient = s.fsubclient || 'all';
     const fstatus = s.fstatus || 'all';
     const activeQuick = quickRanges.find(qr => qr.from === fDateFrom && qr.to === fDateTo);
     const myClients = d.clients.filter(c => (me.clients || []).includes(c.id));
 
+    // Subclients of selected client (if any)
+    const selectedClient = fclient !== 'all' ? d.clients.find(c => c.id === fclient) : null;
+    const mySubclients = selectedClient ? (selectedClient.subclients || []) : [];
+
     let list = d.appointments.filter(a => a.agent === me.id);
     if (fclient !== 'all') list = list.filter(a => a.client === fclient);
+    if (fsubclient !== 'all') list = list.filter(a => a.sub === fsubclient);
     if (fstatus !== 'all') list = list.filter(a => a.status === fstatus);
     if (fDateFrom) list = list.filter(a => (a.dateAppt || a.dateLog) >= fDateFrom);
     if (fDateTo) list = list.filter(a => (a.dateAppt || a.dateLog) <= fDateTo);
@@ -429,7 +435,8 @@ const ScreenAgent = {
     const toolbar = UI.C({ padding: '14px 16px' },
       e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 } },
         quickRanges.map(qr => UI.Btn(qr.l, () => this.setState({ fDateFrom: qr.from, fDateTo: qr.to }), activeQuick && activeQuick.l === qr.l ? 'primary' : 'soft')),
-        myClients.length > 1 ? e('select', { value: fclient, onChange: ev => this.setState({ fclient: ev.target.value }), style: selStyle }, e('option', { value: 'all' }, 'All clients'), myClients.map(c => e('option', { key: c.id, value: c.id }, c.name))) : null,
+        myClients.length > 1 ? e('select', { value: fclient, onChange: ev => this.setState({ fclient: ev.target.value, fsubclient: 'all' }), style: selStyle }, e('option', { value: 'all' }, 'All clients'), myClients.map(c => e('option', { key: c.id, value: c.id }, c.name))) : null,
+        mySubclients.length > 0 ? e('select', { value: fsubclient, onChange: ev => this.setState({ fsubclient: ev.target.value }), style: selStyle }, e('option', { value: 'all' }, 'All subclients'), mySubclients.map(sc => e('option', { key: sc.id, value: sc.id }, sc.name))) : null,
         e('select', { value: fstatus, onChange: ev => this.setState({ fstatus: ev.target.value }), style: selStyle }, e('option', { value: 'all' }, 'All statuses'), e('option', { value: 'open' }, 'Open'), e('option', { value: 'show' }, 'Show'), e('option', { value: 'no_show' }, 'No-show'), e('option', { value: 'cancel' }, 'Cancel'))),
       e('div', { style: { display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--text-mute)', marginBottom: 12 } },
         e('span', null, 'From'),
