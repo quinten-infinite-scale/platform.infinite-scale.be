@@ -219,6 +219,7 @@ export default async function handler(req, res) {
     last:        `LAATSTE DAG: statussen bijwerken of alles wordt gefactureerd — ${monthLabel}`,
   };
 
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   const results = [];
 
   // Send to parent clients
@@ -236,6 +237,7 @@ export default async function handler(req, res) {
       console.error(`[invoice-reminder] failed to send to ${email}:`, err.message);
       results.push({ id: cl.id, email, trigger, sent: false, error: err.message });
     }
+    await sleep(150);
   }
 
   // Send to subclients with open appointments
@@ -265,6 +267,7 @@ export default async function handler(req, res) {
         console.error(`[invoice-reminder] failed to send to subclient ${sc.email}:`, err.message);
         results.push({ subClientId: scId, email: sc.email, trigger, sent: false, error: err.message });
       }
+      await sleep(150);
     }
   }
 
