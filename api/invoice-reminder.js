@@ -122,10 +122,13 @@ export default async function handler(req, res) {
   const allClients = await clientRes.json();
   const contracts = await contractRes.json();
 
-  // Skip clients who already confirmed their billing statuses for this month
+  const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const reminderKey = `reminder-${trigger}-${todayStr}`;
+
+  // Skip clients who already confirmed billing OR already received this exact reminder today
   const clients = allClients.filter(cl => {
     const confirmed = cl.billing_confirmed || {};
-    return !confirmed[currentYM];
+    return !confirmed[currentYM] && !confirmed[reminderKey];
   });
 
   if (clients.length === 0) {
@@ -232,6 +235,14 @@ export default async function handler(req, res) {
 
     try {
       await sendEmail(email, subjects[trigger], html);
+      // Mark this trigger as sent today so re-runs don't duplicate
+      const confirmed = cl.billing_confirmed || {};
+      confirmed[reminderKey] = true;
+      await fetch(`${SB_URL}/rest/v1/clients?id=eq.${cl.id}`, {
+        method: 'PATCH',
+        headers: { apikey: serviceKey, Authorization: 'Bearer ' + serviceKey, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ billing_confirmed: confirmed }),
+      });
       results.push({ id: cl.id, email, trigger, sent: true });
     } catch (err) {
       console.error(`[invoice-reminder] failed to send to ${email}:`, err.message);
