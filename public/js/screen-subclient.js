@@ -32,9 +32,9 @@ const ScreenSubclient = {
       tabBtn('Deal tracking', 'deals'),
       tabBtn('Billing', 'billing'));
 
-    if (route === 'deals') return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900, margin: '0 auto' } }, header, tabs, this._scDeals(d, s, appts));
-    if (route === 'billing') return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900, margin: '0 auto' } }, header, tabs, this._scBilling(d, s, appts));
-    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900, margin: '0 auto' } }, header, tabs, this._scAppointments(d, s, appts));
+    if (route === 'deals') return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900, margin: '0 auto' } }, header, tabs, ScreenSubclient._scDeals.call(this, d, s, appts));
+    if (route === 'billing') return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900, margin: '0 auto' } }, header, tabs, ScreenSubclient._scBilling.call(this, d, s, appts));
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 900, margin: '0 auto' } }, header, tabs, ScreenSubclient._scAppointments.call(this, d, s, appts));
   },
 
   _scAppointments(d, s, appts) {
