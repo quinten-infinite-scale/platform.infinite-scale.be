@@ -348,7 +348,20 @@ const Modals = {
         UI.Grid('1fr 1fr', 10,
           this._kv('Client', cl ? cl.name : ap.client),
           this._kv('Agent', ag ? ag.name : ap.agent),
-          this._kv('Appt date', this.fmtDate(ap.dateAppt)),
+          (() => {
+            const isRescheduling = !!f.reschedulingAppt;
+            const rescheduleDate = f.rescheduleDate || '';
+            const canReschedule = role === 'admin' || role === 'client' || role === 'agency' || role === 'subclient';
+            return this._kv('Appt date', e('div', null,
+              e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                e('span', null, this.fmtDate(ap.dateAppt)),
+                ap.rescheduled ? e('span', { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null,
+                canReschedule && !isRescheduling ? e('button', { onClick: () => this.setForm('reschedulingAppt', true), style: { fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-dim)', cursor: 'pointer' } }, 'Herplannen') : null),
+              isRescheduling ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
+                e('input', { type: 'date', value: rescheduleDate, onChange: ev => this.setForm('rescheduleDate', ev.target.value), style: { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, outline: 'none' } }),
+                e('button', { onClick: () => rescheduleDate && this.rescheduleAppointment(ap.id, rescheduleDate), disabled: !rescheduleDate, style: { fontSize: 12, fontWeight: 700, padding: '5px 14px', borderRadius: 8, border: 'none', background: rescheduleDate ? 'var(--accent)' : 'var(--bg-2)', color: rescheduleDate ? '#fff' : 'var(--text-mute)', cursor: rescheduleDate ? 'pointer' : 'default' } }, 'Opslaan'),
+                e('button', { onClick: () => { this.setForm('reschedulingAppt', false); this.setForm('rescheduleDate', ''); }, style: { fontSize: 12, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', cursor: 'pointer' } }, 'Annuleren')) : null));
+          })(),
           this._kv('Logged', this.fmtDate(ap.dateLog) + (loggedTime ? ' · ' + loggedTime : '')),
           role === 'admin' ? (() => {
             let amt = null;

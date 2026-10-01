@@ -42,7 +42,7 @@ const ScreenClient = {
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       isAgency ? { label: 'Client', render: r => subName(r.sub) || '—' } : { label: 'Agent', render: r => this.agentName(r.agent, d) },
-      { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
       { label: 'Set status', align: 'right', render: statusBtns },
     ];
     const quoteSentAll = appts.filter(a => a.quoteSent);
@@ -340,7 +340,7 @@ const ScreenClient = {
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       isAgency ? { label: 'Client', render: r => subName(r.sub) || '—' } : { label: 'Agent', render: r => this.agentName(r.agent, d) },
-      { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
       { label: 'Offerte', align: 'center', render: r => {
         if (r.status !== 'show') return null;
         if (r.quoteApproved) return UI.Pill('Akkoord', 'var(--up)', 'oklch(0.22 0.08 152 / .4)');

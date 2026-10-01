@@ -299,12 +299,12 @@ class Component extends DCLogic {
 
       const since = new Date(now2 - 15 * 60 * 1000).toISOString();
       const [rawAppts, rawAgents, rawPresence, rawRecruits, rawMtdAppts] = await Promise.all([
-        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback`),
+        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled`),
         SB.get('agents', '?order=name&select=id,name,working,work_since'),
         SB.get('presence', '').catch(() => []),
         SB.get('recruits', `?created_at=gt.${since}&order=created_at.desc`),
         doFullRefresh
-          ? SB.get('appointments', `?date_logged=like.${ym2}%&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback`)
+          ? SB.get('appointments', `?date_logged=like.${ym2}%&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled`)
           : Promise.resolve(null),
       ]);
 
@@ -319,6 +319,7 @@ class Component extends DCLogic {
             status: rec.status, amount: rec.amount || 0, agentRate: rec.agent_rate ?? null,
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
+            rescheduled: rec.rescheduled || false,
           }));
           const incomingIds = new Set(incoming.map(a => a.id));
           // Drop stale MTD records, keep non-MTD history, prepend fresh MTD
@@ -339,6 +340,7 @@ class Component extends DCLogic {
             status: rec.status, amount: rec.amount || 0, agentRate: rec.agent_rate ?? null,
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
+            rescheduled: rec.rescheduled || false,
           };
           const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
           const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
@@ -591,6 +593,17 @@ class Component extends DCLogic {
     this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = notes; });
     await API.saveAdminNotes(id, notes);
     this.toast('Saved', 'Notes saved', 'var(--accent)');
+  }
+
+  async rescheduleAppointment(id, newDate) {
+    await SB.patch('appointments', `?id=eq.${id}`, { date_appt: newDate, rescheduled: true });
+    this.mutLocal(dd => {
+      const a = dd.appointments.find(x => x.id === id);
+      if (a) { a.dateAppt = newDate; a.rescheduled = true; }
+    });
+    this.setForm('reschedulingAppt', false);
+    this.setForm('rescheduleDate', '');
+    this.toast('Herpland', 'Afspraak succesvol herpland', 'var(--accent)');
   }
 
   async toggleWorking() {

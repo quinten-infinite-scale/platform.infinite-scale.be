@@ -8,14 +8,14 @@ const API = {
       SB.get('clients', '?order=name'),
       SB.get('agent_clients'),
       role === 'agent'
-        ? SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,invoiced,paid,agent_rate,deal_commission,deal_amount,quote_sent,quote_approved&order=date_logged.desc')
+        ? SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,invoiced,paid,agent_rate,deal_commission,deal_amount,quote_sent,quote_approved,rescheduled&order=date_logged.desc')
         : role === 'subclient'
-        ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,deal_commission,deal_amount,quote_sent,quote_approved&client_id=eq.${clientId}&sub_client_id=eq.${subClientId}&order=date_logged.desc`)
+        ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,deal_commission,deal_amount,quote_sent,quote_approved,rescheduled&client_id=eq.${clientId}&sub_client_id=eq.${subClientId}&order=date_logged.desc`)
         : role === 'client'
-        ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,deal_commission,deal_amount,quote_sent,quote_approved&client_id=eq.${clientId}&order=date_logged.desc`)
+        ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,deal_commission,deal_amount,quote_sent,quote_approved,rescheduled&client_id=eq.${clientId}&order=date_logged.desc`)
         : role === 'agency'
-        ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,deal_commission,deal_amount,quote_sent,quote_approved&client_id=eq.${clientId}&order=date_logged.desc`)
-        : SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,agent_rate,deal_commission,deal_amount,quote_sent,quote_approved,admin_notes&order=date_logged.desc&limit=2000'),
+        ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,deal_commission,deal_amount,quote_sent,quote_approved,rescheduled&client_id=eq.${clientId}&order=date_logged.desc`)
+        : SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,agent_rate,deal_commission,deal_amount,quote_sent,quote_approved,admin_notes,rescheduled&order=date_logged.desc&limit=2000'),
       SB.get('dials', '?select=agent_id,dial_date,count&order=dial_date.desc'),
       role === 'admin' ? SB.get('dials_hourly', '?select=agent_id,dial_date,hour,count&order=dial_date.desc,hour.asc').catch(() => []) : Promise.resolve([]),
       role === 'agent'
@@ -133,6 +133,7 @@ const API = {
       dealAmount: a.deal_amount != null ? a.deal_amount : null,
       quoteSent: a.quote_sent || false,
       quoteApproved: a.quote_approved || false,
+      rescheduled: a.rescheduled || false,
     }));
 
     const eodsNorm = (eods || []).map(r => ({

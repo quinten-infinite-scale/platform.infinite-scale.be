@@ -760,7 +760,7 @@ const ScreenAdmin = {
                               { label: 'Lead', render: r => e('span', { style: { fontWeight: 600, color: 'var(--text)' } }, r.lead) },
                               { label: 'Agent', render: r => this.agentName(r.agent, d) },
                               cl.subclients && cl.subclients.length > 0 ? { label: 'Subclient', render: r => { if (!r.sub) return e('span', { style: { color: 'var(--text-mute)', fontSize: 12 } }, '—'); const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); return e('span', { style: { color: 'var(--text-dim)', fontSize: 12.5 } }, sc ? sc.name : r.sub); } } : null,
-                              { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+                              { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
                               { label: 'Factuur', align: 'center', render: r => r.invoiced ? e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--up)' } }, '✓') : (r.status === 'cancel' || r.status === 'no_show') ? e('span', { style: { color: 'var(--text-mute)', fontSize: 11 } }, '—') : e('span', { style: { fontSize: 11, color: 'var(--warn)' } }, '○') },
                               { label: 'Bedrag', align: 'right', render: r => (r.status === 'cancel' || r.status === 'no_show') ? e('span', { style: { color: 'var(--text-mute)' } }, '—') : UI.Mono(this.euro(apptRate(r)), { fontWeight: 700, color: 'var(--info)' }) },
                             ].filter(Boolean), [...clAppts].sort((a, b) => (b.dateAppt || b.dateLog || '') > (a.dateAppt || a.dateLog || '') ? 1 : -1).map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 560 }),
@@ -1737,12 +1737,14 @@ const ScreenAdmin = {
       }},
       { label: 'Status', align: 'center', render: r => {
         const sc = { open: { bg: 'oklch(0.24 0.05 240 / .7)', border: 'oklch(0.42 0.10 240)', color: 'oklch(0.78 0.12 220)' }, show: { bg: 'oklch(0.22 0.08 152 / .7)', border: 'oklch(0.42 0.14 152)', color: 'var(--up)' }, no_show: { bg: 'oklch(0.24 0.07 25 / .7)', border: 'oklch(0.42 0.14 25)', color: 'var(--down)' }, cancel: { bg: 'oklch(0.20 0.01 256 / .6)', border: 'var(--border)', color: 'var(--text-mute)' } }[r.status] || { bg: 'var(--surface)', border: 'var(--border)', color: 'var(--text)' };
-        return e('select', {
-          value: r.status,
-          onChange: ev => { ev.stopPropagation(); this.setApptStatus(r.id, ev.target.value); },
-          onClick: ev => ev.stopPropagation(),
-          style: { padding: '4px 10px', borderRadius: 20, border: '1px solid ' + sc.border, background: sc.bg, color: sc.color, fontSize: 12, cursor: 'pointer', outline: 'none', fontWeight: 700, appearance: 'none', WebkitAppearance: 'none', paddingRight: 22, backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'6\' viewBox=\'0 0 10 6\'%3E%3Cpath d=\'M1 1l4 4 4-4\' stroke=\'%23888\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 7px center' },
-        }, e('option', { value: 'open' }, 'Open'), e('option', { value: 'show' }, 'Show'), e('option', { value: 'no_show' }, 'No-show'), e('option', { value: 'cancel' }, 'Cancel'));
+        return e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } },
+          e('select', {
+            value: r.status,
+            onChange: ev => { ev.stopPropagation(); this.setApptStatus(r.id, ev.target.value); },
+            onClick: ev => ev.stopPropagation(),
+            style: { padding: '4px 10px', borderRadius: 20, border: '1px solid ' + sc.border, background: sc.bg, color: sc.color, fontSize: 12, cursor: 'pointer', outline: 'none', fontWeight: 700, appearance: 'none', WebkitAppearance: 'none', paddingRight: 22, backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'6\' viewBox=\'0 0 10 6\'%3E%3Cpath d=\'M1 1l4 4 4-4\' stroke=\'%23888\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 7px center' },
+          }, e('option', { value: 'open' }, 'Open'), e('option', { value: 'show' }, 'Show'), e('option', { value: 'no_show' }, 'No-show'), e('option', { value: 'cancel' }, 'Cancel')),
+          r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null);
       } },
       { label: 'Factuur', align: 'center', render: r => {
         if (r.status === 'cancel' || r.status === 'no_show' || r.status === 'open') return e('span', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, '—');

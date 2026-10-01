@@ -87,7 +87,7 @@ const ScreenSubclient = {
           apptDate && apptDate !== logDate ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono', monospace" } }, 'gelogd: ' + logDate) : null);
       } },
       { label: 'Lead', render: r => e('span', { style: { fontWeight: 600 } }, r.lead) },
-      { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
       { label: 'Deal', align: 'center', render: r => {
         if (r.status !== 'show') return null;
         if (r.quoteApproved) return UI.Pill('Deal ✓', 'var(--up)', 'oklch(0.22 0.08 152 / .4)');
@@ -211,7 +211,7 @@ const ScreenSubclient = {
           apptDate && apptDate !== logDate ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono', monospace" } }, 'gelogd: ' + logDate) : null);
       } },
       { label: 'Lead', render: r => e('span', { style: { fontWeight: 600, color: isDimmed(r) ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDimmed(r) ? 'line-through' : 'none' } }, r.lead) },
-      { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
       !forHistory ? { label: 'Status bijwerken', align: 'right', render: statusBtns } : null,
     ].filter(Boolean);
 

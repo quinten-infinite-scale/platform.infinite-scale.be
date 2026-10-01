@@ -63,7 +63,7 @@ const ScreenAgent = {
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { color: 'var(--text-dim)', fontSize: 12.5 }) },
       { label: 'Lead', key: 'lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
-      { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
       { label: 'Payout', align: 'right', render: r => {
         const cl = d.clients.find(c => c.id === r.client);
         const isCloseFee = cl && cl.closeFee;
@@ -408,7 +408,7 @@ const ScreenAgent = {
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
       { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc2 = r.sub && cl ? (cl.subclients || []).find(sc => sc.id === r.sub || sc.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc2 ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc2.name) : null); } },
-      { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
       { label: 'Payout', align: 'right', render: r => {
         const cl = d.clients.find(c => c.id === r.client);
         const isCloseFee = cl && cl.closeFee;
