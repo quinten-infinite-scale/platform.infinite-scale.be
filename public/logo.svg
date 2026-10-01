@@ -1,5 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="200" height="200">
-  <g transform="translate(-462,1568) scale(0.184,-0.184)" fill="white" fill-rule="evenodd" stroke="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
+  <defs>
+    <linearGradient id="ring" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0d3d4a"/>
+      <stop offset="100%" stop-color="#3dcfcf"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="49.5" fill="white"/>
+  <circle cx="50" cy="50" r="46.5" fill="none" stroke="url(#ring)" stroke-width="5.5"/>
+  <g transform="translate(-26.7,153.1) scale(0.01704,-0.01704)" fill="black" fill-rule="evenodd" stroke="none">
     <path d="
       M5668 7580 c238 -57 444 -228 551 -454 c61 -129 76 -205 76 -386
       c0 -144 -3 -175 -24 -245 c-53 -180 -165 -360 -321 -515 c-70 -70 -225 -204
