@@ -7,6 +7,36 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  // GET ?action=setup-redirect&email=xxx
+  // Generates a fresh recovery link on demand — invite email links never expire.
+  if (req.method === 'GET' && req.query?.action === 'setup-redirect') {
+    const SERVICE_KEY_SR = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!SERVICE_KEY_SR) return res.redirect(302, 'https://platform.infinite-scale.be/reset-password?error=server_error');
+    const srEmail = req.query?.email;
+    if (!srEmail) return res.redirect(302, 'https://platform.infinite-scale.be/reset-password?error=missing_email');
+    try {
+      const sbH_sr = { apikey: SERVICE_KEY_SR, Authorization: `Bearer ${SERVICE_KEY_SR}`, 'Content-Type': 'application/json' };
+      const linkR = await fetch(`${SB_URL_CONST}/auth/v1/admin/generate_link`, { method: 'POST', headers: sbH_sr, body: JSON.stringify({ type: 'recovery', email: srEmail }) });
+      if (!linkR.ok) return res.redirect(302, 'https://platform.infinite-scale.be/reset-password?error=link_failed');
+      const linkData = await linkR.json();
+      if (!linkData.hashed_token) return res.redirect(302, 'https://platform.infinite-scale.be/reset-password?error=no_token');
+      const verifyUrl = `${SB_URL_CONST}/auth/v1/verify?token=${encodeURIComponent(linkData.hashed_token)}&type=recovery`;
+      const verifyR = await fetch(verifyUrl, { method: 'GET', headers: { apikey: ANON_KEY }, redirect: 'manual' });
+      const location = verifyR.headers.get('location') || '';
+      const hashIdx = location.indexOf('#');
+      if (hashIdx === -1) return res.redirect(302, 'https://platform.infinite-scale.be/reset-password?error=verify_failed');
+      const params = new URLSearchParams(location.slice(hashIdx + 1));
+      const at = params.get('access_token');
+      const rt = params.get('refresh_token') || '';
+      if (!at) return res.redirect(302, 'https://platform.infinite-scale.be/reset-password?error=no_access_token');
+      const dest = new URLSearchParams({ access_token: at, refresh_token: rt, type: 'recovery', new: '1' });
+      return res.redirect(302, `https://platform.infinite-scale.be/reset-password#${dest.toString()}`);
+    } catch (err) {
+      console.error('setup-redirect crash:', err);
+      return res.redirect(302, 'https://platform.infinite-scale.be/reset-password?error=server_error');
+    }
+  }
+
   // GET ?action=auth-redirect&token=HASHED&type=recovery&new=1
   // Exchanges a Supabase hashed_token for a real JWT and redirects to the platform reset-password page.
   if (req.method === 'GET') {
@@ -55,12 +85,12 @@ export default async function handler(req, res) {
     if (!isLinkR.ok) return res.status(500).json({ error: 'Failed to generate setup link' });
     const isLinkData = await isLinkR.json();
     if (!isLinkData.hashed_token) return res.status(500).json({ error: 'No hashed_token in link response' });
-    const isSetupUrl = `https://platform.infinite-scale.be/api/create-account?action=auth-redirect&token=${encodeURIComponent(isLinkData.hashed_token)}&type=recovery&new=1`;
+    const isSetupUrl = `https://platform.infinite-scale.be/api/create-account?action=setup-redirect&email=${encodeURIComponent(isEmail)}`;
     if (!RESEND_KEY_IS || RESEND_KEY_IS === 're_placeholder') return res.status(200).json({ ok: true, emailSent: false });
     const isDisplayName = isName || isEmail.split('@')[0];
     const isAgencyLabel = agencyName || 'Infinite Scale';
     const isAgencyContact = agencyEmail || 'quinten@infinite-scale.be';
-    const isHtml = `<div style="background:#0a0e1a;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><div style="max-width:540px;margin:0 auto;padding:40px 24px;"><div style="margin-bottom:32px;"><span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#67dcdf;font-weight:700;">${isAgencyLabel}</span></div><h1 style="margin:0 0 12px;font-size:28px;font-weight:700;color:#f0f4ff;letter-spacing:-.02em;line-height:1.15;">Welkom, ${isDisplayName}!</h1><p style="margin:0 0 32px;font-size:15px;color:#8090b0;line-height:1.7;">Je account op het ${isAgencyLabel} platform is aangemaakt. Klik hieronder om je wachtwoord in te stellen en in te loggen.</p><a href="${isSetupUrl}" style="display:inline-block;padding:15px 36px;border-radius:12px;background:#67dcdf;color:#071314;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:-.01em;">Wachtwoord instellen &rarr;</a><div style="margin-top:36px;padding:18px 20px;border-radius:12px;background:#111827;border:1px solid #1f2d3d;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#4a5a7a;letter-spacing:.08em;text-transform:uppercase;">Jouw inloggegevens</p><p style="margin:0 0 4px;font-size:13px;color:#a0b0d0;">Platform: <a href="https://platform.infinite-scale.be" style="color:#67dcdf;text-decoration:none;">platform.infinite-scale.be</a></p><p style="margin:0;font-size:13px;color:#a0b0d0;">E-mail: <strong style="color:#f0f4ff;">${isEmail}</strong></p></div><p style="margin-top:32px;font-size:12px;color:#2d3d55;line-height:1.6;">Deze link is 24 uur geldig. Vragen? Mail naar <a href="mailto:${isAgencyContact}" style="color:#3d5070;text-decoration:none;">${isAgencyContact}</a></p></div></div>`;
+    const isHtml = `<div style="background:#0a0e1a;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><div style="max-width:540px;margin:0 auto;padding:40px 24px;"><div style="margin-bottom:32px;"><span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#67dcdf;font-weight:700;">${isAgencyLabel}</span></div><h1 style="margin:0 0 12px;font-size:28px;font-weight:700;color:#f0f4ff;letter-spacing:-.02em;line-height:1.15;">Welkom, ${isDisplayName}!</h1><p style="margin:0 0 32px;font-size:15px;color:#8090b0;line-height:1.7;">Je account op het ${isAgencyLabel} platform is aangemaakt. Klik hieronder om je wachtwoord in te stellen en in te loggen.</p><a href="${isSetupUrl}" style="display:inline-block;padding:15px 36px;border-radius:12px;background:#67dcdf;color:#071314;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:-.01em;">Wachtwoord instellen &rarr;</a><div style="margin-top:36px;padding:18px 20px;border-radius:12px;background:#111827;border:1px solid #1f2d3d;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#4a5a7a;letter-spacing:.08em;text-transform:uppercase;">Jouw inloggegevens</p><p style="margin:0 0 4px;font-size:13px;color:#a0b0d0;">Platform: <a href="https://platform.infinite-scale.be" style="color:#67dcdf;text-decoration:none;">platform.infinite-scale.be</a></p><p style="margin:0;font-size:13px;color:#a0b0d0;">E-mail: <strong style="color:#f0f4ff;">${isEmail}</strong></p></div><p style="margin-top:32px;font-size:12px;color:#2d3d55;line-height:1.6;">Vragen? Mail naar <a href="mailto:${isAgencyContact}" style="color:#3d5070;text-decoration:none;">${isAgencyContact}</a></p></div></div>`;
     try {
       const er3 = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND_KEY_IS}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'Infinite Scale <platform@infinite-scale.be>', to: [isEmail], subject: `Welkom bij ${isAgencyLabel} Afspraken — stel je wachtwoord in`, html: isHtml }) });
       const ed3 = await er3.json();
@@ -121,7 +151,7 @@ export default async function handler(req, res) {
     if (!icSetupUrl) return res.status(500).json({ error: 'Failed to generate setup link', userId: icUserId });
     if (!RESEND_KEY_IC || RESEND_KEY_IC === 're_placeholder') return res.status(200).json({ ok: true, userId: icUserId, setupUrl: icSetupUrl, emailSent: false });
     const icDisplayName = icName || icEmail.split('@')[0];
-    const icHtml = `<div style="background:#0a0e1a;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><div style="max-width:540px;margin:0 auto;padding:40px 24px;"><div style="margin-bottom:32px;"><span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#67dcdf;font-weight:700;">Infinite Scale</span></div><h1 style="margin:0 0 12px;font-size:28px;font-weight:700;color:#f0f4ff;letter-spacing:-.02em;line-height:1.15;">Welkom, ${icDisplayName}!</h1><p style="margin:0 0 32px;font-size:15px;color:#8090b0;line-height:1.7;">Je account op het Infinite Scale platform is aangemaakt. Klik hieronder om je wachtwoord in te stellen.</p><a href="${icSetupUrl}" style="display:inline-block;padding:15px 36px;border-radius:12px;background:#67dcdf;color:#071314;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:-.01em;">Wachtwoord instellen →</a><div style="margin-top:36px;padding:18px 20px;border-radius:12px;background:#111827;border:1px solid #1f2d3d;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#4a5a7a;letter-spacing:.08em;text-transform:uppercase;">Jouw inloggegevens</p><p style="margin:0 0 4px;font-size:13px;color:#a0b0d0;">Platform: <a href="https://platform.infinite-scale.be" style="color:#67dcdf;text-decoration:none;">platform.infinite-scale.be</a></p><p style="margin:0;font-size:13px;color:#a0b0d0;">E-mail: <strong style="color:#f0f4ff;">${icEmail}</strong></p></div><p style="margin-top:32px;font-size:12px;color:#2d3d55;line-height:1.6;">Deze link is 24 uur geldig. Vragen? Mail naar <a href="mailto:quinten@infinite-scale.be" style="color:#3d5070;text-decoration:none;">quinten@infinite-scale.be</a></p></div></div>`;
+    const icHtml = `<div style="background:#0a0e1a;padding:0;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"><div style="max-width:540px;margin:0 auto;padding:40px 24px;"><div style="margin-bottom:32px;"><span style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#67dcdf;font-weight:700;">Infinite Scale</span></div><h1 style="margin:0 0 12px;font-size:28px;font-weight:700;color:#f0f4ff;letter-spacing:-.02em;line-height:1.15;">Welkom, ${icDisplayName}!</h1><p style="margin:0 0 32px;font-size:15px;color:#8090b0;line-height:1.7;">Je account op het Infinite Scale platform is aangemaakt. Klik hieronder om je wachtwoord in te stellen.</p><a href="${icSetupUrl}" style="display:inline-block;padding:15px 36px;border-radius:12px;background:#67dcdf;color:#071314;font-weight:800;font-size:15px;text-decoration:none;letter-spacing:-.01em;">Wachtwoord instellen →</a><div style="margin-top:36px;padding:18px 20px;border-radius:12px;background:#111827;border:1px solid #1f2d3d;"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#4a5a7a;letter-spacing:.08em;text-transform:uppercase;">Jouw inloggegevens</p><p style="margin:0 0 4px;font-size:13px;color:#a0b0d0;">Platform: <a href="https://platform.infinite-scale.be" style="color:#67dcdf;text-decoration:none;">platform.infinite-scale.be</a></p><p style="margin:0;font-size:13px;color:#a0b0d0;">E-mail: <strong style="color:#f0f4ff;">${icEmail}</strong></p></div><p style="margin-top:32px;font-size:12px;color:#2d3d55;line-height:1.6;">Vragen? Mail naar <a href="mailto:quinten@infinite-scale.be" style="color:#3d5070;text-decoration:none;">quinten@infinite-scale.be</a></p></div></div>`;
     try {
       const er2 = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND_KEY_IC}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'Infinite Scale <platform@infinite-scale.be>', to: [icEmail], subject: 'Welkom bij Infinite Scale — stel je wachtwoord in', html: icHtml }) });
       const ed2 = await er2.json();

@@ -45,6 +45,18 @@ async function scCreateAccount(app, clientId, subclientId, email, name, agencyNa
   app.toast('Account created', name + ' can now log in', 'var(--up)');
 }
 
+async function scResendInvite(app, sc, agencyName, agencyEmail) {
+  const session = typeof SB !== 'undefined' ? SB.getSession() : null;
+  if (!session?.access_token) throw new Error('Not authenticated');
+  const res = await fetch('/api/create-account?action=invite-subclient', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+    body: JSON.stringify({ email: sc.email, name: sc.name, agencyName, agencyEmail }),
+  });
+  if (!res.ok) throw new Error('Failed to resend invite');
+  app.toast('Uitnodiging verstuurd', 'E-mail naar ' + sc.email + ' verzonden', 'var(--up)');
+}
+
 async function scDeleteAccount(app, clientId, subclientId) {
   const cl = app.state.data.clients.find(c => c.id === clientId);
   const sc = (cl.subclients || []).find(x => x.id === subclientId);
@@ -1988,6 +2000,11 @@ const ScreenAdmin = {
                     hasAccount
                       ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1 } },
                           e('span', { style: { fontSize: 12.5, color: 'var(--up)', fontWeight: 600 } }, '✓ ' + sc.email),
+                          UI.Btn('Opnieuw uitnodigen', async () => {
+                            try {
+                              await scResendInvite(this, sc, ag.name, ag.email);
+                            } catch(err) { this.toast('Error', err.message, 'var(--down)'); }
+                          }, 'soft', { padding: '4px 11px', fontSize: 11.5 }),
                           UI.Btn('Delete account', async () => {
                             if (!confirm('Remove login access for ' + sc.name + '?')) return;
                             await scDeleteAccount(this, ag.id, sc.id);
