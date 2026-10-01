@@ -798,7 +798,11 @@ const ScreenAdmin = {
         }
         const agentMonthSummary = (agent, ym) => {
           const appts = d.appointments.filter(a => a.agent === agent.id && a.status === 'show' && (a.dateAppt || a.dateLog || '').startsWith(ym));
-          const apptTotal = appts.reduce((s2, a) => s2 + ((agent.rates || {})[a.sub] || (agent.rates || {})[a.client] || 0) + (a.dealCommission || 0), 0);
+          const apptAgentRate = a => {
+            const fallback = (agent.rates || {})[a.sub] || (agent.rates || {})[a.client] || 0;
+            return a.agentRate != null ? a.agentRate : (a.client === 'c15' ? (rnAgentPay(a) ?? fallback) : fallback);
+          };
+          const apptTotal = appts.reduce((s2, a) => s2 + apptAgentRate(a) + (a.dealCommission || 0), 0);
           const rawBonus = (d.invoiceStates || {})[agent.id + '-' + ym]?.bonus || null;
           const savedBonuses = Array.isArray(rawBonus) ? rawBonus : (rawBonus && rawBonus.amt != null ? [rawBonus] : []);
           const bonusTotal = savedBonuses.reduce((s2, b) => s2 + (parseFloat(b.amt) || 0), 0);
