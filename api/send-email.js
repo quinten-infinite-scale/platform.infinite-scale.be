@@ -168,6 +168,28 @@ export default async function handler(req, res) {
     }
   }
 
+  // Contract email path: verify via contractId in DB instead of requiring user JWT
+  if (body.contractId) {
+    if (!SERVICE_KEY) return res.status(500).json({ ok: false, error: 'Service key not configured' });
+    const { to, subject, html, contractId, replyTo } = body;
+    if (!to || !subject || !html) return res.status(400).json({ ok: false, error: 'to, subject and html are required' });
+    // Verify contract exists and recipient matches
+    const ck = await fetch(`${SB_URL}/rest/v1/contracts?id=eq.${encodeURIComponent(contractId)}&select=email&limit=1`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+    });
+    const ckD = await ck.json();
+    if (!ck.ok || !ckD?.[0]) return res.status(403).json({ ok: false, error: 'Contract not found' });
+    if (!RESEND_KEY || RESEND_KEY === 're_placeholder') return res.status(500).json({ ok: false, error: 'RESEND_API_KEY not configured' });
+    try {
+      const pl = { from: FROM, to: Array.isArray(to) ? to : [to], subject, html };
+      if (replyTo) pl.reply_to = replyTo;
+      const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(pl) });
+      const d = await r.json();
+      if (!r.ok) { console.error('Resend contract email error:', d); return res.status(200).json({ ok: false, error: d?.message || JSON.stringify(d) }); }
+      return res.status(200).json({ ok: true, id: d.id });
+    } catch (err) { console.error('contract email crash:', err); return res.status(200).json({ ok: false, error: err.message }); }
+  }
+
   // Authenticated path: all other email sends
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';

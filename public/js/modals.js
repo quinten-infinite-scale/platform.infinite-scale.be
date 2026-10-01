@@ -1915,7 +1915,7 @@ const Modals = {
               if (c.status === 'signed') updates.status = 'sent';
               this.updateContract(c.id, updates);
               if (c.status === 'signed') this.setForm('contractStatus', 'sent');
-              API.sendContractEmail({ to: c.email, party: c.party, contractType: c.type || 'Contract', contractValue: c.value || '—', signingLink: freshLink, notes: c.notes || '' })
+              API.sendContractEmail({ to: c.email, party: c.party, contractType: c.type || 'Contract', contractValue: c.value || '—', signingLink: freshLink, notes: c.notes || '', contractId: c.id })
                 .then(() => this.toast('Verzonden ✓', 'Signing link bezorgd aan ' + c.email, 'var(--up)'))
                 .catch(err => this.toast('Mislukt', 'E-mail niet verzonden: ' + (err.message || 'onbekende fout'), 'var(--down)'));
             },

@@ -610,7 +610,7 @@ const API = {
     return SB.patch('clients', `?id=eq.${clientId}`, { billing_history: history });
   },
 
-  async sendContractEmail({ to, party, contractType, contractValue, signingLink, notes }) {
+  async sendContractEmail({ to, party, contractType, contractValue, signingLink, notes, contractId }) {
     const html = `<!DOCTYPE html>
 <html lang="nl">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
@@ -678,7 +678,7 @@ const API = {
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(_sess?.access_token ? { 'Authorization': 'Bearer ' + _sess.access_token } : {}) },
-      body: JSON.stringify({ to, subject: `Contract klaar ter ondertekening - Infinite Scale`, html }),
+      body: JSON.stringify({ to, subject: `Contract klaar ter ondertekening - Infinite Scale`, html, ...(contractId ? { contractId } : {}) }),
     });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'Email send failed');

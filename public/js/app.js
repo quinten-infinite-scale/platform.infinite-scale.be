@@ -1086,7 +1086,7 @@ class Component extends DCLogic {
       return;
     }
     this._logActivity('contract_sent', 'Sent contract to ' + party + ' <' + f.email + '> — ' + contractType);
-    API.sendContractEmail({ to: f.email, party, contractType, contractValue, signingLink, notes: f.notes || '' })
+    API.sendContractEmail({ to: f.email, party, contractType, contractValue, signingLink, notes: f.notes || '', contractId })
       .then(() => this.toast('Verzonden', 'Contract e-mail bezorgd aan ' + f.email, 'var(--up)'))
       .catch(() => this.toast('E-mail mislukt', 'Contract opgeslagen maar e-mail niet bezorgd', 'var(--down)'));
   }
