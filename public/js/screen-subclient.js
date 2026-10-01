@@ -137,7 +137,7 @@ const ScreenSubclient = {
         e('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--border-soft)' } },
           UI.Hd(fmtMonth(selMonth), { fontSize: 15 })),
         monthAppts.length > 0
-          ? UI.Table(cols, monthAppts.sort((a, b) => (b.dateAppt || '') > (a.dateAppt || '') ? 1 : -1), { min: 640, empty: '' })
+          ? UI.Table(cols, monthAppts.sort((a, b) => (b.dateAppt || '') > (a.dateAppt || '') ? 1 : -1).map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 640, empty: '' })
           : e('div', { style: { padding: '20px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 14 } }, 'Geen afspraken in ' + fmtMonth(selMonth))),
       e('div', null,
         e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 } }, 'Totalen alle periodes'),

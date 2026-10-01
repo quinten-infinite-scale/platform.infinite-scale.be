@@ -111,7 +111,7 @@ const Modals = {
       const cl = d.clients.find(c => c.id === ap.client);
       const ag = d.agents.find(a => a.id === ap.agent);
       const canChangeStatus = role === 'admin';
-      const canFeedback = role === 'client' || role === 'agency';
+      const canFeedback = role === 'client' || role === 'agency' || role === 'subclient';
       const isEditing = !!f.apptEditing && canChangeStatus;
 
       const statuses = [['open', 'Open', 'var(--info)'], ['show', 'Show', 'var(--up)'], ['no_show', 'No-show', 'var(--down)'], ['cancel', 'Cancelled', 'var(--text-mute)']];
@@ -245,12 +245,12 @@ const Modals = {
                 : e('div', { style: { fontSize: 13, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'No client feedback yet.'));
 
       // Deal tracking — clients can update quote/deal status; admin can see
-      const canDealTrack = role === 'client' || role === 'agency' || role === 'admin';
+      const canDealTrack = role === 'client' || role === 'agency' || role === 'admin' || role === 'subclient';
       const dealSection = canDealTrack && ap.status !== 'cancel' ? (() => {
         const qSent = f.dealQuoteSent !== undefined ? f.dealQuoteSent : ap.quoteSent;
         const qApproved = f.dealQuoteApproved !== undefined ? f.dealQuoteApproved : ap.quoteApproved;
         const dealRev = f.dealRevenueDraft !== undefined ? f.dealRevenueDraft : (ap.dealAmount != null ? String(ap.dealAmount) : '');
-        const canEdit = role === 'client' || role === 'agency';
+        const canEdit = role === 'client' || role === 'agency' || role === 'subclient';
         const Toggle = (label, val, key, enabled, activeColor, activeBg, newQSent, newQApproved) => e('button', {
           type: 'button',
           disabled: !canEdit || !enabled,
@@ -386,8 +386,17 @@ const Modals = {
                 else if (fb.revenue != null) amt = fb.revenue;
               }
             } catch {}
-            if (amt == null) amt = ap.amount || null;
-            return this._kv('Amount', amt ? this.euro(amt) : '—');
+            if (amt == null) {
+              if (ap.amount === 0) { amt = 0; }
+              else {
+                const _cl = d.clients.find(c => c.id === ap.client);
+                if (_cl) {
+                  if (ap.sub && _cl.subclients) { const _sc = _cl.subclients.find(sc => sc.id === ap.sub || sc.name === ap.sub); if (_sc && _sc.rate != null) amt = _sc.rate; }
+                  if (amt == null) amt = _cl.rate || null;
+                }
+              }
+            }
+            return this._kv('Amount', amt != null ? this.euro(amt) : '—');
           })() : null,
           role === 'admin' ? (() => {
             let agentRate = ap.agentRate != null ? ap.agentRate : null;
