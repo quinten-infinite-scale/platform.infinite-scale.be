@@ -462,8 +462,9 @@ const ScreenAgent = {
     const parseNotes = (an) => { try { return an ? JSON.parse(an) : {}; } catch(_) { return an ? { nt: an } : {}; } };
     const getCS = (a) => parseNotes(a.adminNotes).cs || 'Nieuw';
     const getCF = (a) => parseNotes(a.adminNotes).cf || '';
+    const getLog = (a) => parseNotes(a.adminNotes).cl || [];
 
-    const allAppts = d.appointments.filter(a => a.agent === me.id && (a.status === 'cancel' || a.status === 'no_show'));
+    const allAppts = d.appointments.filter(a => a.agent === me.id && (a.status === 'cancel' || a.status === 'no_show') && a.status !== 'show');
     allAppts.sort((a, b) => (b.dateAppt || b.dateLog || '') > (a.dateAppt || a.dateLog || '') ? 1 : -1);
 
     // Group by YYYY-MM
@@ -519,6 +520,7 @@ const ScreenAgent = {
               const cfDraft = (s.fuCFDraft || {})[a.id];
               const cfVal = cfDraft !== undefined ? cfDraft : cf;
               const setCFDraft = (v) => this.setState(st => ({ fuCFDraft: { ...(st.fuCFDraft || {}), [a.id]: v } }));
+              const log = getLog(a);
 
               return e('div', { key: a.id, style: { borderBottom: '1px solid var(--border-soft)' } },
                 e('div', { onClick: toggleA, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', cursor: 'pointer' } },
@@ -531,7 +533,9 @@ const ScreenAgent = {
                       cl ? e('span', null, cl.name) : null,
                       e('span', null, '·'),
                       e('span', null, this.fmtDate(a.dateAppt || a.dateLog)),
+                      log.length > 0 ? e('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, '· ' + log.length + 'x gebeld') : null,
                       cf ? e('span', { style: { marginLeft: 4, fontStyle: 'italic', color: 'var(--text-dim)' } }, '"' + cf.slice(0, 50) + (cf.length > 50 ? '…' : '') + '"') : null)),
+                  e('button', { onClick: ev => { ev.stopPropagation(); saveMerge(a.id, { cs: 'Gecontacteerd', cl: [...log, new Date().toISOString()] }); }, style: { padding: '3px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', background: 'var(--accent)', color: 'white', border: 'none', flexShrink: 0, whiteSpace: 'nowrap' } }, 'Gecontacteerd'),
                   e('span', { onClick: ev => ev.stopPropagation(), style: csStyle(cs), title: 'Contact status' }, cs),
                   e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isExpA ? 'rotate(90deg)' : 'none', transition: 'transform .2s', marginLeft: 8 } }, '›')),
                 isExpA ? e('div', { style: { padding: '12px 18px 16px', background: 'var(--surface)', borderTop: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: 14 } },
@@ -546,6 +550,14 @@ const ScreenAgent = {
                       e('textarea', { value: cfVal, placeholder: 'Notities voor jezelf over dit contact…', onChange: ev => setCFDraft(ev.target.value), rows: 2, style: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
                       e('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 4 } },
                         UI.Btn('Opslaan', () => saveMerge(a.id, { cf: cfVal }).then(() => this.setState(st => { const d2 = { ...(st.fuCFDraft || {}) }; delete d2[a.id]; return { fuCFDraft: d2 }; })), 'primary', { fontSize: 12, padding: '5px 12px' })))),
+                  log.length > 0 ? e('div', null,
+                    e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Contact log'),
+                    e('div', { style: { display: 'flex', flexDirection: 'column', gap: 3 } },
+                      log.map((ts, i) => {
+                        const dt = new Date(ts);
+                        return e('div', { key: i, style: { fontSize: 12, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono'" } },
+                          dt.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) + ' · ' + dt.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }));
+                      }))) : null,
                   e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
                     UI.Btn('Herboeken (open)', () => this.setApptStatus(a.id, 'open').then(() => this.toast('Herboeken', a.lead + ' staat terug op open', 'var(--accent)')), 'soft', { fontSize: 12 }),
                     e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Zet status terug naar open voor herplanning'))) : null);
