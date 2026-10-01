@@ -1052,7 +1052,7 @@ const ScreenAdmin = {
     // IS TOTAAL metric row
     const isMetricRow = (label, vals, color, isRatio) => {
       const total = isRatio ? (monthOmzet > 0 ? monthWinst / monthOmzet : 0) :
-        label === 'Kosten' ? monthKosten : label === 'Omzet' ? monthOmzet : monthWinst;
+        label === 'Kosten' ? monthKosten : label === 'Omzet' ? apptOmzet : monthWinst;
       const getVal = (appts) => {
         const t = dayTotals(appts);
         return isRatio ? (t.omzet > 0 ? t.winst / t.omzet : null) :
@@ -1076,6 +1076,21 @@ const ScreenAdmin = {
         ]).flat(),
         TD(isRatio ? e('span', { style: css(mono, { color: 'white', fontWeight: 700 }) }, Math.round(total * 100) + '%') : EUR(total, 'white'), { textAlign: 'right', fontWeight: 700, borderLeft: '2px solid var(--border)', background: darkBg }));
     };
+
+    // Monthly fees row (only Totaal column has value, day/week cells empty)
+    const isMonthlyFeesRow = () => monthlyFeeTotal > 0 ? e('tr', null,
+      TD(e('span', { style: { fontWeight: 600, fontSize: 11.5, color: 'var(--text-mute)', paddingLeft: 8, fontStyle: 'italic' } }, '+ Maandvergoedingen'),
+        css(tdBase, stickyL, { left: 0, background: darkBg2, paddingLeft: 12 })),
+      TD('', css(tdBase, stickyL2, { left: 64, background: darkBg2 })),
+      ...weeks.map(wk => [
+        ...wk.days.map(() => [
+          TD('', { background: darkBg2, borderLeft: '2px solid var(--border)' }),
+          TD('', { background: darkBg2 }),
+          TD('', { background: darkBg2 }),
+        ]).flat(),
+        TD('', { background: wkBg, borderLeft: '3px solid var(--accent)' }),
+      ]).flat(),
+      TD(EUR(monthlyFeeTotal, 'var(--text-mute)'), { textAlign: 'right', fontWeight: 700, borderLeft: '2px solid var(--border)', background: darkBg })) : null;
 
     // % vs avg day row for IS Totaal section
     const isPctRow = () => e('tr', null,
@@ -1243,16 +1258,28 @@ const ScreenAdmin = {
                   sectionHeader('Infinite Scale — Totaal', darkBg, 'var(--info)'),
                   isMetricRow('Kosten', null, 'var(--warn)', false),
                   isMetricRow('Omzet', null, 'var(--info)', false),
+                  isMonthlyFeesRow(),
                   isMetricRow('Winst', null, 'var(--up)', false),
                   isMetricRow('Ratio', null, 'var(--up)', true),
                   isPctRow(),
 
-                  // Per client sections
-                  ...activeClients.map(cl => [
-                    sectionHeader(cl.name, 'var(--bg-2)', 'var(--text)'),
-                    clientHeaderRow(cl),
-                    ...clientMetricRows(cl),
-                  ]).flat())))),
+                  // Per client sections (collapsible)
+                  ...activeClients.map(cl => {
+                    const collapsed = (s._pnlCollapsed || {})[cl.id];
+                    const toggleCollapse = () => this.setState(st => {
+                      const c = { ...(st._pnlCollapsed || {}), [cl.id]: !((st._pnlCollapsed || {})[cl.id]) };
+                      return { _pnlCollapsed: c };
+                    });
+                    const chevron = collapsed ? '▶' : '▼';
+                    const clientSectionHdr = e('tr', { onClick: toggleCollapse, style: { cursor: 'pointer' } },
+                      e('td', { colSpan: 2 + totalDayCols, style: { padding: '7px 12px', fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', background: 'var(--bg-2)', color: 'var(--text)', borderBottom: '2px solid var(--border)', position: 'sticky', left: 0, userSelect: 'none' } },
+                        e('span', { style: { marginRight: 6, fontSize: 10, color: 'var(--text-mute)' } }, chevron),
+                        cl.name),
+                      e('td', { style: { background: darkBg, borderBottom: '2px solid var(--border)', borderLeft: '2px solid var(--border)' } }));
+                    return collapsed
+                      ? [clientSectionHdr]
+                      : [clientSectionHdr, clientHeaderRow(cl), ...clientMetricRows(cl)];
+                  }).flat())))),
 
       // Bottom: vaste kosten + extra + netto side by side
       e('div', { style: { display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' } },
@@ -5084,12 +5111,24 @@ const ScreenAdmin = {
     const dayOfMonth = isCurrentMonth ? parseInt(today.slice(8, 10)) : daysInMonth;
     const daysLeft = isCurrentMonth ? daysInMonth - dayOfMonth : 0;
 
+    // Working days (Mon–Fri) math
+    const countWorkdays = (from, to) => {
+      let n = 0; const d2 = new Date(from + 'T12:00:00'); const end = new Date(to + 'T12:00:00');
+      while (d2 <= end) { const dw = d2.getDay(); if (dw !== 0 && dw !== 6) n++; d2.setDate(d2.getDate() + 1); }
+      return n;
+    };
+    const monthStart = `${vmY}-${String(vmM).padStart(2,'0')}-01`;
+    const monthEnd = `${vmY}-${String(vmM).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+    const workdaysInMonth = countWorkdays(monthStart, monthEnd);
+    const workdayOfMonth = isCurrentMonth ? countWorkdays(monthStart, today) : workdaysInMonth;
+    const workdaysLeft = isCurrentMonth ? workdaysInMonth - workdayOfMonth : 0;
+
     const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(e) {} const cl = (d.clients||[]).find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : (cl.rate || 0); if (a.sub && cl) { const sc = (cl.subclients||[]).find(s2 => s2.id === a.sub || s2.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
     const monthlyActual = (d.appointments || []).filter(a => a.dateLog && a.dateLog.startsWith(monthStr) && a.status !== 'cancel' && a.status !== 'no_show')
       .reduce((sum, a) => sum + cRate(a), 0);
 
-    // EOM forecast: pace based on days elapsed
-    const eomForecast = isCurrentMonth && dayOfMonth > 0 ? Math.round(monthlyActual / dayOfMonth * daysInMonth) : monthlyActual;
+    // EOM forecast: pace based on working days elapsed
+    const eomForecast = isCurrentMonth && workdayOfMonth > 0 ? Math.round(monthlyActual / workdayOfMonth * workdaysInMonth) : monthlyActual;
 
     // Sort agents by dials today desc (most active first)
     const sortedAgents = [...agents].sort((a, b) => (dialsMap[b.id] || 0) - (dialsMap[a.id] || 0));
@@ -5162,10 +5201,10 @@ const ScreenAdmin = {
               ? e('div', { style: { textAlign: 'right' } },
                   e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 2 } }, 'EOM forecast'),
                   e('div', { style: { fontSize: 22, fontWeight: 700, color: eomForecast >= monthlyTarget ? 'var(--up)' : 'var(--text)', fontVariantNumeric: 'tabular-nums' } }, fmtEur(eomForecast)),
-                  e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, daysLeft + ' dag' + (daysLeft !== 1 ? 'en' : '') + ' te gaan · dag ' + dayOfMonth + ' van ' + daysInMonth),
-                  daysLeft > 0 && monthlyTarget > monthlyActual
+                  e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, workdaysLeft + ' werkdag' + (workdaysLeft !== 1 ? 'en' : '') + ' te gaan · werkdag ' + workdayOfMonth + ' van ' + workdaysInMonth),
+                  workdaysLeft > 0 && monthlyTarget > monthlyActual
                     ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border-soft)', fontVariantNumeric: 'tabular-nums' } },
-                        'Nog ' + fmtEur(Math.ceil((monthlyTarget - monthlyActual) / daysLeft)) + '/dag nodig')
+                        'Nog ' + fmtEur(Math.ceil((monthlyTarget - monthlyActual) / workdaysLeft)) + '/werkdag nodig')
                     : null)
               : e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Afgelopen maand')),
           e('div', null,
@@ -5173,7 +5212,7 @@ const ScreenAdmin = {
               e('div', { style: { height: '100%', width: pct + '%', background: hitTarget ? 'var(--up)' : 'linear-gradient(90deg, var(--accent), var(--info))', borderRadius: 6, transition: 'width .6s' } })),
             e('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 5 } },
               e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'MTD: ' + pct + '% van target'),
-              isCurrentMonth ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Dag ' + dayOfMonth + ' van ' + daysInMonth) : null,
+              isCurrentMonth ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Werkdag ' + workdayOfMonth + ' van ' + workdaysInMonth) : null,
               e('span', { style: { fontSize: 11, color: eomForecast >= monthlyTarget ? 'var(--up)' : 'var(--text-mute)' } }, isCurrentMonth ? 'EOM forecast: ' + fmtEur(eomForecast) : 'Totaal: ' + fmtEur(monthlyActual)))),
           e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4, borderTop: '1px solid var(--border-soft)' } },
             e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, 'Target aanpassen:'),
