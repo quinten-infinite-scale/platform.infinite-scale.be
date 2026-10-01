@@ -756,8 +756,9 @@ class Component extends DCLogic {
   async resendInvite(clientId) {
     const cl = this.state.data.clients.find(x => x.id === clientId);
     if (!cl || !cl.email) { this.toast('Fout', 'Geen e-mailadres gevonden voor deze client', 'var(--down)'); return; }
+    if (typeof SB !== 'undefined') await SB.ensureSession().catch(() => {});
     const token = SB.getSession()?.access_token;
-    if (!token) return;
+    if (!token) { this.toast('Fout', 'Sessie verlopen — herlaad de pagina en probeer opnieuw', 'var(--down)'); return; }
     this.toast('Bezig…', 'Uitnodiging wordt verzonden', 'var(--accent)');
     const r = await fetch('/api/create-account?action=invite-client', {
       method: 'POST',

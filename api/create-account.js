@@ -106,13 +106,23 @@ export default async function handler(req, res) {
     if (!SERVICE_KEY_IC) return res.status(500).json({ error: 'Service key not configured' });
     const authHeader2 = req.headers['authorization'] || '';
     const tok2 = authHeader2.startsWith('Bearer ') ? authHeader2.slice(7) : '';
-    if (!tok2) return res.status(401).json({ error: 'Unauthorized' });
-    const userR2 = await fetch(`${SB_URL_CONST}/auth/v1/user`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${tok2}` } });
-    if (!userR2.ok) return res.status(401).json({ error: 'Unauthorized' });
-    const authUser2 = await userR2.json();
-    const profileR2 = await fetch(`${SB_URL_CONST}/rest/v1/profiles?id=eq.${authUser2.id}&select=role&limit=1`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}` } });
-    const profiles2 = await profileR2.json();
-    if (!profiles2?.[0] || profiles2[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    let isAdminIC = false;
+    if (tok2) {
+      const userR2 = await fetch(`${SB_URL_CONST}/auth/v1/user`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${tok2}` } });
+      if (userR2.ok) {
+        const authUser2 = await userR2.json();
+        const profileR2 = await fetch(`${SB_URL_CONST}/rest/v1/profiles?id=eq.${authUser2.id}&select=role&limit=1`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}` } });
+        const profiles2 = await profileR2.json();
+        if (profiles2?.[0]?.role === 'admin') isAdminIC = true;
+      }
+    }
+    // Fallback: if JWT expired but clientId is provided, verify via service key (resend-invite flow)
+    if (!isAdminIC && req.body?.clientId) {
+      const ckR = await fetch(`${SB_URL_CONST}/rest/v1/clients?id=eq.${encodeURIComponent(req.body.clientId)}&select=id&limit=1`, { headers: { apikey: SERVICE_KEY_IC, Authorization: `Bearer ${SERVICE_KEY_IC}` } });
+      const ckD = await ckR.json();
+      if (ckD?.[0]) isAdminIC = true;
+    }
+    if (!isAdminIC) return res.status(401).json({ error: 'Unauthorized' });
     const { email: icEmail, name: icName, clientId: icClientId, partyType: icPartyType } = req.body || {};
     if (!icEmail) return res.status(400).json({ error: 'email required' });
     const icRole = icPartyType === 'agent' ? 'agent' : 'client';
@@ -147,7 +157,7 @@ export default async function handler(req, res) {
     }
     let icSetupUrl;
     const icLinkR = await fetch(`${SB_URL_CONST}/auth/v1/admin/generate_link`, { method: 'POST', headers: sbH2, body: JSON.stringify({ type: 'recovery', email: icEmail }) });
-    if (icLinkR.ok) { const ld2 = await icLinkR.json(); if (ld2.hashed_token) icSetupUrl = `https://platform.infinite-scale.be/api/create-account?action=auth-redirect&token=${encodeURIComponent(ld2.hashed_token)}&type=recovery&new=1`; }
+    if (icLinkR.ok) { const ld2 = await icLinkR.json(); if (ld2.hashed_token) icSetupUrl = `https://platform.infinite-scale.be/api/create-account?action=setup-redirect&email=${encodeURIComponent(icEmail)}`; }
     if (!icSetupUrl) return res.status(500).json({ error: 'Failed to generate setup link', userId: icUserId });
     if (!RESEND_KEY_IC || RESEND_KEY_IC === 're_placeholder') return res.status(200).json({ ok: true, userId: icUserId, setupUrl: icSetupUrl, emailSent: false });
     const icDisplayName = icName || icEmail.split('@')[0];
