@@ -23,6 +23,7 @@ class Component extends DCLogic {
       modal: null, modalKind: null,
       toasts: [], notifOpen: false, sidebarOpen: false,
       tourStep: null, agencyView: 'all', form: {},
+      clientAccounts: [],
       loading: !!session,
       loginError: null,
       loginEmail: '', loginPassword: '',
@@ -86,7 +87,7 @@ class Component extends DCLogic {
           this.myAgentId = cached.agentId;
           this.myClientId = cached.clientId;
           const { invApproved, invoiceStatus } = this._deriveInvState(cached.data);
-          this.setState({ role: cached.role, loading: false, data: cached.data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved, invoiceStatus });
+          this.setState({ role: cached.role, loading: false, data: cached.data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved, invoiceStatus, clientAccounts: cached.clientAccounts || [] });
           this._updatePresence('dashboard');
           this._startPolling();
           // Refresh data in the background without blocking the UI
@@ -139,6 +140,17 @@ class Component extends DCLogic {
     this.myClientId = clientId;
     this.scClientId = clientId;
     this.scSubId = subClientId;
+    // Detect multiple client accounts sharing the same email (multi-account clients)
+    let clientAccounts = [];
+    if ((role === 'client' || role === 'agency') && clientId) {
+      try {
+        const _email = SB.getSession()?.user?.email;
+        if (_email) {
+          const _all = await SB.get('clients', '?email=eq.' + encodeURIComponent(_email) + '&select=id,name,type');
+          if (_all && _all.length > 1) clientAccounts = _all;
+        }
+      } catch(e) {}
+    }
     _dbg('calling loadAll');
     const data = await API.loadAll(role, agentId, clientId, subClientId);
     _dbg('loadAll done appts=' + data?.appointments?.length);
@@ -152,7 +164,7 @@ class Component extends DCLogic {
     const _metaConnected = _qs.get('meta_connected');
     const _metaError = _qs.get('meta_error');
     if (_qs.get('route') || _metaConnected || _metaError) history.replaceState(null, '', location.pathname);
-    this.setState({ role, loading: false, data, route: _initRoute, notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus });
+    this.setState({ role, loading: false, data, route: _initRoute, notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus, clientAccounts });
     if (_metaConnected) setTimeout(() => this.toast('Meta', 'Account succesvol verbonden!', 'var(--up)'), 400);
     if (_metaError) setTimeout(() => this.toast('Meta fout', decodeURIComponent(_metaError), 'var(--down)'), 400);
     if (freshLogin) {
@@ -172,7 +184,7 @@ class Component extends DCLogic {
     try {
       localStorage.setItem('is_profile_' + uid, JSON.stringify({ role, agentId, clientId }));
       const cacheData = { ...data, activityLog: [], presence: [] };
-      const serialized = JSON.stringify({ data: cacheData, role, agentId, clientId });
+      const serialized = JSON.stringify({ data: cacheData, role, agentId, clientId, clientAccounts });
       localStorage.setItem('is_cache_' + uid, serialized);
       _dbg('cache written size=' + serialized.length);
     } catch(e) { _dbg('cache FAILED: ' + e.message); }
@@ -186,6 +198,28 @@ class Component extends DCLogic {
       const { invApproved, invoiceStatus } = this._deriveInvState(data);
       this.setState({ data, invApproved, invoiceStatus });
     } catch(e) { console.error('Cache refresh failed:', e.message); }
+  }
+
+  async _switchClientAccount(newClientId, newClientName, newClientType) {
+    const uid = SB.getSession()?.user?.id;
+    const s = this.state;
+    const newRole = newClientType === 'agency' ? 'agency' : 'client';
+    this.myClientId = newClientId;
+    this.setState({ showSwitcher: false, loading: true });
+    try {
+      const data = await API.loadAll(newRole, null, newClientId, null);
+      const { invApproved, invoiceStatus } = this._deriveInvState(data);
+      this.setState({ role: newRole, data, loading: false, invApproved, invoiceStatus, route: 'dashboard' });
+      if (uid) {
+        try {
+          const cacheData = { ...data, activityLog: [], presence: [] };
+          localStorage.setItem('is_cache_' + uid, JSON.stringify({ data: cacheData, role: newRole, agentId: null, clientId: newClientId, clientAccounts: s.clientAccounts }));
+          localStorage.setItem('is_profile_' + uid, JSON.stringify({ role: newRole, agentId: null, clientId: newClientId }));
+        } catch(e) {}
+      }
+    } catch(e) {
+      this.setState({ loading: false });
+    }
   }
 
   _getPresenceId() {
@@ -1705,6 +1739,7 @@ class Component extends DCLogic {
   _agentDash(...a) { return ScreenAgent._agentDash.call(this, ...a); }
   _agentLog(...a) { return ScreenAgent._agentLog.call(this, ...a); }
   _agentAppointments(...a) { return ScreenAgent._agentAppointments.call(this, ...a); }
+  _agentFollowup(...a) { return ScreenAgent._agentFollowup.call(this, ...a); }
   _agentEod(...a) { return ScreenAgent._agentEod.call(this, ...a); }
   _agentPayments(...a) { return ScreenAgent._agentPayments.call(this, ...a); }
   _agentClients(...a) { return ScreenAgent._agentClients.call(this, ...a); }
