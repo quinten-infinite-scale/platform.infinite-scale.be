@@ -211,7 +211,7 @@ class Component extends DCLogic {
     if (!uid) return;
     const name = this._getPresenceName();
     const role = this.state.role;
-    const routeLabels = { roadmap: '€100K Roadmap', dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do', whatsapp: 'WhatsApp', targets: 'Targets', clientsuccess: 'Client Success', coaching: 'Coaching', salespeople: 'Salespeople', managers: 'Managers', opa: 'OPA' };
+    const routeLabels = { roadmap: '€100K Roadmap', dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', followup: 'Opvolging', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do', whatsapp: 'WhatsApp', targets: 'Targets', clientsuccess: 'Client Success', coaching: 'Coaching', salespeople: 'Salespeople', managers: 'Managers', opa: 'OPA' };
     API.updatePresence(uid, name, role, route, routeLabels[route] || route);
   }
 
@@ -299,12 +299,12 @@ class Component extends DCLogic {
 
       const since = new Date(now2 - 15 * 60 * 1000).toISOString();
       const [rawAppts, rawAgents, rawPresence, rawRecruits, rawMtdAppts] = await Promise.all([
-        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled`),
+        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`),
         SB.get('agents', '?order=name&select=id,name,working,work_since'),
         SB.get('presence', '').catch(() => []),
         SB.get('recruits', `?created_at=gt.${since}&order=created_at.desc`),
         doFullRefresh
-          ? SB.get('appointments', `?date_logged=like.${ym2}%&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled`)
+          ? SB.get('appointments', `?date_logged=like.${ym2}%&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`)
           : Promise.resolve(null),
       ]);
 
@@ -320,6 +320,7 @@ class Component extends DCLogic {
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
             rescheduled: rec.rescheduled || false,
+            adminNotes: rec.admin_notes || '',
           }));
           const incomingIds = new Set(incoming.map(a => a.id));
           // Drop stale MTD records, keep non-MTD history, prepend fresh MTD
@@ -341,6 +342,7 @@ class Component extends DCLogic {
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
             rescheduled: rec.rescheduled || false,
+            adminNotes: rec.admin_notes || '',
           };
           const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
           const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
@@ -589,17 +591,36 @@ class Component extends DCLogic {
     this.toast('Saved', 'Feedback saved', 'var(--accent)');
   }
 
+  async mergeAdminNotes(id, updates) {
+    const appt = this.state.data.appointments.find(x => x.id === id);
+    const existing = appt ? (appt.adminNotes || '') : '';
+    let obj = {};
+    try { obj = existing ? JSON.parse(existing) : {}; } catch(_) { if (existing) obj.nt = existing; }
+    Object.assign(obj, updates);
+    const newNotes = JSON.stringify(obj);
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = newNotes; });
+    await API.saveAdminNotes(id, newNotes);
+  }
+
   async saveAdminNotes(id, notes) {
-    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = notes; });
-    await API.saveAdminNotes(id, notes);
+    await this.mergeAdminNotes(id, { nt: notes });
     this.toast('Saved', 'Notes saved', 'var(--accent)');
   }
 
   async rescheduleAppointment(id, newDate) {
-    await SB.patch('appointments', `?id=eq.${id}`, { date_appt: newDate, rescheduled: true });
+    const appt = this.state.data.appointments.find(x => x.id === id);
+    const prevDate = appt ? (appt.dateAppt || null) : null;
+    const prevStatus = appt ? (appt.status || null) : null;
+    const existing = appt ? (appt.adminNotes || '') : '';
+    let notesObj = {};
+    try { notesObj = existing ? JSON.parse(existing) : {}; } catch(_) { if (existing) notesObj.nt = existing; }
+    if (prevDate) notesObj.pd = prevDate;
+    if (prevStatus) notesObj.ps = prevStatus;
+    const newNotes = JSON.stringify(notesObj);
+    await SB.patch('appointments', `?id=eq.${id}`, { date_appt: newDate, rescheduled: true, admin_notes: newNotes });
     this.mutLocal(dd => {
       const a = dd.appointments.find(x => x.id === id);
-      if (a) { a.dateAppt = newDate; a.rescheduled = true; }
+      if (a) { a.dateAppt = newDate; a.rescheduled = true; a.adminNotes = newNotes; }
     });
     this.setForm('reschedulingAppt', false);
     this.setForm('rescheduleDate', '');

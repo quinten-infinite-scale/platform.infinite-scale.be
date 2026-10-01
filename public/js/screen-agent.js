@@ -44,6 +44,7 @@ const ScreenAgent = {
     if (s.route === 'dashboard') return this._agentDash(d, s, me, { dialsT, dialsY, apT, apY, moneyT, moneyY, pct, today, allTimeMoney, allTimeAppts });
     if (s.route === 'log') return this._agentLog(d, s, me);
     if (s.route === 'appointments') return this._agentAppointments(d, s, me);
+    if (s.route === 'followup') return this._agentFollowup(d, s, me);
     if (s.route === 'eod') return this._agentEod(d, s, me, today);
     if (s.route === 'payments') return this._agentPayments(d, s, me);
     if (s.route === 'clients') return this._agentClients(d, s, me);
@@ -61,9 +62,9 @@ const ScreenAgent = {
     const recentTable = UI.Table([
       { label: 'Logged', render: r => e('div', null, UI.Mono(this.fmtDate(r.dateLog), { color: 'var(--text-mute)', fontSize: 12 }), r.loggedAt ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, new Date(r.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null) },
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { color: 'var(--text-dim)', fontSize: 12.5 }) },
-      { label: 'Lead', key: 'lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
+      { label: 'Lead', key: 'lead', render: r => e('span', { style: { position: 'relative', display: 'inline-block', color: 'var(--text)', fontWeight: 600 } }, r.lead, r.clientFeedback ? e('span', { title: 'Client feedback', style: { position: 'absolute', top: -3, right: -8, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '1px solid var(--bg)' } }) : null) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
-      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
+      { label: 'Status', align: 'center', render: r => { let ri = null; if (r.rescheduled) { try { const o = r.adminNotes ? JSON.parse(r.adminNotes) : {}; if (o.pd || o.ps) ri = o; } catch(_) {} } return e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 } }, UI.statusPill(r.status), r.rescheduled ? e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 } }, e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland'), ri && ri.ps ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 500 } }, 'was: ' + ri.ps) : null, ri && ri.pd ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, this.fmtDate(ri.pd)) : null) : null); } },
       { label: 'Payout', align: 'right', render: r => {
         const cl = d.clients.find(c => c.id === r.client);
         const isCloseFee = cl && cl.closeFee;
@@ -406,9 +407,9 @@ const ScreenAgent = {
     const cols = [
       { label: 'Logged', render: r => e('div', null, UI.Mono(this.fmtDate(r.dateLog), { fontSize: 12, color: 'var(--text-mute)' }), r.loggedAt ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, new Date(r.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null) },
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
-      { label: 'Lead', render: r => e('span', { style: { color: 'var(--text)', fontWeight: 600 } }, r.lead) },
+      { label: 'Lead', render: r => e('span', { style: { position: 'relative', display: 'inline-block', color: 'var(--text)', fontWeight: 600 } }, r.lead, r.clientFeedback ? e('span', { title: 'Client feedback', style: { position: 'absolute', top: -3, right: -8, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '1px solid var(--bg)', display: 'inline-block', flexShrink: 0 } }) : null) },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc2 = r.sub && cl ? (cl.subclients || []).find(sc => sc.id === r.sub || sc.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc2 ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc2.name) : null); } },
-      { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
+      { label: 'Status', align: 'center', render: r => { let ri = null; if (r.rescheduled) { try { const o = r.adminNotes ? JSON.parse(r.adminNotes) : {}; if (o.pd || o.ps) ri = o; } catch(_) {} } return e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 } }, UI.statusPill(r.status), r.rescheduled ? e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 } }, e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland'), ri && ri.ps ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 500 } }, 'was: ' + ri.ps) : null, ri && ri.pd ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, this.fmtDate(ri.pd)) : null) : null); } },
       { label: 'Payout', align: 'right', render: r => {
         const cl = d.clients.find(c => c.id === r.client);
         const isCloseFee = cl && cl.closeFee;
@@ -451,6 +452,105 @@ const ScreenAgent = {
       toolbar,
       UI.C({ padding: 0, overflow: 'hidden' }, e('div', { style: { padding: '15px 18px' } }, UI.Hd('Active appointments', { fontSize: 15 })), UI.Table(cols, upcoming.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 700, empty: 'No active appointments match.' })),
       past.length ? e('details', null, e('summary', { style: { cursor: 'pointer', fontSize: 13.5, fontWeight: 700, color: 'var(--text-dim)', padding: '10px 4px' } }, `Show invoiced / paid history (${past.length})`), UI.C({ padding: 0, overflow: 'hidden', marginTop: 8 }, UI.Table(cols, past.map(r => ({ ...r, _onClick: () => this.openModal('appointmentDetail', { id: r.id }) })), { min: 700 }))) : null);
+  },
+
+  _agentFollowup(d, s, me) {
+    const e = React.createElement;
+    const CS_OPTIONS = ['Nieuw', 'Gecontacteerd', 'Geen gehoor', 'Afspraak', 'Afgewezen'];
+    const CS_COLORS = { Nieuw: 'var(--info)', Gecontacteerd: 'var(--accent)', 'Geen gehoor': 'var(--warn)', Afspraak: 'var(--up)', Afgewezen: 'var(--down)' };
+
+    const parseNotes = (an) => { try { return an ? JSON.parse(an) : {}; } catch(_) { return an ? { nt: an } : {}; } };
+    const getCS = (a) => parseNotes(a.adminNotes).cs || 'Nieuw';
+    const getCF = (a) => parseNotes(a.adminNotes).cf || '';
+
+    const allAppts = d.appointments.filter(a => a.agent === me.id && (a.status === 'cancel' || a.status === 'no_show'));
+    allAppts.sort((a, b) => (b.dateAppt || b.dateLog || '') > (a.dateAppt || a.dateLog || '') ? 1 : -1);
+
+    // Group by YYYY-MM
+    const monthMap = {};
+    allAppts.forEach(a => {
+      const ym = (a.dateAppt || a.dateLog || '').slice(0, 7);
+      if (!ym) return;
+      if (!monthMap[ym]) monthMap[ym] = [];
+      monthMap[ym].push(a);
+    });
+    const sortedYMs = Object.keys(monthMap).sort((a, b) => b.localeCompare(a));
+
+    const expandedM = s.fuMonthExp || {};
+    const expandedA = s.fuApptExp || {};
+
+    const csStyle = (cs) => ({ padding: '3px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 700, color: CS_COLORS[cs] || 'var(--text-mute)', background: 'var(--bg-2)', border: '1px solid currentColor', cursor: 'pointer' });
+
+    const saveMerge = async (id, updates) => {
+      const appt = d.appointments.find(x => x.id === id);
+      const obj = parseNotes(appt ? appt.adminNotes : '');
+      Object.assign(obj, updates);
+      const newNotes = JSON.stringify(obj);
+      this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = newNotes; });
+      await API.saveAdminNotes(id, newNotes);
+    };
+
+    if (sortedYMs.length === 0) {
+      return UI.C({ padding: 28 }, e('div', { style: { color: 'var(--text-mute)', fontSize: 14, textAlign: 'center' } }, 'Geen no-shows of cancels.'));
+    }
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 16 } },
+      e('div', { style: { fontSize: 13, color: 'var(--text-mute)', marginBottom: 4 } }, allAppts.length + ' afspraken te opvolgen'),
+      ...sortedYMs.map(ym => {
+        const appts = monthMap[ym];
+        const dt = new Date(ym + '-02');
+        const label = dt.toLocaleString('nl-BE', { month: 'long', year: 'numeric' });
+        const isOpen = !!expandedM[ym];
+        const toggle = () => this.setState(st => ({ fuMonthExp: { ...(st.fuMonthExp || {}), [ym]: !isOpen } }));
+
+        return e('div', { key: ym, style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
+          e('div', { onClick: toggle, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: isOpen ? 'oklch(0.18 0.02 256 / .6)' : 'var(--surface)' } },
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+              e('span', { style: { fontWeight: 700, fontSize: 14, textTransform: 'capitalize' } }, label),
+              e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, appts.length + ' afspraken')),
+            e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›')),
+          isOpen ? e('div', { style: { background: 'var(--bg-2)', borderTop: '1px solid var(--border-soft)' } },
+            ...appts.map(a => {
+              const cl = d.clients.find(c => c.id === a.client);
+              const isExpA = !!expandedA[a.id];
+              const toggleA = () => this.setState(st => ({ fuApptExp: { ...(st.fuApptExp || {}), [a.id]: !isExpA } }));
+              const cs = getCS(a);
+              const cf = getCF(a);
+              const cfDraft = (s.fuCFDraft || {})[a.id];
+              const cfVal = cfDraft !== undefined ? cfDraft : cf;
+              const setCFDraft = (v) => this.setState(st => ({ fuCFDraft: { ...(st.fuCFDraft || {}), [a.id]: v } }));
+
+              return e('div', { key: a.id, style: { borderBottom: '1px solid var(--border-soft)' } },
+                e('div', { onClick: toggleA, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', cursor: 'pointer' } },
+                  e('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 3 } },
+                    e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+                      e('span', { style: { fontWeight: 600, fontSize: 14, color: 'var(--text)' } }, a.lead),
+                      a.phone ? e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, a.phone) : null,
+                      UI.statusPill(a.status)),
+                    e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-mute)' } },
+                      cl ? e('span', null, cl.name) : null,
+                      e('span', null, '·'),
+                      e('span', null, this.fmtDate(a.dateAppt || a.dateLog)),
+                      cf ? e('span', { style: { marginLeft: 4, fontStyle: 'italic', color: 'var(--text-dim)' } }, '"' + cf.slice(0, 50) + (cf.length > 50 ? '…' : '') + '"') : null)),
+                  e('span', { onClick: ev => ev.stopPropagation(), style: csStyle(cs), title: 'Contact status' }, cs),
+                  e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isExpA ? 'rotate(90deg)' : 'none', transition: 'transform .2s', marginLeft: 8 } }, '›')),
+                isExpA ? e('div', { style: { padding: '12px 18px 16px', background: 'var(--surface)', borderTop: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: 14 } },
+                  e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
+                    e('div', null,
+                      e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Contact status'),
+                      e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+                        CS_OPTIONS.map(opt =>
+                          e('button', { key: opt, onClick: () => saveMerge(a.id, { cs: opt }), style: { ...csStyle(cs === opt ? opt : null), fontWeight: cs === opt ? 800 : 600, opacity: cs === opt ? 1 : 0.55, border: cs === opt ? '2px solid ' + (CS_COLORS[opt] || 'var(--border)') : '1px solid var(--border)' } }, opt)))),
+                    e('div', { style: { flex: 1, minWidth: 200 } },
+                      e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Caller feedback'),
+                      e('textarea', { value: cfVal, placeholder: 'Notities voor jezelf over dit contact…', onChange: ev => setCFDraft(ev.target.value), rows: 2, style: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
+                      e('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 4 } },
+                        UI.Btn('Opslaan', () => saveMerge(a.id, { cf: cfVal }).then(() => this.setState(st => { const d2 = { ...(st.fuCFDraft || {}) }; delete d2[a.id]; return { fuCFDraft: d2 }; })), 'primary', { fontSize: 12, padding: '5px 12px' })))),
+                  e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                    UI.Btn('Herboeken (open)', () => this.setApptStatus(a.id, 'open').then(() => this.toast('Herboeken', a.lead + ' staat terug op open', 'var(--accent)')), 'soft', { fontSize: 12 }),
+                    e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Zet status terug naar open voor herplanning'))) : null);
+            })) : null);
+      }));
   },
 
   _agentEod(d, s, me, today) {

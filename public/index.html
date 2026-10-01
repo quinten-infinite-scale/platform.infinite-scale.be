@@ -3,7 +3,7 @@
 <head>
 <script>!function(){var MOON='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><\/svg>';var SUN='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"\/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"\/><\/svg>';window.ispApplyTheme=function(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('isp-theme',theme);var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=theme==='light'?SUN:MOON;};var t=localStorage.getItem('isp-theme');if(t)document.documentElement.setAttribute('data-theme',t);document.addEventListener('click',function(e){if(e.target.closest('#isp-theme-btn')){var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';window.ispApplyTheme(next);}});document.addEventListener('DOMContentLoaded',function(){var cur=document.documentElement.getAttribute('data-theme')||'dark';var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=cur==='light'?SUN:MOON;});}();</script>
 <script>!function(){try{var h=new URLSearchParams(location.hash.slice(1));var at=h.get('access_token'),rt=h.get('refresh_token'),ei=parseInt(h.get('expires_in')||'3600'),ea=h.get('expires_at');if(at){var payload=JSON.parse(atob(at.split('.')[1]));var user={id:payload.sub,email:payload.email,role:payload.role,app_metadata:payload.app_metadata||{},user_metadata:payload.user_metadata||{}};localStorage.setItem('is_session',JSON.stringify({access_token:at,refresh_token:rt,expires_in:ei,expires_at:ea?parseInt(ea):Math.floor(Date.now()/1000)+ei,user:user}));history.replaceState(null,'',location.pathname+location.search);}}catch(e){}}();</script>
-<script>!function(){var V="20261001k";if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
+<script>!function(){var V="20261001l";if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -15,15 +15,15 @@
 <script src="./js/ui.js?v=20260922d"></script>
 <script src="./js/contract-templates.js?v=20260922d"></script>
 <script src="./js/screen-shared.js?v=20260928d"></script>
-<script src="./js/screen-agent.js?v=20261001k"></script>
-<script src="./js/screen-client.js?v=20261001k"></script>
-<script src="./js/screen-subclient.js?v=20261001k"></script>
+<script src="./js/screen-agent.js?v=20261001l"></script>
+<script src="./js/screen-client.js?v=20261001l"></script>
+<script src="./js/screen-subclient.js?v=20261001l"></script>
 <script src="./js/screen-roadmap.js?v=20260929f"></script>
-<script src="./js/screen-admin.js?v=20261001k"></script>
+<script src="./js/screen-admin.js?v=20261001l"></script>
 <script src="./js/pdf-ttf.js?v=20260922d"></script>
-<script src="./js/modals.js?v=20261001k"></script>
-<script src="./js/app.js?v=20261001k"></script>
-<script src="./js/api.js?v=20261001k"></script>
+<script src="./js/modals.js?v=20261001l"></script>
+<script src="./js/app.js?v=20261001l"></script>
+<script src="./js/api.js?v=20261001l"></script>
 </head>
 <body>
 <x-dc>
@@ -1016,7 +1016,7 @@ class Component extends DCLogic {
 
     // Nav
     const navDefs = {
-      agent: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['log', 'Appointment Log', 'M5 3h14v18H5zM9 9h6M9 13h6M9 17h4'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['eod', 'End of Day', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['payments', 'Payments', 'M3 6h18v12H3zM3 10h18M7 15h3'], ['clients', 'My Clients', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Rooster', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['tickets', 'Tickets', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12v4M10 14h4'], ['coaching', 'Coaching', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      agent: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['log', 'Appointment Log', 'M5 3h14v18H5zM9 9h6M9 13h6M9 17h4'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['followup', 'Opvolging', 'M4 6h16M4 12h10M4 18h6M17 15l2 2 4-4'], ['eod', 'End of Day', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['payments', 'Payments', 'M3 6h18v12H3zM3 10h18M7 15h3'], ['clients', 'My Clients', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Rooster', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['tickets', 'Tickets', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12v4M10 14h4'], ['coaching', 'Coaching', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
       client: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['stats', 'Statistieken', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
       agency: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['stats', 'Statistieken', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
       subclient: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z']],

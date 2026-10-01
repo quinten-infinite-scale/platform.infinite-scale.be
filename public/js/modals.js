@@ -270,17 +270,30 @@ const Modals = {
               canEdit ? UI.Btn('Opslaan', () => this.saveDealStatus(ap.id, qSent, qApproved, dealRev), 'primary', { padding: '9px 18px', fontSize: 13 }) : null)));
       })() : null;
 
-      const adminNotesVal = f.adminNotesDraft !== undefined ? f.adminNotesDraft : (ap.adminNotes || '');
+      const _anObj = (() => { try { return ap.adminNotes ? JSON.parse(ap.adminNotes) : {}; } catch(_) { return ap.adminNotes ? { nt: ap.adminNotes } : {}; } })();
+      const adminNotesText = f.adminNotesDraft !== undefined ? f.adminNotesDraft : (_anObj.nt || '');
       const adminNotesSection = role === 'admin'
         ? e('div', null,
             UI.Sub('Admin notes', { marginBottom: 8 }),
             e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-              e('textarea', { value: adminNotesVal, placeholder: 'Add internal notes visible to client…', onChange: ev => this.setForm('adminNotesDraft', ev.target.value), style: { width: '100%', minHeight: 72, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
-              UI.Btn('Save notes', () => this.saveAdminNotes(ap.id, adminNotesVal), 'primary', { fontSize: 12, padding: '7px 14px', alignSelf: 'flex-end' })))
-        : ap.adminNotes
+              e('textarea', { value: adminNotesText, placeholder: 'Add internal notes visible to client…', onChange: ev => this.setForm('adminNotesDraft', ev.target.value), style: { width: '100%', minHeight: 72, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
+              UI.Btn('Save notes', () => this.saveAdminNotes(ap.id, adminNotesText), 'primary', { fontSize: 12, padding: '7px 14px', alignSelf: 'flex-end' })))
+        : _anObj.nt
           ? e('div', null,
               UI.Sub('Notes', { marginBottom: 8 }),
-              e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, ap.adminNotes))
+              e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, _anObj.nt))
+          : null;
+      const callerFeedbackVal = f.callerFeedbackDraft !== undefined ? f.callerFeedbackDraft : (_anObj.cf || '');
+      const callerFeedbackSection = (role === 'agent' || role === 'admin')
+        ? e('div', null,
+            UI.Sub('Caller feedback', { marginBottom: 8 }),
+            e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+              e('textarea', { value: callerFeedbackVal, placeholder: 'Notities over contact met de lead…', onChange: ev => this.setForm('callerFeedbackDraft', ev.target.value), style: { width: '100%', minHeight: 60, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
+              UI.Btn('Opslaan', () => this.mergeAdminNotes(ap.id, { cf: callerFeedbackVal }).then(() => this.toast('Saved', 'Feedback opgeslagen', 'var(--accent)')), 'primary', { fontSize: 12, padding: '7px 14px', alignSelf: 'flex-end' })))
+        : _anObj.cf
+          ? e('div', null,
+              UI.Sub('Caller feedback', { marginBottom: 8 }),
+              e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, _anObj.cf))
           : null;
 
       const loggedTime = ap.loggedAt ? new Date(ap.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : null;
@@ -356,6 +369,7 @@ const Modals = {
               e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
                 e('span', null, this.fmtDate(ap.dateAppt)),
                 ap.rescheduled ? e('span', { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null,
+                ap.rescheduled && (_anObj.ps || _anObj.pd) ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, (_anObj.ps ? 'was: ' + _anObj.ps : '') + (_anObj.ps && _anObj.pd ? ' · ' : '') + (_anObj.pd ? this.fmtDate(_anObj.pd) : '')) : null,
                 canReschedule && !isRescheduling ? e('button', { onClick: () => this.setForm('reschedulingAppt', true), style: { fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-dim)', cursor: 'pointer' } }, 'Herplannen') : null),
               isRescheduling ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
                 e('input', { type: 'date', value: rescheduleDate, onChange: ev => this.setForm('rescheduleDate', ev.target.value), style: { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, outline: 'none' } }),
@@ -387,6 +401,7 @@ const Modals = {
         statusSection,
         feedbackSection,
         dealSection,
+        callerFeedbackSection,
         adminNotesSection,
         f.deleteConfirm ? e('div', { style: { padding: '12px 14px', borderRadius: 10, background: 'oklch(0.22 0.08 0 / .25)', border: '1px solid var(--down)', fontSize: 13, color: 'var(--down)', fontWeight: 600 } }, '⚠ This will permanently delete this appointment. This cannot be undone.') : null),
         detailBtns, '520px');

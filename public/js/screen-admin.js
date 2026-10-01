@@ -717,10 +717,18 @@ const ScreenAdmin = {
                   const mOpen = !!clInvMonthExp[ym];
                   const toggleM = () => this.setState(st => ({ clInvMonthExp: { ...(st.clInvMonthExp || {}), [ym]: !mOpen } }));
                   const clientIds = [...new Set(monthAppts.map(a => a.client))];
+                  const monthShowsTotal = monthAppts.filter(a => a.status === 'show').reduce((s3, r) => {
+                    try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return s3 + RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return s3 + fb.revenue; } } catch(_) {}
+                    if (r.client === 'c15') return s3 + (rnAgentPay(r) ?? 0);
+                    const cl3 = d.clients.find(c => c.id === r.client); if (!cl3) return s3;
+                    if (r.sub && cl3.subclients) { const sc3 = cl3.subclients.find(sc => sc.id === r.sub || sc.name === r.sub); if (sc3 && sc3.rate != null) return s3 + sc3.rate; }
+                    return s3 + (cl3.rate || 0);
+                  }, 0);
                   return e('div', { key: ym, style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
                     e('div', { onClick: toggleM, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: mOpen ? 'oklch(0.18 0.02 256 / .6)' : 'var(--surface)' } },
                       e('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
                         e('span', { style: { fontWeight: 700, fontSize: 14, textTransform: 'capitalize' } }, label),
+                        monthShowsTotal > 0 ? e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--info)', fontFamily: "'JetBrains Mono'", background: 'oklch(0.20 0.08 256 / .25)', padding: '2px 10px', borderRadius: 20 } }, this.euro(monthShowsTotal) + ' shows') : null,
                         pending.length === 0 && billable.length > 0
                           ? e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--up)', background: 'oklch(0.22 0.08 152 / .4)', padding: '2px 9px', borderRadius: 20 } }, '✓ Gefactureerd')
                           : pending.length > 0
@@ -769,7 +777,7 @@ const ScreenAdmin = {
                             UI.Table([
                               { label: 'Afspraak', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12 }) },
                               { label: 'Gelogd', render: r => UI.Mono(this.fmtDate(r.dateLog), { fontSize: 12, color: 'var(--text-mute)' }) },
-                              { label: 'Lead', render: r => e('span', { style: { fontWeight: 600, color: 'var(--text)' } }, r.lead) },
+                              { label: 'Lead', render: r => e('span', { style: { position: 'relative', display: 'inline-block', fontWeight: 600, color: 'var(--text)' } }, r.lead, r.clientFeedback ? e('span', { title: 'Client feedback aanwezig', style: { position: 'absolute', top: -3, right: -8, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '1px solid var(--bg)' } }) : null) },
                               { label: 'Agent', render: r => this.agentName(r.agent, d) },
                               cl.subclients && cl.subclients.length > 0 ? { label: 'Subclient', render: r => { if (!r.sub) return e('span', { style: { color: 'var(--text-mute)', fontSize: 12 } }, '—'); const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); return e('span', { style: { color: 'var(--text-dim)', fontSize: 12.5 } }, sc ? sc.name : r.sub); } } : null,
                               { label: 'Status', align: 'center', render: r => e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } }, UI.statusPill(r.status), r.rescheduled ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null) },
