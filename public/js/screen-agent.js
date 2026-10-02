@@ -62,7 +62,7 @@ const ScreenAgent = {
     const recentTable = UI.Table([
       { label: 'Logged', render: r => e('div', null, UI.Mono(this.fmtDate(r.dateLog), { color: 'var(--text-mute)', fontSize: 12 }), r.loggedAt ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, new Date(r.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null) },
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { color: 'var(--text-dim)', fontSize: 12.5 }) },
-      { label: 'Lead', key: 'lead', render: r => e('span', { style: { position: 'relative', display: 'inline-block', color: 'var(--text)', fontWeight: 600 } }, r.lead, r.clientFeedback ? e('span', { title: 'Client feedback', style: { position: 'absolute', top: -3, right: -8, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '1px solid var(--bg)' } }) : null) },
+      { label: 'Lead', key: 'lead', render: r => { const hasCF = (() => { try { return !!(r.adminNotes && JSON.parse(r.adminNotes).cf); } catch { return false; } })(); return e('span', { style: { position: 'relative', display: 'inline-block', color: 'var(--text)', fontWeight: 600, paddingRight: (r.clientFeedback || hasCF) ? 10 : 0 } }, r.lead, r.clientFeedback ? e('span', { title: 'Client feedback', style: { position: 'absolute', top: -3, right: hasCF ? 12 : 0, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '1px solid var(--bg)' } }) : null, hasCF ? e('span', { title: 'Callagent feedback', style: { position: 'absolute', top: -3, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#a78bfa', border: '1px solid var(--bg)' } }) : null); } },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc = r.sub && cl ? (cl.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc.name) : null); } },
       { label: 'Status', align: 'center', render: r => { let ri = null; if (r.rescheduled) { try { const o = r.adminNotes ? JSON.parse(r.adminNotes) : {}; if (o.pd || o.ps) ri = o; } catch(_) {} } return e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 } }, UI.statusPill(r.status), r.rescheduled ? e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 } }, e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland'), ri && ri.ps ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 500 } }, 'was: ' + ri.ps) : null, ri && ri.pd ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, this.fmtDate(ri.pd)) : null) : null); } },
       { label: 'Payout', align: 'right', render: r => {
@@ -79,15 +79,18 @@ const ScreenAgent = {
 
     const period = d.leaderPeriod || 'daily';
     const range = period === 'daily' ? 1 : period === 'weekly' ? 7 : 14;
-    const board = d.agents.filter(a => a.active).map(a => {
-      let appts = 0, dials = 0;
-      for (let i = 0; i < range; i++) {
-        const day = this.iso(this.daysAgo(i));
-        appts += d.appointments.filter(ap => ap.agent === a.id && ap.dateLog === day).length;
-        dials += (d.dials[a.id] || {})[day] || 0;
-      }
-      return { name: a.name, appts, dials, me: a.id === me.id };
-    }).sort((x, y) => y.appts - x.appts);
+    const todayStr2 = this.iso(this.today());
+    const board = d.agents.filter(a => a.active)
+      .filter(a => period !== 'daily' || ((d.dials[a.id] || {})[todayStr2] || 0) > 0)
+      .map(a => {
+        let appts = 0, dials = 0;
+        for (let i = 0; i < range; i++) {
+          const day = this.iso(this.daysAgo(i));
+          appts += d.appointments.filter(ap => ap.agent === a.id && ap.dateLog === day).length;
+          dials += (d.dials[a.id] || {})[day] || 0;
+        }
+        return { name: a.name, appts, dials, me: a.id === me.id };
+      }).sort((x, y) => y.appts - x.appts);
 
     const todayStr = this.iso(this.today());
     const todoList = (me.todos || []).map(t => {
@@ -407,7 +410,7 @@ const ScreenAgent = {
     const cols = [
       { label: 'Logged', render: r => e('div', null, UI.Mono(this.fmtDate(r.dateLog), { fontSize: 12, color: 'var(--text-mute)' }), r.loggedAt ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, new Date(r.loggedAt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : null) },
       { label: 'Appt date', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12.5, color: 'var(--text-dim)' }) },
-      { label: 'Lead', render: r => e('span', { style: { position: 'relative', display: 'inline-block', color: 'var(--text)', fontWeight: 600 } }, r.lead, r.clientFeedback ? e('span', { title: 'Client feedback', style: { position: 'absolute', top: -3, right: -8, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '1px solid var(--bg)', display: 'inline-block', flexShrink: 0 } }) : null) },
+      { label: 'Lead', render: r => { const hasCF = (() => { try { return !!(r.adminNotes && JSON.parse(r.adminNotes).cf); } catch { return false; } })(); return e('span', { style: { position: 'relative', display: 'inline-block', color: 'var(--text)', fontWeight: 600, paddingRight: (r.clientFeedback || hasCF) ? 10 : 0 } }, r.lead, r.clientFeedback ? e('span', { title: 'Client feedback', style: { position: 'absolute', top: -3, right: hasCF ? 12 : 0, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', border: '1px solid var(--bg)' } }) : null, hasCF ? e('span', { title: 'Callagent feedback', style: { position: 'absolute', top: -3, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#a78bfa', border: '1px solid var(--bg)' } }) : null); } },
       { label: 'Client', render: r => { const cl = d.clients.find(c => c.id === r.client); const sc2 = r.sub && cl ? (cl.subclients || []).find(sc => sc.id === r.sub || sc.name === r.sub) : null; return e('div', null, this.clientName(r.client, d), sc2 ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 1 } }, sc2.name) : null); } },
       { label: 'Status', align: 'center', render: r => { let ri = null; if (r.rescheduled) { try { const o = r.adminNotes ? JSON.parse(r.adminNotes) : {}; if (o.pd || o.ps) ri = o; } catch(_) {} } return e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 } }, UI.statusPill(r.status), r.rescheduled ? e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 } }, e('span', { style: { fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland'), ri && ri.ps ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontWeight: 500 } }, 'was: ' + ri.ps) : null, ri && ri.pd ? e('span', { style: { fontSize: 9.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, this.fmtDate(ri.pd)) : null) : null); } },
       { label: 'Payout', align: 'right', render: r => {

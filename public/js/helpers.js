@@ -7,12 +7,12 @@ const Helpers = {
   daysAgo(n) { const d = this.today(); d.setDate(d.getDate() - n); return d; },
   fmtDate(s) {
     if (!s) return '';
-    const d = new Date(s + 'T00:00:00');
+    const d = new Date(s.includes('T') ? s : s + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   },
   fmtFull(s) {
     if (!s) return '';
-    const d = new Date(s + 'T00:00:00');
+    const d = new Date(s.includes('T') ? s : s + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   },
   initialsOf(name) {
