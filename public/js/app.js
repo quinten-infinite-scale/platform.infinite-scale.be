@@ -764,7 +764,17 @@ class Component extends DCLogic {
 
   async createClient(f) {
     const type = f.newType || 'direct';
-    const rate = +(String(f.rate || '45').replace(/\D/g, '')) || 45;
+    // If rate was explicitly typed in the form, use it. Otherwise check for a signed contract by email.
+    let rate = f.rate ? (+(String(f.rate).replace(/\D/g, '')) || 0) : 0;
+    if (!rate && f.email) {
+      const d = this.state.data;
+      const signedContract = (d.contracts || []).find(c => c.party_type !== 'agent' && c.status === 'signed' && c.email === f.email);
+      if (signedContract) {
+        const parsed = +(String(signedContract.value || '').replace(/[^\d]/g, '')) || 0;
+        if (parsed) rate = parsed;
+      }
+    }
+    if (!rate) rate = 45;
     const row = { name: f.name, type, status: 'starting', crm: f.crm || 'none', crm_on: f.crm && f.crm !== 'none', kickoff: this.iso(this.today()), rate, contact_person: f.name, email: f.email || '', company: f.name, bill_status: 'pending', subclients: [] };
     const res = await API.createClient(row);
     if (res) {

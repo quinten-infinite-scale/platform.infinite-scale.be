@@ -57,6 +57,18 @@ async function handleSaveContract(req, res) {
 
     try {
       if (resolvedPartyType === 'client') {
+        // Extract rate and setup fee from contract (used for both new and existing clients)
+        let contractRate = contract.value ? Math.round(parseFloat(contract.value)) : 0;
+        let contractSetupFee = 0;
+        if (contract.contract_html) {
+          const text = contract.contract_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+          const rateMatch = text.match(/(?:per\s+(?:gehouden\s+)?afspraak)[^€]*€\s*([\d.,]+)/i) || text.match(/€\s*([\d.,]+)[^€\n]{0,60}(?:per\s+(?:gehouden\s+)?afspraak)/i);
+          if (rateMatch) contractRate = Math.round(parseFloat(rateMatch[1].replace(/\./g, '').replace(',', '.')));
+          const setupMatch = text.match(/[Oo]pstartkost[^€]*€\s*([\d.,]+)/i);
+          if (setupMatch) contractSetupFee = Math.round(parseFloat(setupMatch[1].replace(/\./g, '').replace(',', '.')));
+        }
+        if (!contractRate) contractRate = 45;
+
         let clientId;
         const existingR = await fetch(`${SB_URL_SC}/rest/v1/clients?email=eq.${encodeURIComponent(resolvedEmail)}&select=id&limit=1`, { headers: sbH });
         const existing = await existingR.json();
@@ -65,23 +77,19 @@ async function handleSaveContract(req, res) {
           const allCl = await allClR.json();
           const maxNum = (allCl || []).reduce((m, c) => { const n = parseInt((c.id || '').replace(/\D/g, ''), 10); return isNaN(n) ? m : Math.max(m, n); }, 0);
           const newClientId = 'c' + (maxNum + 1);
-          let rate = contract.value ? Math.round(parseFloat(contract.value)) : 0;
-          let setupFee = 0;
-          if (contract.contract_html) {
-            const text = contract.contract_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-            const rateMatch = text.match(/(?:per\s+(?:gehouden\s+)?afspraak)[^€]*€\s*([\d.,]+)/i) || text.match(/€\s*([\d.,]+)[^€\n]{0,60}(?:per\s+(?:gehouden\s+)?afspraak)/i);
-            if (rateMatch) rate = Math.round(parseFloat(rateMatch[1].replace(/\./g, '').replace(',', '.')));
-            const setupMatch = text.match(/[Oo]pstartkost[^€]*€\s*([\d.,]+)/i);
-            if (setupMatch) setupFee = Math.round(parseFloat(setupMatch[1].replace(/\./g, '').replace(',', '.')));
-          }
-          if (!rate) rate = 45;
           const today = new Date().toISOString().slice(0, 10);
-          const newClientR = await fetch(`${SB_URL_SC}/rest/v1/clients`, { method: 'POST', headers: { ...sbH, Prefer: 'return=representation' }, body: JSON.stringify({ id: newClientId, name: resolvedName, email: resolvedEmail, type: 'direct', status: 'starting', crm: 'none', crm_on: false, kickoff: today, rate, setup_fee: setupFee || null, contact_person: resolvedName, company: resolvedName, bill_status: 'pending', subclients: [] }) });
+          const newClientR = await fetch(`${SB_URL_SC}/rest/v1/clients`, { method: 'POST', headers: { ...sbH, Prefer: 'return=representation' }, body: JSON.stringify({ id: newClientId, name: resolvedName, email: resolvedEmail, type: 'direct', status: 'starting', crm: 'none', crm_on: false, kickoff: today, rate: contractRate, setup_fee: contractSetupFee || null, contact_person: resolvedName, company: resolvedName, bill_status: 'pending', subclients: [] }) });
           const newCl = await newClientR.json();
           clientId = newCl?.[0]?.id || newClientId;
         }
         const userId = await ensureAuthUser('client');
-        await fetch(`${SB_URL_SC}/rest/v1/clients?id=eq.${clientId}`, { method: 'PATCH', headers: { ...sbH, Prefer: 'return=minimal' }, body: JSON.stringify({ profile_id: userId, email: resolvedEmail }) });
+        // Always sync rate, setup_fee, and contact info from the signed contract onto the client record
+        const clientSync = { profile_id: userId, email: resolvedEmail, rate: contractRate };
+        if (contractSetupFee) clientSync.setup_fee = contractSetupFee;
+        if (contract.vat) clientSync.vat = contract.vat;
+        if (contract.contact) clientSync.contact_person = contract.contact;
+        if (contract.address) clientSync.address = contract.address;
+        await fetch(`${SB_URL_SC}/rest/v1/clients?id=eq.${clientId}`, { method: 'PATCH', headers: { ...sbH, Prefer: 'return=minimal' }, body: JSON.stringify(clientSync) });
         const setupUrl = await genSetupUrl();
         if (!setupUrl) return res.status(500).json({ error: 'Failed to generate setup link', userId, clientId });
         const emailResult = await sendOnboardEmail(setupUrl, false);
