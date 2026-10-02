@@ -432,6 +432,7 @@ const ScreenClient = {
       { label: 'Agent', render: r => e('span', { style: { color: isDimmed(r) ? 'var(--text-mute)' : undefined } }, this.agentName(r.agent, d)) },
       isAgency ? { label: 'Client', render: r => { const sc = (cl.subclients || []).find(x => x.id === r.sub || x.name === r.sub); return e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, sc ? sc.name : '—'); } } : null,
       { label: 'Status', align: 'center', render: r => UI.statusPill(r.status) },
+      { label: 'Callagent', align: 'right', render: r => isDimmed(r) ? e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '—') : (r.agentRate != null ? UI.Mono(this.euro(r.agentRate), { fontWeight: 700, color: forHistory ? 'var(--text-mute)' : 'var(--warn)' }) : e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '—')) },
       { label: 'Bedrag', align: 'right', render: r => isDimmed(r) ? e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, '—') : UI.Mono(this.euro(apptRate(r)), { fontWeight: 700, color: forHistory ? 'var(--text-mute)' : 'var(--info)' }) },
       !forHistory ? { label: 'Status bijwerken', align: 'right', render: statusBtns } : null,
     ].filter(Boolean);
@@ -634,7 +635,7 @@ const ScreenClient = {
 
   _clientSupport(d, s, cl) {
     const e = React.createElement;
-    const mine = d.tickets;
+    const mine = (d.tickets || []).filter(t => t.client === this.myClientId);
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
       UI.Row({ justifyContent: 'space-between' }, UI.Hd('Support tickets'), UI.Btn('New ticket', () => this.openModal('ticket'), 'primary')),
       e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
