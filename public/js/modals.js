@@ -417,7 +417,7 @@ const Modals = {
     }
 
     if (k === 'todo') {
-      return wrap('Add a to-do', UI.Field('Task', UI.Input(f.text, v => this.setForm('text', v), 'What needs doing?')),
+      return wrap('Add a to-do', UI.Field('Task', UI.Input(f.text, v => this.setForm('text', v), 'What needs doing?', 'text', { autoFocus: true, onKeyDown: ev => { if (ev.key === 'Enter' && f.text) { this.addTodo(f.text); this.closeModal(); } } })),
         [UI.Btn('Cancel', () => this.closeModal(), 'soft'), UI.Btn('Add task', () => { this.addTodo(f.text); this.closeModal(); }, 'primary')]);
     }
 

@@ -720,7 +720,8 @@ const ScreenAdmin = {
                   const clientIds = [...new Set(monthAppts.map(a => a.client))];
                   const _apptRateAdm = (r) => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(_) {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; const cl3 = d.clients.find(c => c.id === r.client); if (!cl3) return 0; if (r.sub && cl3.subclients) { const sc3 = cl3.subclients.find(sc => sc.id === r.sub || sc.name === r.sub); if (sc3 && sc3.rate != null) return sc3.rate; } return cl3.rate || 0; };
                   const monthShowsTotal = monthAppts.filter(a => a.status === 'show').reduce((s3, r) => s3 + _apptRateAdm(r), 0);
-                  const pendingOmzet = pending.reduce((s3, r) => s3 + _apptRateAdm(r), 0);
+                  const openPending = pending.filter(a => a.status !== 'show');
+                  const pendingOmzet = openPending.reduce((s3, r) => s3 + _apptRateAdm(r), 0);
                   return e('div', { key: ym, style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
                     e('div', { onClick: toggleM, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: mOpen ? 'oklch(0.18 0.02 256 / .6)' : 'var(--surface)' } },
                       e('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
@@ -728,9 +729,9 @@ const ScreenAdmin = {
                         monthShowsTotal > 0 ? e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--info)', fontFamily: "'JetBrains Mono'", background: 'oklch(0.20 0.08 256 / .25)', padding: '2px 10px', borderRadius: 20 } }, this.euro(monthShowsTotal) + ' shows') : null,
                         pending.length === 0 && billable.length > 0
                           ? e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--up)', background: 'oklch(0.22 0.08 152 / .4)', padding: '2px 9px', borderRadius: 20 } }, '✓ Gefactureerd')
-                          : pending.length > 0
+                          : openPending.length > 0
                           ? e('span', { style: { fontSize: 11.5, fontWeight: 600, color: 'var(--warn)', background: 'oklch(0.22 0.05 85 / .3)', padding: '2px 9px', borderRadius: 20 } },
-                              pending.length + ' openstaand',
+                              openPending.length + ' openstaand',
                               pendingOmzet > 0 ? e('span', { style: { marginLeft: 6, fontFamily: "'JetBrains Mono'", fontWeight: 700 } }, '· ' + this.euro(pendingOmzet)) : null)
                           : null),
                       e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: mOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›')),

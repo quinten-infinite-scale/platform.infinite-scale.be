@@ -94,13 +94,18 @@ const ScreenAgent = {
 
     const todayStr = this.iso(this.today());
     const todoList = (me.todos || []).map(t => {
-      const isDone = t.done && t.doneDate === todayStr;
+      const isDone = t.done && (t.doneDate === todayStr || !t.doneDate);
       return e('div', { key: t.id, style: { display: 'flex', alignItems: 'center', gap: 11, padding: '10px 0', borderBottom: '1px solid var(--border-soft)' } },
         e('button', {
           onClick: () => this.toggleTodo(t.id, me),
           style: { width: 20, height: 20, borderRadius: 6, flex: 'none', cursor: 'pointer', border: `1.5px solid ${isDone ? 'var(--accent)' : 'var(--border)'}`, background: isDone ? 'var(--accent)' : 'transparent', display: 'grid', placeItems: 'center' }
         }, isDone ? e('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'var(--accent-ink)', strokeWidth: 3, strokeLinecap: 'round', strokeLinejoin: 'round' }, e('path', { d: 'M5 12l5 5L20 6' })) : null),
-        e('span', { style: { flex: 1, fontSize: 13.5, color: isDone ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', fontWeight: isDone ? 500 : 600 } }, t.text));
+        e('span', { style: { flex: 1, fontSize: 13.5, color: isDone ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', fontWeight: isDone ? 500 : 600 } }, t.text),
+        e('button', {
+          onClick: () => this.deleteTodo(t.id, me),
+          title: 'Delete todo',
+          style: { width: 20, height: 20, borderRadius: 5, flex: 'none', cursor: 'pointer', border: 'none', background: 'transparent', display: 'grid', placeItems: 'center', color: 'var(--text-mute)', fontSize: 16, lineHeight: 1, opacity: 0.5 }
+        }, '×'));
     });
 
     // Today's appointments broken down per client
@@ -163,7 +168,7 @@ const ScreenAgent = {
           UI.C({},
             e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 } },
               UI.Hd('To-do list', { fontSize: 15 }),
-              UI.Btn('Add', () => this.openModal('todo'), 'soft', { padding: '5px 11px', fontSize: 12 })),
+              UI.Btn('Add', () => { this.setState({ form: {} }); this.openModal('todo'); }, 'soft', { padding: '5px 11px', fontSize: 12 })),
             (me.todos || []).length ? todoList : UI.Sub('No tasks. You\'re clear.')),
           UI.C({},
             e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 } },

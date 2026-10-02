@@ -694,6 +694,14 @@ class Component extends DCLogic {
     this.toast('Added', 'To-do created', 'var(--accent)');
   }
 
+  async deleteTodo(id, me) {
+    const agent = me || this.state.data.agents.find(a => a.id === this.myAgentId);
+    if (!agent) return;
+    const todos = (agent.todos || []).filter(t => t.id !== id);
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === agent.id); if (a) a.todos = todos; });
+    await API.saveTodos(agent.id, todos);
+  }
+
   async markAllRead() {
     this.mutLocal(d => { (d.notifs[this.state.role] || []).forEach(n => n.read = true); });
     await API.markAllNotifsRead(this.state.role);
