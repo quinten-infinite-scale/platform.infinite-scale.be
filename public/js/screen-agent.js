@@ -456,31 +456,37 @@ const ScreenAgent = {
 
   _agentFollowup(d, s, me) {
     const e = React.createElement;
-    const CS_OPTIONS = ['Nieuw', 'Gecontacteerd', 'Geen gehoor', 'Afspraak', 'Afgewezen'];
-    const CS_COLORS = { Nieuw: 'var(--info)', Gecontacteerd: 'var(--accent)', 'Geen gehoor': 'var(--warn)', Afspraak: 'var(--up)', Afgewezen: 'var(--down)' };
+    const CS_OPTIONS = ['Nieuw', 'Gecontacteerd', 'Geen gehoor', 'Herboekt', 'Afgewezen'];
+    const CS_COLORS = { Nieuw: 'var(--info)', Gecontacteerd: 'var(--accent)', 'Geen gehoor': 'var(--warn)', Herboekt: 'var(--up)', Afgewezen: 'var(--down)', Show: 'oklch(0.78 0.18 85)' };
 
     const parseNotes = (an) => { try { return an ? JSON.parse(an) : {}; } catch(_) { return an ? { nt: an } : {}; } };
+    const parseCF = (cf) => { try { return cf ? JSON.parse(cf) : {}; } catch(_) { return {}; } };
     const getCS = (a) => parseNotes(a.adminNotes).cs || 'Nieuw';
     const getCF = (a) => parseNotes(a.adminNotes).cf || '';
     const getLog = (a) => parseNotes(a.adminNotes).cl || [];
+    const isReno = (a) => a.client === 'c15' || !!parseCF(a.clientFeedback)._rn;
 
-    const allAppts = d.appointments.filter(a => a.agent === me.id && (a.status === 'cancel' || a.status === 'no_show') && a.status !== 'show');
+    const allAppts = d.appointments.filter(a => a.agent === me.id && (a.status === 'cancel' || a.status === 'no_show' || (a.status === 'show' && parseNotes(a.adminNotes).fromOpv)) && !isReno(a));
     allAppts.sort((a, b) => (b.dateAppt || b.dateLog || '') > (a.dateAppt || a.dateLog || '') ? 1 : -1);
 
-    // Group by YYYY-MM
-    const monthMap = {};
+    // Group by client
+    const clientMap = {};
     allAppts.forEach(a => {
-      const ym = (a.dateAppt || a.dateLog || '').slice(0, 7);
-      if (!ym) return;
-      if (!monthMap[ym]) monthMap[ym] = [];
-      monthMap[ym].push(a);
+      const cid = a.client || '_none';
+      if (!clientMap[cid]) clientMap[cid] = [];
+      clientMap[cid].push(a);
     });
-    const sortedYMs = Object.keys(monthMap).sort((a, b) => b.localeCompare(a));
+    const sortedClients = Object.keys(clientMap).sort((a, b) => {
+      const ca = d.clients.find(c => c.id === a);
+      const cb = d.clients.find(c => c.id === b);
+      return (ca ? ca.name : '').localeCompare(cb ? cb.name : '');
+    });
 
-    const expandedM = s.fuMonthExp || {};
+    const expandedC = s.fuClientExp || {};
     const expandedA = s.fuApptExp || {};
 
     const csStyle = (cs) => ({ padding: '3px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 700, color: CS_COLORS[cs] || 'var(--text-mute)', background: 'var(--bg-2)', border: '1px solid currentColor', cursor: 'pointer' });
+    const grayBtnStyle = { padding: '3px 9px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: 'var(--bg-2)', color: 'var(--text-mute)', border: '1px solid var(--border)', flexShrink: 0, whiteSpace: 'nowrap' };
 
     const saveMerge = async (id, updates) => {
       const appt = d.appointments.find(x => x.id === id);
@@ -491,28 +497,27 @@ const ScreenAgent = {
       await API.saveAdminNotes(id, newNotes);
     };
 
-    if (sortedYMs.length === 0) {
+    if (sortedClients.length === 0) {
       return UI.C({ padding: 28 }, e('div', { style: { color: 'var(--text-mute)', fontSize: 14, textAlign: 'center' } }, 'Geen no-shows of cancels.'));
     }
 
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 16 } },
       e('div', { style: { fontSize: 13, color: 'var(--text-mute)', marginBottom: 4 } }, allAppts.length + ' afspraken te opvolgen'),
-      ...sortedYMs.map(ym => {
-        const appts = monthMap[ym];
-        const dt = new Date(ym + '-02');
-        const label = dt.toLocaleString('nl-BE', { month: 'long', year: 'numeric' });
-        const isOpen = !!expandedM[ym];
-        const toggle = () => this.setState(st => ({ fuMonthExp: { ...(st.fuMonthExp || {}), [ym]: !isOpen } }));
+      ...sortedClients.map(cid => {
+        const appts = clientMap[cid];
+        const cl = d.clients.find(c => c.id === cid);
+        const clientLabel = cl ? cl.name : 'Onbekend';
+        const isOpen = !!expandedC[cid];
+        const toggle = () => this.setState(st => ({ fuClientExp: { ...(st.fuClientExp || {}), [cid]: !isOpen } }));
 
-        return e('div', { key: ym, style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
+        return e('div', { key: cid, style: { borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' } },
           e('div', { onClick: toggle, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: isOpen ? 'oklch(0.18 0.02 256 / .6)' : 'var(--surface)' } },
             e('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
-              e('span', { style: { fontWeight: 700, fontSize: 14, textTransform: 'capitalize' } }, label),
+              e('span', { style: { fontWeight: 700, fontSize: 14 } }, clientLabel),
               e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, appts.length + ' afspraken')),
             e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›')),
           isOpen ? e('div', { style: { background: 'var(--bg-2)', borderTop: '1px solid var(--border-soft)' } },
             ...appts.map(a => {
-              const cl = d.clients.find(c => c.id === a.client);
               const isExpA = !!expandedA[a.id];
               const toggleA = () => this.setState(st => ({ fuApptExp: { ...(st.fuApptExp || {}), [a.id]: !isExpA } }));
               const cs = getCS(a);
@@ -521,24 +526,31 @@ const ScreenAgent = {
               const cfVal = cfDraft !== undefined ? cfDraft : cf;
               const setCFDraft = (v) => this.setState(st => ({ fuCFDraft: { ...(st.fuCFDraft || {}), [a.id]: v } }));
               const log = getLog(a);
+              const apptDate = this.fmtDate(a.dateAppt || a.dateLog);
+              const subCl = a.sub && cl ? (cl.subclients || []).find(sc => sc.id === a.sub || sc.name === a.sub) : null;
+              const subLabel = subCl ? subCl.name : null;
 
               return e('div', { key: a.id, style: { borderBottom: '1px solid var(--border-soft)' } },
-                e('div', { onClick: toggleA, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', cursor: 'pointer' } },
+                e('div', { onClick: toggleA, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px', cursor: 'pointer' } },
                   e('div', { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 3 } },
                     e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
                       e('span', { style: { fontWeight: 600, fontSize: 14, color: 'var(--text)' } }, a.lead),
                       a.phone ? e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, a.phone) : null,
                       UI.statusPill(a.status)),
                     e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-mute)' } },
-                      cl ? e('span', null, cl.name) : null,
-                      e('span', null, '·'),
-                      e('span', null, this.fmtDate(a.dateAppt || a.dateLog)),
+                      e('span', null, apptDate),
+                      subLabel ? e('span', { style: { color: 'var(--text-dim)', fontSize: 11.5 } }, '· ' + subLabel) : null,
                       log.length > 0 ? e('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, '· ' + log.length + 'x gebeld') : null,
                       cf ? e('span', { style: { marginLeft: 4, fontStyle: 'italic', color: 'var(--text-dim)' } }, '"' + cf.slice(0, 50) + (cf.length > 50 ? '…' : '') + '"') : null)),
-                  e('button', { onClick: ev => { ev.stopPropagation(); saveMerge(a.id, { cs: 'Gecontacteerd', cl: [...log, new Date().toISOString()] }); }, style: { padding: '3px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', background: 'var(--accent)', color: 'white', border: 'none', flexShrink: 0, whiteSpace: 'nowrap' } }, 'Gecontacteerd'),
+                  a.phone ? e('button', { onClick: ev => { ev.stopPropagation(); navigator.clipboard.writeText(a.phone).catch(function(){}); }, style: grayBtnStyle }, 'Copy') : null,
+                  e('button', { onClick: ev => { ev.stopPropagation(); saveMerge(a.id, { cs: 'Gecontacteerd', cl: [...log, new Date().toISOString()] }); }, style: grayBtnStyle }, 'Gecontacteerd'),
                   e('span', { onClick: ev => ev.stopPropagation(), style: csStyle(cs), title: 'Contact status' }, cs),
-                  e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isExpA ? 'rotate(90deg)' : 'none', transition: 'transform .2s', marginLeft: 8 } }, '›')),
+                  e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isExpA ? 'rotate(90deg)' : 'none', transition: 'transform .2s', marginLeft: 4 } }, '›')),
                 isExpA ? e('div', { style: { padding: '12px 18px 16px', background: 'var(--surface)', borderTop: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: 14 } },
+                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 } },
+                    e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Herboekt'),
+                    e('span', { style: { fontWeight: 600, color: 'var(--text)' } }, apptDate),
+                    UI.statusPill(a.status)),
                   e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
                     e('div', null,
                       e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Contact status'),
@@ -558,9 +570,35 @@ const ScreenAgent = {
                         return e('div', { key: i, style: { fontSize: 12, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono'" } },
                           dt.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) + ' · ' + dt.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }));
                       }))) : null,
-                  e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-                    UI.Btn('Herboeken (open)', () => this.setApptStatus(a.id, 'open').then(() => this.toast('Herboeken', a.lead + ' staat terug op open', 'var(--accent)')), 'soft', { fontSize: 12 }),
-                    e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Zet status terug naar open voor herplanning'))) : null);
+                  e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                    (() => {
+                      const rbKey = a.id + '_rb';
+                      const rbDate = (s.fuRebook || {})[a.id] || '';
+                      const setRbDate = v => this.setState(st => ({ fuRebook: { ...(st.fuRebook || {}), [a.id]: v } }));
+                      const clearRb = () => this.setState(st => { const r = { ...(st.fuRebook || {}) }; delete r[a.id]; return { fuRebook: r }; });
+                      const confirmRebook = async () => {
+                        if (!rbDate) return;
+                        await SB.patch('appointments', '?id=eq.' + a.id, { date_appt: rbDate, status: 'open', rescheduled: true });
+                        this.mutLocal(dd => { const x = dd.appointments.find(y => y.id === a.id); if (x) { x.dateAppt = rbDate; x.status = 'open'; x.rescheduled = true; } });
+                        clearRb();
+                        this.toast('Herboeken', a.lead + ' herboekt op ' + rbDate, 'var(--accent)');
+                      };
+                      return Object.prototype.hasOwnProperty.call(s.fuRebook || {}, a.id)
+                        ? e('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+                            e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontWeight: 600 } }, 'Nieuwe datum:'),
+                            e('input', { type: 'date', value: rbDate, onChange: ev => setRbDate(ev.target.value), style: { padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                            UI.Btn('Bevestigen', confirmRebook, 'primary', { fontSize: 12, padding: '5px 12px' }),
+                            UI.Btn('Annuleren', clearRb, 'soft', { fontSize: 12, padding: '5px 10px' }))
+                        : e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                            UI.Btn('Herboeken', () => setRbDate(''), 'soft', { fontSize: 12 }),
+                            e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Kies een nieuwe datum en plan de afspraak opnieuw in'));
+                    })(),
+                    a.status !== 'show' ? e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+                      e('button', { onClick: async () => {
+                        await saveMerge(a.id, { cs: 'Show', fromOpv: true });
+                        await this.setApptStatus(a.id, 'show');
+                      }, style: { ...grayBtnStyle, background: 'oklch(0.78 0.18 85 / 0.15)', color: 'oklch(0.78 0.18 85)', border: '1px solid oklch(0.78 0.18 85 / 0.4)', fontWeight: 700 } }, '✓ Toch Show'),
+                      e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Lead was wel aanwezig – client liegt')) : null)) : null);
             })) : null);
       }));
   },
