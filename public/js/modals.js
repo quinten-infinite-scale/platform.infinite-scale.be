@@ -1871,9 +1871,25 @@ const Modals = {
         this.sendContract();
       };
 
+      const onNext = () => {
+        const t = cur.t;
+        if (t === 'Contracttype' && !isAgent && !isAddendum && !f.ctype) {
+          this.toast('Verplicht veld', 'Kies een contracttype om verder te gaan.', 'var(--down)'); return;
+        }
+        if (t === 'Bedrijfsgegevens') {
+          if (!f.company || !f.company.trim()) { this.toast('Verplicht veld', 'Vul de bedrijfsnaam in.', 'var(--down)'); return; }
+          if (!f.email || !f.email.trim()) { this.toast('Verplicht veld', 'Vul het e-mailadres in.', 'var(--down)'); return; }
+        }
+        if (t === 'Agentgegevens') {
+          if (!f.agentName || !f.agentName.trim()) { this.toast('Verplicht veld', 'Vul de naam van de agent in.', 'var(--down)'); return; }
+          if (!f.email || !f.email.trim()) { this.toast('Verplicht veld', 'Vul het e-mailadres in.', 'var(--down)'); return; }
+        }
+        this.setForm('step', step + 1);
+      };
+
       return wrap(titleFor + ' · Stap ' + (step + 1) + '/' + totalSteps + ' — ' + cur.t, cur.body,
         [step > 0 ? UI.Btn('← Terug', onBack, 'soft') : UI.Btn('Annuleren', () => this.closeModal(), 'soft'),
-        step < totalSteps - 1 ? UI.Btn('Volgende →', () => this.setForm('step', step + 1), 'primary') : UI.Btn('Genereer & verstuur link', onSendContract, 'primary')], '600px');
+        step < totalSteps - 1 ? UI.Btn('Volgende →', onNext, 'primary') : UI.Btn('Genereer & verstuur link', onSendContract, 'primary')], '600px');
     }
 
     if (k === 'contractDetail') {
