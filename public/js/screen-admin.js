@@ -2011,6 +2011,7 @@ const ScreenAdmin = {
     const getCF = (a) => parseNotes(a.adminNotes).cf || '';
     const getLog = (a) => parseNotes(a.adminNotes).cl || [];
     const isReno = (a) => a.client === 'c15' || !!parseCF(a.clientFeedback)._rn;
+    const apptRate = (r) => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch (_) {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; const cl = d.clients.find(c => c.id === r.client); if (!cl) return 0; if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
 
     // Statistics modal
     const showStats = s.fuAdminStats;
