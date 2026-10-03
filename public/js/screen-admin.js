@@ -1395,7 +1395,9 @@ const ScreenAdmin = {
     const allDialDates = Object.values(d.dials).flatMap(obj => Object.keys(obj));
     const minDialDate = allDialDates.length ? allDialDates.sort()[0] : todayStr;
 
+    const hourlyPickedDate = s.hourlyDate || todayStr;
     const quickRanges = [
+      { k: 'hourly', l: 'Hourly', from: hourlyPickedDate, to: hourlyPickedDate },
       { k: 'today', l: 'Today', from: todayStr, to: todayStr },
       { k: 'yesterday', l: 'Yesterday', from: isoNow(addDays(now, -1)), to: isoNow(addDays(now, -1)) },
       { k: 'thisweek', l: 'This week', from: weekStart, to: todayStr },
@@ -1407,35 +1409,37 @@ const ScreenAdmin = {
 
     const activeQuick = s.statsQuick !== undefined ? s.statsQuick : 'thisweek';
     const qr = quickRanges.find(r => r.k === activeQuick);
-    const rangeFrom = activeQuick === 'custom' ? (s.statsFrom || todayStr) : (qr ? qr.from : weekStart);
-    const rangeTo = activeQuick === 'custom' ? (s.statsTo || todayStr) : (qr ? qr.to : todayStr);
+    const rangeFrom = activeQuick === 'custom' ? (s.statsFrom || todayStr) : activeQuick === 'hourly' ? hourlyPickedDate : (qr ? qr.from : weekStart);
+    const rangeTo = activeQuick === 'custom' ? (s.statsTo || todayStr) : activeQuick === 'hourly' ? hourlyPickedDate : (qr ? qr.to : todayStr);
 
     // Build day series for selected range
     const dialSeries = [], apptSeries = [], labels = [], isoLabels = [], apptBreakdowns = [], dialBreakdowns = [];
     const activeAgents = d.agents.filter(a => a.active);
     const agentPalette = ['var(--accent)', 'var(--info)', 'var(--violet)', 'var(--warn)', 'var(--up)', 'var(--down)'];
 
-    const isHourlyMode = (activeQuick === 'today' || activeQuick === 'yesterday') && d.dialsHourly;
-    const hourlyDate = rangeFrom; // today or yesterday ISO date
-    const hourlyHasData = isHourlyMode && Object.values(d.dialsHourly).some(agMap => agMap[hourlyDate]);
+    const isHourlyMode = activeQuick === 'hourly' || ((activeQuick === 'today' || activeQuick === 'yesterday') && d.dialsHourly);
+    const hourlyDate = activeQuick === 'hourly' ? hourlyPickedDate : rangeFrom;
+    const hourlyHasData = activeQuick === 'hourly' || (isHourlyMode && d.dialsHourly && Object.values(d.dialsHourly).some(agMap => agMap[hourlyDate]));
 
     if (hourlyHasData) {
-      // Hourly mode: build one point per working hour (9–19)
+      // Hourly mode: 1 AM → 11 PM
       const nowLocalHour = (() => {
         const utcH = now.getUTCHours();
         const m = now.getUTCMonth() + 1;
         return (utcH + (m >= 4 && m <= 9 ? 2 : 1)) % 24;
       })();
-      const maxHour = activeQuick === 'today' ? Math.min(nowLocalHour, 23) : 23;
+      const isToday = hourlyDate === todayStr;
+      const maxHour = isToday ? Math.min(nowLocalHour, 23) : 23;
       const dayAppts = d.appointments.filter(a => a.dateLog === hourlyDate);
+      const dialsHourly = d.dialsHourly || {};
       for (let h = 1; h <= maxHour; h++) {
-        const hourCount = Object.keys(d.dialsHourly).reduce((x, id) => x + (((d.dialsHourly[id] || {})[hourlyDate] || {})[h] || 0), 0);
+        const hourCount = Object.keys(dialsHourly).reduce((x, id) => x + (((dialsHourly[id] || {})[hourlyDate] || {})[h] || 0), 0);
         dialSeries.push(hourCount);
-        apptSeries.push(dayAppts.length); // show total day appointments as flat reference line
-        labels.push(h === 0 ? '12 AM' : h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h - 12) + ' PM');
+        apptSeries.push(dayAppts.length);
+        labels.push(h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h - 12) + ' PM');
         isoLabels.push(hourlyDate);
         apptBreakdowns.push([]);
-        dialBreakdowns.push(activeAgents.map((ag, ai) => ({ label: ag.name.split(' ')[0], value: ((d.dialsHourly[ag.id] || {})[hourlyDate] || {})[h] || 0, color: agentPalette[ai % agentPalette.length] })).filter(b => b.value > 0));
+        dialBreakdowns.push(activeAgents.map((ag, ai) => ({ label: ag.name.split(' ')[0], value: ((dialsHourly[ag.id] || {})[hourlyDate] || {})[h] || 0, color: agentPalette[ai % agentPalette.length] })).filter(b => b.value > 0));
       }
     } else {
       let cur = new Date(rangeFrom + 'T12:00:00');
@@ -1518,6 +1522,7 @@ const ScreenAdmin = {
         onClick: () => this.setState({ statsQuick: r.k, stCalOpen: false }),
         style: { padding: '5px 13px', borderRadius: 20, border: '1px solid', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: activeQuick === r.k ? 'var(--accent)' : 'transparent', color: activeQuick === r.k ? '#071a1a' : 'var(--text)', borderColor: activeQuick === r.k ? 'var(--accent)' : 'var(--border-soft)', fontWeight: activeQuick === r.k ? 700 : 400, transition: 'all .15s' }
       }, r.l)),
+      activeQuick === 'hourly' ? e('input', { type: 'date', value: hourlyPickedDate, onChange: ev => this.setState({ hourlyDate: ev.target.value }), style: { padding: '4px 10px', borderRadius: 20, border: '1px solid var(--border-soft)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' } }) : null,
       e('div', { style: { position: 'relative' } },
         e('button', {
           onClick: () => this.setState({ stCalOpen: !calOpen }),
@@ -1534,6 +1539,7 @@ const ScreenAdmin = {
 
     // Context graph window: wider historical range based on active filter
     const ctxWindow = (() => {
+      if (activeQuick === 'hourly') return null;
       if (activeQuick === 'today' || activeQuick === 'yesterday') return { days: 14, label: 'Last 2 weeks context' };
       if (activeQuick === 'thisweek' || activeQuick === 'lastweek') return { weeks: 4, label: 'Last 4 weeks context' };
       if (activeQuick === 'thismonth' || activeQuick === 'lastmonth') return { months: 3, label: 'Last 3 months context' };
@@ -1635,12 +1641,9 @@ const ScreenAdmin = {
             e('div', { style: { textAlign: 'right' } }, UI.Mono(b.agAppts, { fontWeight: 700, color: 'var(--info)' })),
             e('div', { style: { textAlign: 'right' } }, b.conv ? UI.Mono(b.conv + '%', { fontWeight: 700, color: parseFloat(b.conv) >= 5 ? 'var(--up)' : 'var(--warn)' }) : e('span', { style: { color: 'var(--text-mute)', fontSize: 12 } }, '—')))))),
 
-      UI.C({},
-        UI.Row({ justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-          UI.Hd('Dials & Appointments', { fontSize: 15 }),
-          UI.C({ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, background: 'none', border: 'none', boxShadow: 'none' },
-            UI.Donut(overall.nsPct, 'var(--down)', overall.nsPct + '%', 'No-show rate · selected range'))),
-        UI.LineDual(dialSeries, 'var(--accent)', apptSeries, 'var(--info)', labels.filter((_, i) => i % labelStep === 0), v => String(v) + ' dials', v => String(v) + ' appts', labels, { dowLabels: hourlyHasData ? null : isoLabels, hourMarkers: (activeQuick === 'today' || activeQuick === 'yesterday') && !hourlyHasData })),
+      hourlyHasData ? UI.C({},
+        UI.Hd('Dials per hour — ' + (hourlyDate === todayStr ? 'Vandaag' : hourlyDate), { fontSize: 15, marginBottom: 10 }),
+        UI.LineDual(dialSeries, 'var(--accent)', apptSeries, 'var(--info)', labels, v => String(v) + ' dials', v => String(v) + ' appts', labels, { dowLabels: null })) : null,
 
       UI.C({},
         UI.Row({ justifyContent: 'space-between', marginBottom: 16 },
