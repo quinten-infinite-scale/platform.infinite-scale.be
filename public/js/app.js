@@ -606,8 +606,15 @@ class Component extends DCLogic {
       }
       return (cl && cl.rate) || 0;
     })();
+    const prevStatus = ap?.status || status;
+    const prevAmount = ap?.amount ?? amount;
     this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
-    await API.setApptStatus(id, status, amount);
+    const result = await API.setApptStatus(id, status, amount);
+    if (result === null) {
+      this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = prevStatus; a.amount = prevAmount; } });
+      this.toast('Fout', 'Status kon niet worden opgeslagen. Herlaad de pagina en probeer opnieuw.', 'var(--down)');
+      return;
+    }
     // Re-apply after API call: doFullRefresh may have run during the await and overwritten optimistic state
     this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
     this._lastFullApptRefresh = Date.now();
