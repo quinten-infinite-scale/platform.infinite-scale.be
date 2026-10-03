@@ -2025,6 +2025,8 @@ const ScreenAdmin = {
       const cancels = monthAppts.filter(a => a.status === 'cancel');
       const converted = monthAppts.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv);
       const herboekt = monthAppts.filter(a => a.rescheduled);
+      const recoveredRev = [...converted, ...herboekt].reduce((sum, a) => sum + apptRate(a), 0);
+      const lostRev = [...noShows, ...cancels].reduce((sum, a) => sum + apptRate(a), 0);
 
       // Per client breakdown
       const clientIds = [...new Set(monthAppts.map(a => a.client).filter(Boolean))];
@@ -2035,16 +2037,31 @@ const ScreenAdmin = {
         const cn = appts2.filter(a => a.status === 'cancel').length;
         const conv = appts2.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv).length;
         const hb = appts2.filter(a => a.rescheduled).length;
-        const agentRate = appts2.reduce((sum, a) => sum + (a.agentRate || 0), 0);
-        return { name: cl2 ? cl2.name : cid, ns, cn, conv, hb, total: appts2.length, agentRate };
+        const recRev = appts2.filter(a => a.status === 'show' || a.rescheduled).reduce((s2, a) => s2 + apptRate(a), 0);
+        return { name: cl2 ? cl2.name : cid, ns, cn, conv, hb, total: appts2.length, recRev };
       }).sort((a, b) => b.total - a.total);
 
-      const Stat = (label, val, color) => e('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
+      // Per agent breakdown
+      const agentIds = [...new Set(monthAppts.map(a => a.agent).filter(Boolean))];
+      const agentStats = agentIds.map(aid => {
+        const ag = d.agents ? d.agents.find(x => x.id === aid) : null;
+        const appts2 = monthAppts.filter(a => a.agent === aid);
+        const ns = appts2.filter(a => a.status === 'no_show').length;
+        const cn = appts2.filter(a => a.status === 'cancel').length;
+        const conv = appts2.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv).length;
+        const hb = appts2.filter(a => a.rescheduled).length;
+        const total = appts2.length;
+        const recRate = total > 0 ? Math.round((conv + hb) / total * 100) : 0;
+        return { name: ag ? ag.name : aid, ns, cn, conv, hb, total, recRate };
+      }).sort((a, b) => b.total - a.total);
+
+      const Stat = (label, val, color, sub) => e('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
         e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, label),
-        e('div', { style: { fontSize: 28, fontWeight: 800, color, fontFamily: "'JetBrains Mono'" } }, val));
+        e('div', { style: { fontSize: 28, fontWeight: 800, color, fontFamily: "'JetBrains Mono'" } }, val),
+        sub ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: -2 } }, sub) : null);
 
       return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 } },
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 } },
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' } },
           UI.Btn('← Terug naar overzicht', () => this.setState({ fuAdminStats: false }), 'soft', { fontSize: 12 }),
           e('span', { style: { fontWeight: 700, fontSize: 16, flex: 1 } }, 'Opvolging — Statistieken'),
           e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
@@ -2056,7 +2073,19 @@ const ScreenAdmin = {
             Stat('Cancels', cancels.length, 'var(--warn)'),
             Stat('Herboekt', herboekt.length, 'var(--info)'),
             Stat('Converted → Show', converted.length, 'var(--up)'),
-            converted.length + herboekt.length > 0 ? Stat('Recovery rate', Math.round((converted.length + herboekt.length) / Math.max(noShows.length + cancels.length, 1) * 100) + '%', 'var(--accent)') : null)),
+            converted.length + herboekt.length > 0 ? Stat('Recovery rate', Math.round((converted.length + herboekt.length) / Math.max(noShows.length + cancels.length, 1) * 100) + '%', 'var(--accent)') : null,
+            recoveredRev > 0 ? Stat('Recovered', this.euro(recoveredRev), 'var(--up)', 'van €' + Math.round(lostRev) + ' verloren') : null)),
+        UI.C({ padding: 0, overflow: 'hidden' },
+          e('div', { style: { padding: '12px 18px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, fontSize: 13.5 } }, 'Per callagent'),
+          UI.Table([
+            { label: 'Agent', render: r => e('span', { style: { fontWeight: 600 } }, r.name) },
+            { label: 'Totaal', align: 'right', render: r => e('span', null, r.total) },
+            { label: 'No-shows', align: 'right', render: r => e('span', { style: { color: r.ns > 0 ? 'var(--down)' : 'var(--text-mute)', fontWeight: r.ns > 0 ? 700 : 400 } }, r.ns) },
+            { label: 'Cancels', align: 'right', render: r => e('span', { style: { color: r.cn > 0 ? 'var(--warn)' : 'var(--text-mute)', fontWeight: r.cn > 0 ? 700 : 400 } }, r.cn) },
+            { label: 'Herboekt', align: 'right', render: r => e('span', { style: { color: r.hb > 0 ? 'var(--info)' : 'var(--text-mute)', fontWeight: r.hb > 0 ? 700 : 400 } }, r.hb) },
+            { label: '→ Show', align: 'right', render: r => e('span', { style: { color: r.conv > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: r.conv > 0 ? 700 : 400 } }, r.conv) },
+            { label: 'Recovery %', align: 'right', render: r => e('span', { style: { color: r.recRate > 0 ? 'var(--accent)' : 'var(--text-mute)', fontWeight: r.recRate > 0 ? 700 : 400 } }, r.recRate + '%') },
+          ], agentStats, { min: 480 })),
         UI.C({ padding: 0, overflow: 'hidden' },
           e('div', { style: { padding: '12px 18px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, fontSize: 13.5 } }, 'Per klant'),
           UI.Table([
@@ -2066,6 +2095,7 @@ const ScreenAdmin = {
             { label: 'Cancels', align: 'right', render: r => e('span', { style: { color: r.cn > 0 ? 'var(--warn)' : 'var(--text-mute)', fontWeight: r.cn > 0 ? 700 : 400 } }, r.cn) },
             { label: 'Herboekt', align: 'right', render: r => e('span', { style: { color: r.hb > 0 ? 'var(--info)' : 'var(--text-mute)', fontWeight: r.hb > 0 ? 700 : 400 } }, r.hb) },
             { label: '→ Show', align: 'right', render: r => e('span', { style: { color: r.conv > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: r.conv > 0 ? 700 : 400 } }, r.conv) },
+            { label: 'Recovered', align: 'right', render: r => e('span', { style: { color: r.recRev > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: r.recRev > 0 ? 700 : 400 } }, r.recRev > 0 ? this.euro(r.recRev) : '—') },
           ], clientStats, { min: 480 })));
     }
 

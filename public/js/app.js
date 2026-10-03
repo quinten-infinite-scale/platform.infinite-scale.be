@@ -1543,7 +1543,8 @@ class Component extends DCLogic {
     // Admin sidebar sections — only applied for admin role
     const DEFAULT_ADMIN_SECTIONS = [
       { key: 'overview',    label: 'Overzicht',          items: ['dashboard', 'finances', 'stats', 'activity'] },
-      { key: 'floor',       label: 'Floor',              items: ['apptadmin', 'followup', 'eodadmin', 'rooster', 'todos', 'tickets'] },
+      { key: 'management',  label: 'Management',         items: ['followup'] },
+      { key: 'floor',       label: 'Floor',              items: ['apptadmin', 'eodadmin', 'rooster', 'todos', 'tickets'] },
       { key: 'acquisition', label: 'Acquisitie',         items: ['prospects', 'recruitment', 'targets', 'roadmap'] },
       { key: 'team_ops',    label: 'Team Operations',    items: ['agents', 'salespeople', 'managers', 'opa', 'coaching'] },
       { key: 'client_ops',  label: 'Client Operations',  items: ['clients', 'clientsuccess', 'whatsapp', 'timeline'] },
