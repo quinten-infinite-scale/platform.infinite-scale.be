@@ -8,7 +8,7 @@ const API = {
       SB.get('clients', '?order=name'),
       SB.get('agent_clients'),
       role === 'agent'
-        ? SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,invoiced,paid,agent_rate,deal_commission,deal_amount,quote_sent,quote_approved,rescheduled&order=date_logged.desc')
+        ? SB.get('appointments', '?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,invoiced,paid,agent_rate,deal_commission,deal_amount,quote_sent,quote_approved,admin_notes,rescheduled,updated_at&order=date_logged.desc')
         : role === 'subclient'
         ? SB.get('appointments', `?select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,created_at,date_appt,client_feedback,status,amount,invoiced,paid,deal_commission,deal_amount,quote_sent,quote_approved,rescheduled&client_id=eq.${clientId}&sub_client_id=eq.${subClientId}&order=date_logged.desc`)
         : role === 'client'
