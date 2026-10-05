@@ -148,6 +148,10 @@
             Klik op de link in de e-mail om uw wachtwoord in te stellen en in te loggen op het platform.
           </p>
           <button class="btn-soft" onclick="downloadPdf()">Contract downloaden (PDF)</button>
+          <div id="onboard-retry" style="display:none;margin-top:16px;padding:14px 16px;border-radius:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);">
+            <p style="font-size:13px;color:#f87171;margin:0 0 10px;">De uitnodigingsmail kon niet worden verstuurd. Probeer opnieuw.</p>
+            <button class="btn-soft" onclick="retryOnboard(this)" style="font-size:13px;padding:8px 18px;">Opnieuw proberen</button>
+          </div>
         </div>
 
         <!-- Step 2: account created success -->
@@ -442,19 +446,49 @@ ${sigBlock}
       const email = contractData.email;
       const partyType = contractData.party_type || 'client';
 
-      // Auto-onboard: create account + send invite email with password setup link (clients and agents)
-      if (email && (partyType === 'client' || partyType === 'agent')) {
-        fetch('/api/save-contract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'onboard-after-sign', sign_token: token, email, name, party_type: partyType }),
-        }).catch(() => {});
-      }
-
-      // Show success screen — account setup link sent by email
+      // Show success screen immediately (optimistic)
       const emailEl = document.getElementById('onboard-email');
       if (emailEl) emailEl.textContent = email || '';
       show('state-onboarding');
+
+      // Auto-onboard: create account + send invite email with password setup link
+      if (email && (partyType === 'client' || partyType === 'agent')) {
+        try {
+          const onboardR = await fetch('/api/save-contract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'onboard-after-sign', sign_token: token, email, name, party_type: partyType }),
+          });
+          const onboardData = await onboardR.json().catch(() => ({}));
+          if (!onboardR.ok || onboardData.error) {
+            // Show retry button if onboarding failed
+            const retryEl = document.getElementById('onboard-retry');
+            if (retryEl) retryEl.style.display = 'block';
+          }
+        } catch (_) {
+          const retryEl = document.getElementById('onboard-retry');
+          if (retryEl) retryEl.style.display = 'block';
+        }
+      }
+    }
+
+    async function retryOnboard(btn) {
+      if (!contractData) return;
+      btn.disabled = true; btn.textContent = 'Bezig…';
+      try {
+        const r = await fetch('/api/save-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'onboard-after-sign', sign_token: token, email: contractData.email, name: contractData.signer_name || contractData.party, party_type: contractData.party_type || 'client' }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && !d.error) {
+          document.getElementById('onboard-retry').style.display = 'none';
+          btn.textContent = 'Verstuurd ✓';
+        } else {
+          btn.disabled = false; btn.textContent = 'Opnieuw proberen';
+        }
+      } catch (_) { btn.disabled = false; btn.textContent = 'Opnieuw proberen'; }
     }
 
     async function createAccount() {

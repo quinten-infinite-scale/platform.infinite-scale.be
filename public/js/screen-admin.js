@@ -1,5 +1,82 @@
 // Subclient account helpers — standalone so they're always in scope regardless of `this` binding
 const SC_KEY = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogInNlcnZpY2Vfcm9sZSIsICJpc3MiOiAic3VwYWJhc2UiLCAiaWF0IjogMTc4MjQ1NDUxOCwgImV4cCI6IDE5NDAxMzQ1MTh9.d7t6XFTyksADGN-ZaER4bNhc85TSn0g12FRsLGEbaU0';
+
+const _OPLEIDING_HTML = `
+<style>
+.opl-root { font-family: 'DM Sans', system-ui, sans-serif; font-size: 14px; max-width: 720px; }
+.opl-phase { margin-bottom: 6px; }
+.opl-phase-hd { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; cursor:pointer; user-select:none; }
+.opl-phase-hd:hover { border-color:var(--accent); }
+.opl-phase-num { font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#fff; background:var(--accent); padding:2px 8px; border-radius:4px; flex-shrink:0; }
+.opl-phase-title { font-size:13.5px; font-weight:700; color:var(--text); flex:1; }
+.opl-phase-count { font-size:12px; color:var(--text-mute); }
+.opl-chevron { width:16px; height:16px; color:var(--text-mute); transition:transform .18s; flex-shrink:0; }
+.opl-phase-hd.open .opl-chevron { transform:rotate(180deg); }
+.opl-list { display:none; flex-direction:column; gap:1px; }
+.opl-list.open { display:flex; }
+.opl-phase-desc { font-size:12px; color:var(--text-mute); padding:6px 14px 7px 26px; line-height:1.5; }
+.opl-row { display:flex; align-items:flex-start; gap:12px; padding:10px 14px 10px 26px; border:1px solid transparent; border-radius:6px; text-decoration:none; color:inherit; }
+.opl-row:hover { background:oklch(0.56 0.18 229 / .08); border-color:var(--accent); }
+.opl-row:hover .opl-arrow { opacity:1; }
+.opl-num { font-size:11px; font-weight:600; color:var(--text-mute); background:var(--surface-2); border-radius:4px; padding:2px 7px; flex-shrink:0; margin-top:1px; }
+.opl-body { flex:1; min-width:0; }
+.opl-title { font-size:13px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.opl-desc { font-size:12px; color:var(--text-mute); margin-top:2px; line-height:1.45; }
+.opl-tag { font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; letter-spacing:.02em; }
+.opl-tag-s { background:rgba(251,191,36,.15); color:#b45309; }
+.opl-tag-q { background:rgba(59,130,246,.12); color:#1d4ed8; }
+.opl-arrow { opacity:0; flex-shrink:0; margin-top:2px; color:var(--accent); transition:opacity .12s; }
+</style>
+<div class="opl-root">
+
+<div class="opl-phase">
+  <div class="opl-phase-hd open" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+    <span class="opl-phase-num">Fase 1</span><span class="opl-phase-title">Mindset</span><span class="opl-phase-count">6 modules</span>
+    <svg class="opl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="opl-list open">
+    <div class="opl-phase-desc">Voor je één call maakt, bouw je de persoon die het volhoudt. Zes modules, elk met een directe opdracht.</div>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/5ce9917e?md=4b803f95fcfa4eff84afd9ecd7155db5" target="_blank"><span class="opl-num">00</span><div class="opl-body"><div class="opl-title">Wie zijn wij <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">Maak kennis met Infinite Scale, het team en de visie achter de opleiding.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/5ce9917e?md=e7f93d48ca684fd592ff6d75907d57d7" target="_blank"><span class="opl-num">01</span><div class="opl-body"><div class="opl-title">Nooit vrij worden <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Waarom de meeste mensen nooit echte vrijheid bereiken — en wat jou anders maakt.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/5ce9917e?md=1b51b9e6c9c4400aa229155077915302" target="_blank"><span class="opl-num">02</span><div class="opl-body"><div class="opl-title">Stop met excuses <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">Reken af met de gedachten en excuses die je tegenhouden voordat je begint.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/5ce9917e?md=e4c60a46ec174218baddae18018b48d5" target="_blank"><span class="opl-num">03</span><div class="opl-body"><div class="opl-title">Je nieuwe identiteit <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Bouw de mindset en identiteit van iemand die blijft doorzetten onder druk.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/5ce9917e?md=9150578afea94c46b33b4cbefdc7d7c1" target="_blank"><span class="opl-num">04</span><div class="opl-body"><div class="opl-title">Discipline als fundament <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">Zet de discipline neer die het verschil maakt als motivatie wegvalt.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/5ce9917e?md=f7ac15ae1acc4a06ba6d466af1a97c4c" target="_blank"><span class="opl-num">05</span><div class="opl-body"><div class="opl-title">Structuur &amp; routine <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">Creëer de dagstructuur die je productiviteit en energie optimaliseert.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+  </div>
+</div>
+
+<div class="opl-phase">
+  <div class="opl-phase-hd open" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+    <span class="opl-phase-num">Fase 2</span><span class="opl-phase-title">Sales</span><span class="opl-phase-count">6 modules</span>
+    <svg class="opl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="opl-list open">
+    <div class="opl-phase-desc">Hier leer je het vak. Van businessmodel tot de volledige callstructuur — je eindigt met afspraken die ook doorgaan.</div>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/f10d3759?md=66e2dcabfd6449358cb0d4f677f23cc7" target="_blank"><span class="opl-num">06</span><div class="opl-body"><div class="opl-title">Appointment setting <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Wat is appointment setting, hoe werkt het businessmodel en waarom is dit de skill om te leren?</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/f10d3759?md=ec585a4f12ca4798a004a891f168dd10" target="_blank"><span class="opl-num">07</span><div class="opl-body"><div class="opl-title">De Blueprint <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">De volledige structuur van een succesvolle call van A tot Z — het raamwerk dat alles samenbrengt.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/f10d3759?md=4bc84c31016043e391f7acc0ae083b47" target="_blank"><span class="opl-num">08</span><div class="opl-body"><div class="opl-title">De opening <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Hoe je een gesprek opent dat direct vertrouwen wekt en de toon zet voor de rest van de call.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/f10d3759?md=742ad4cb733b4568866a35c2b411a735" target="_blank"><span class="opl-num">09</span><div class="opl-body"><div class="opl-title">Clarify <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Stel de juiste vragen om de echte situatie en pijn van je prospect te begrijpen.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/f10d3759?md=912eb66ca70646b7b54f67bbb32cd4c0" target="_blank"><span class="opl-num">10</span><div class="opl-body"><div class="opl-title">Consequence <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Laat de prospect inzien wat het kost om niets te veranderen — de hefboom richting de afspraak.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/f10d3759?md=8373c78dfe8a47b29bcfa07b0646c36d" target="_blank"><span class="opl-num">11</span><div class="opl-body"><div class="opl-title">De Close &amp; Lock-in <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Sluit het gesprek sterk af en boek de afspraak die ook effectief doorgaat.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+  </div>
+</div>
+
+<div class="opl-phase">
+  <div class="opl-phase-hd open" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+    <span class="opl-phase-num">Fase 3</span><span class="opl-phase-title">Bonus Sales</span><span class="opl-phase-count">4 modules</span>
+    <svg class="opl-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="opl-list open">
+    <div class="opl-phase-desc">Het verschil tussen een gemiddelde setter en een topsetter. Controle, tonaliteit, bezwaren en call review.</div>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/490c5e66?md=82379a379d1545668c1f6aa729ada5da" target="_blank"><span class="opl-num">12</span><div class="opl-body"><div class="opl-title">Controle nemen <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">Leer de leiding nemen in elk gesprek, ook bij dominante of sceptische prospects.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/490c5e66?md=92f99d2704f34727a39566c61fcb3459" target="_blank"><span class="opl-num">13</span><div class="opl-body"><div class="opl-title">Tonaliteit &amp; energie <span class="opl-tag opl-tag-q">Quinten</span></div><div class="opl-desc">Gebruik je stem als wapen: de juiste toon, ritme en energie als sales instrument.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/490c5e66?md=2e8768bada584200bd1d3fd48c5cc1f5" target="_blank"><span class="opl-num">14</span><div class="opl-body"><div class="opl-title">Bezwaren <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">Elk bezwaar terugbrengen naar de close — een praktisch systeem voor de meest voorkomende situaties.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a class="opl-row" href="https://www.skool.com/infinite-scale-community-4949/classroom/490c5e66?md=66470fa8af64419fb34ee3021dd70ff5" target="_blank"><span class="opl-num">15</span><div class="opl-body"><div class="opl-title">Rollenspel &amp; call review <span class="opl-tag opl-tag-s">Senne</span></div><div class="opl-desc">Oefen live en analyseer echte calls om je skills scherp te houden en sneller bij te leren.</div></div><svg class="opl-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+  </div>
+</div>
+
+</div>
+`;
 const SC_DB = 'https://database.infinite-scale.be';
 
 // Eagerly load contract template overrides at boot so generate() can use them
@@ -98,6 +175,7 @@ const ScreenAdmin = {
     if (r === 'targets') return this._admTargets(d, s);
     if (r === 'clientsuccess') return this._admClientSuccess(d, s);
     if (r === 'coaching') return this._admCoaching(d, s);
+    if (r === 'opleiding') return this._admOpleiding(d, s);
     if (r === 'opa') return this._admOpa(d, s);
     if (r === 'tickets') return this._admTickets(d, s);
     if (r === 'whatsapp') return this._admWhatsApp(d, s);
@@ -1814,7 +1892,7 @@ const ScreenAdmin = {
         const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
         const cl = d.clients.find(c => c.id === r.client);
         const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
-        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; return 0; } } catch {} if (cl && cl.closeFee) return r.quoteApproved ? cl.closeFee : (cl.rate || 0); if (sub && sub.rate != null) return sub.rate; return (cl && cl.rate) || 0; })();
+        const displayAmt = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; return 0; } } catch {} if (r.amount != null && r.amount > 0) return r.amount; if (cl && cl.closeFee) return r.quoteApproved ? cl.closeFee : (cl.rate || 0); if (sub && sub.rate != null) return sub.rate; return (cl && cl.rate) || 0; })();
         return e('div', { style: { textAlign: 'right' } },
           UI.Mono(displayAmt ? this.euro(displayAmt) : '—', { fontWeight: 700, color: displayAmt ? 'var(--text)' : 'var(--text-mute)' }),
           agentRate ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", marginTop: 1 } }, 'Agent: ' + this.euro(agentRate) + (r.agentRate != null ? ' ✱' : '')) : null,
@@ -6941,6 +7019,11 @@ const ScreenAdmin = {
       mappingsCard,
       logCard,
       guideCard);
+  },
+
+  _admOpleiding(d, s) {
+    const e = React.createElement;
+    return e('div', { dangerouslySetInnerHTML: { __html: _OPLEIDING_HTML } });
   },
 
 };

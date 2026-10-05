@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     const { action, email, table: tbl, query: q } = req.query || {};
 
 
+
     // Magic link: generate and verify server-side so browser never hits database.infinite-scale.be directly
     if (action === 'magic_link') {
       // Require admin auth

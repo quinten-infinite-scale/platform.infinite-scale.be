@@ -312,7 +312,7 @@ const Modals = {
             eSubs.length ? UI.Field('Sub-client', UI.Select(f.eApptSub !== undefined ? f.eApptSub : (ap.sub || ''), v => this.setForm('eApptSub', v), [{ v: '', l: 'None' }, ...eSubs.map(sc => ({ v: sc.id, l: sc.name }))])) : null),
           UI.Grid('1fr 1fr', 10,
             UI.Field('Agent', UI.Select(f.eApptAgent !== undefined ? f.eApptAgent : (ap.agent || ''), v => this.setForm('eApptAgent', v), [{ v: '', l: 'Select…' }, ...d.agents.filter(a => a.active).map(a => ({ v: a.id, l: a.name }))])),
-            UI.Field('Amount (€)', UI.Input(String(f.eApptAmount !== undefined ? f.eApptAmount : (ap.amount || 0)), v => this.setForm('eApptAmount', v), '0', 'number'))),
+            UI.Field('Amount (€)', UI.Input(String(f.eApptAmount !== undefined ? f.eApptAmount : (ap.amount != null && ap.amount > 0 ? ap.amount : (() => { try { const _fb = ap.clientFeedback ? JSON.parse(ap.clientFeedback) : null; if (_fb && _fb._rn) { if (_fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[_fb.category] != null) return RN_CAT_CLIENT_RATE[_fb.category]; if (_fb.revenue != null) return _fb.revenue; } } catch {} const _cl = d.clients.find(c => c.id === ap.client); if (_cl) { if (ap.sub && _cl.subclients) { const _sc = _cl.subclients.find(sc => sc.id === ap.sub || sc.name === ap.sub); if (_sc && _sc.rate != null) return _sc.rate; } return _cl.rate || 0; } return 0; })())), v => this.setForm('eApptAmount', v), '0', 'number'))),
           UI.Grid('1fr 1fr 1fr', 10,
             UI.Field('Appt date', UI.Input(f.eApptDate !== undefined ? f.eApptDate : (ap.dateAppt || '').slice(0, 10), v => this.setForm('eApptDate', v), '', 'date')),
             UI.Field('Tijdstip', UI.TimePicker(f.eApptTime !== undefined ? f.eApptTime : (ap.dateAppt?.includes('T') ? ap.dateAppt.slice(11, 16) : ''), v => this.setForm('eApptTime', v))),
@@ -387,7 +387,7 @@ const Modals = {
               }
             } catch {}
             if (amt == null) {
-              if (ap.amount === 0) { amt = 0; }
+              if (ap.amount != null && ap.amount > 0) { amt = ap.amount; } // explicit non-zero override (0 = stale default or waiver, fall through to config)
               else {
                 const _cl = d.clients.find(c => c.id === ap.client);
                 if (_cl) {

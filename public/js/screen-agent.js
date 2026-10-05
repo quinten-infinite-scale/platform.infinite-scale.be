@@ -52,6 +52,7 @@ const ScreenAgent = {
     if (s.route === 'rooster') return this._agentRooster(d, s, me);
     if (s.route === 'tickets') return this._agentTickets(d, s, me);
     if (s.route === 'coaching') return this._agentCoaching(d, s, me);
+    if (s.route === 'opleiding') return e('div', { dangerouslySetInnerHTML: { __html: _OPLEIDING_HTML } });
     if (s.route === 'settings') return this._settings(d, s, me);
     return e('div', null, '');
   },
@@ -424,9 +425,12 @@ const ScreenAgent = {
         const isRenocheck = r.client === 'c15';
         if (r.status === 'cancel') return e('div', { style: { textAlign: 'right' } }, UI.Mono('—', { fontWeight: 700, color: 'var(--text-mute)' }));
         if (isCloseFee) {
-          const earnedClose = r.quoteApproved;
-          const payClose = earnedClose ? (r.agentRate != null ? r.agentRate : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])) : null;
-          return e('div', { style: { textAlign: 'right' } }, UI.Mono(payClose ? this.euro(payClose) : 'On close', { fontWeight: 700, color: payClose ? 'var(--up)' : 'var(--text-mute)' }), earnedClose && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
+          const myAgentRate = r.agentRate != null ? r.agentRate : ((me.rates||{})[r.sub]||(me.rates||{})[r.client]||0);
+          if (myAgentRate === 0) {
+            const earnedClose = r.quoteApproved;
+            const payClose = earnedClose ? (r.agentRate != null ? r.agentRate : ((me.rates || {})[r.sub] || (me.rates || {})[r.client])) : null;
+            return e('div', { style: { textAlign: 'right' } }, UI.Mono(payClose ? this.euro(payClose) : 'On close', { fontWeight: 700, color: payClose ? 'var(--up)' : 'var(--text-mute)' }), earnedClose && r.dealCommission != null ? e('div', { style: { fontSize: 10.5, color: 'var(--up)', fontFamily: "'JetBrains Mono'", marginTop: 1, fontWeight: 700 } }, '💰 ' + this.euro(r.dealCommission)) : null);
+          }
         }
         if (isRenocheck) {
           const isShow = r.status === 'show';

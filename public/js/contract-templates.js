@@ -2,7 +2,10 @@ window.ContractTemplates = {
 
   generate(ctype, isAgent, vars) {
     const slug = this._slug(ctype, isAgent);
-    const override = window.__ctplOverrides && window.__ctplOverrides[slug];
+    // Pilot contracts use complex dynamic rendering (tables, qualCriteria, pilotPaySel)
+    // that cannot be represented by simple {{var}} template overrides — skip DB overrides.
+    const isPilotType = !isAgent && (ctype === 'Pilot — Cold Calling' || ctype === 'Pilot — Leadopvolging' || ctype === 'Pilot' || ctype === 'client-pilot');
+    const override = !isPilotType && window.__ctplOverrides && window.__ctplOverrides[slug];
     if (override) {
       try {
         const computedVars = this._computeVars(ctype, isAgent, vars);
