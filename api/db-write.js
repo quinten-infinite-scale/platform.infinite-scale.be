@@ -281,7 +281,7 @@ TRANSCRIPT:\n${transcript}`;
         const from = new Date(d.getTime() - 1800000).toISOString();
         const to   = new Date(d.getTime() + 1800000).toISOString();
         const existingRows = await fetch(
-          `${SB_URL}/rest/v1/prospect_meetings?prospect_id=eq.${prospectRow.id}&meeting_date=gte.${from}&meeting_date=lte.${to}&status=neq.canceled&limit=1`,
+          `${SB_URL}/rest/v1/prospect_meetings?prospect_id=eq.${prospectRow.id}&meeting_date=gte.${from}&meeting_date=lte.${to}&status=eq.booked&limit=1`,
           { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
         ).then(r => r.json()).catch(() => []);
         existingMeetingId = existingRows?.[0]?.id || null;

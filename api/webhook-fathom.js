@@ -206,7 +206,7 @@ export default async function handler(req, res) {
     const from = new Date(d.getTime() - 1800000).toISOString(); // ±30min window
     const to   = new Date(d.getTime() + 1800000).toISOString();
     const rows = await sbGet(
-      `prospect_meetings?prospect_id=eq.${prospect.id}&meeting_date=gte.${from}&meeting_date=lte.${to}&status=neq.canceled&limit=1`
+      `prospect_meetings?prospect_id=eq.${prospect.id}&meeting_date=gte.${from}&meeting_date=lte.${to}&status=eq.booked&limit=1`
     );
     existingMeeting = rows?.[0] || null;
   }
