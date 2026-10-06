@@ -3,7 +3,7 @@
 <head>
 <script>!function(){var MOON='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><\/svg>';var SUN='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"\/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"\/><\/svg>';window.ispApplyTheme=function(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('isp-theme',theme);var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=theme==='light'?SUN:MOON;};var t=localStorage.getItem('isp-theme');if(t)document.documentElement.setAttribute('data-theme',t);document.addEventListener('click',function(e){if(e.target.closest('#isp-theme-btn')){var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';window.ispApplyTheme(next);}});document.addEventListener('DOMContentLoaded',function(){var cur=document.documentElement.getAttribute('data-theme')||'dark';var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=cur==='light'?SUN:MOON;});}();</script>
 <script>!function(){try{var h=new URLSearchParams(location.hash.slice(1));var at=h.get('access_token'),rt=h.get('refresh_token'),ei=parseInt(h.get('expires_in')||'3600'),ea=h.get('expires_at');if(at){var payload=JSON.parse(atob(at.split('.')[1]));var user={id:payload.sub,email:payload.email,role:payload.role,app_metadata:payload.app_metadata||{},user_metadata:payload.user_metadata||{}};localStorage.setItem('is_session',JSON.stringify({access_token:at,refresh_token:rt,expires_in:ei,expires_at:ea?parseInt(ea):Math.floor(Date.now()/1000)+ei,user:user}));history.replaceState(null,'',location.pathname+location.search);}}catch(e){}}();</script>
-<script>!function(){var V="20261006c";if(localStorage.getItem('_ispv')!==V){localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
+<script>!function(){var V="20261006q";var SS=sessionStorage;var RC=parseInt(SS.getItem('_ispv_rc')||'0');if(RC>3){SS.removeItem('_ispv_rc');return;}if(localStorage.getItem('_ispv')!==V){SS.setItem('_ispv_rc',RC+1);localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}SS.removeItem('_ispv_rc');fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Infinite Scale</title>
@@ -27,13 +27,13 @@
 <script src="./js/ui.js?v=20260922d"></script>
 <script src="./js/contract-templates.js?v=20261005q"></script>
 <script src="./js/screen-shared.js?v=20260928d"></script>
-<script src="./js/screen-agent.js?v=20261006a"></script>
+<script src="./js/screen-agent.js?v=20261006l"></script>
 <script src="./js/screen-client.js?v=20261002k"></script>
 <script src="./js/screen-subclient.js?v=20261001r"></script>
 <script src="./js/screen-roadmap.js?v=20260929f"></script>
-<script src="./js/screen-admin.js?v=20261006a"></script>
+<script src="./js/screen-admin.js?v=20261006o"></script>
 <script src="./js/pdf-ttf.js?v=20260922d"></script>
-<script src="./js/modals.js?v=20261005p"></script>
+<script src="./js/modals.js?v=20261006m"></script>
 <script src="./js/app.js?v=20261003f"></script>
 <script src="./js/api.js?v=20261001r"></script>
 </head>
@@ -255,8 +255,15 @@
                         <div style="font-size:13px; font-weight:600; color:var(--text); line-height:1.4; white-space:normal;">{{ nt.text }}</div>
                         <div style="font-size:11px; color:var(--text-mute); margin-top:3px; font-family:'JetBrains Mono';">{{ nt.time }}</div>
                       </div>
-                      <!-- unread dot -->
-                      <sc-if value="{{ nt.unread }}" hint-placeholder-val="{{ true }}"><span style="width:7px; height:7px; border-radius:50%; flex:none; background:var(--accent); margin-top:4px;"></span></sc-if>
+                      <!-- unread dot + mark-read button -->
+                      <sc-if value="{{ nt.unread }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex:none;">
+                          <span style="width:7px; height:7px; border-radius:50%; background:var(--accent);"></span>
+                          <button onClick="{{ nt.onMarkRead }}" title="Mark as read" style="width:20px; height:20px; border-radius:6px; border:1px solid var(--border-soft); background:transparent; cursor:pointer; display:grid; place-items:center; color:var(--text-mute); padding:0;" style-hover="background:var(--surface-2)!important; color:var(--text)!important;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          </button>
+                        </div>
+                      </sc-if>
                     </div>
                   </sc-for>
                 </div>
@@ -679,6 +686,11 @@ class Component extends DCLogic {
   async markAllRead() {
     this.mutLocal(d => { (d.notifs[this.state.role] || []).forEach(n => n.read = true); });
     await API.markAllNotifsRead(this.state.role);
+  }
+
+  async markOneRead(notifId) {
+    this.mutLocal(d => { const n = (d.notifs[this.state.role] || []).find(x => x.id === notifId); if (n) n.read = true; });
+    await SB.patch('notifications', `?id=eq.${notifId}`, { read: true }).catch(() => {});
   }
 
   async markPaid(clientId) {
@@ -1187,7 +1199,7 @@ class Component extends DCLogic {
       info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
     };
     const nibg = { appt: 'oklch(0.22 0.04 256 / .8)', pay: 'oklch(0.24 0.05 80 / .8)', todo: 'oklch(0.22 0.07 194 / .8)', remind: 'oklch(0.24 0.05 80 / .8)', bill: 'oklch(0.22 0.04 256 / .8)', eod: 'oklch(0.22 0.04 200 / .8)', recruit: 'oklch(0.22 0.04 290 / .8)', ticket: 'oklch(0.22 0.05 25 / .8)', contract: 'oklch(0.22 0.04 256 / .8)', info: 'oklch(0.22 0.04 200 / .8)' };
-    out.notifications = myNotifs.map(n => ({ text: n.text, time: n.time, dot: ndot[n.kind] || 'var(--accent)', iconPath: nicon[n.kind] || nicon.info, iconBg: nibg[n.kind] || 'oklch(0.22 0.04 256 / .8)', unread: !n.read, hasAction: !!n.action, onClick: n.action ? () => this.handleNotifClick(n) : null, style: 'display:flex; align-items:flex-start; gap:12px; padding:11px 16px; cursor:' + (n.action ? 'pointer' : 'default') + '; ' + (!n.read ? 'background:oklch(0.18 0.015 256 / .5);' : 'opacity:.7;') }));
+    out.notifications = myNotifs.map(n => ({ text: n.text, time: n.time, dot: ndot[n.kind] || 'var(--accent)', iconPath: nicon[n.kind] || nicon.info, iconBg: nibg[n.kind] || 'oklch(0.22 0.04 256 / .8)', unread: !n.read, hasAction: !!n.action, onClick: n.action ? () => this.handleNotifClick(n) : null, onMarkRead: !n.read ? (ev => { ev.stopPropagation(); this.markOneRead(n.id); }) : null, style: 'display:flex; align-items:flex-start; gap:12px; padding:11px 16px; cursor:' + (n.action ? 'pointer' : 'default') + '; ' + (!n.read ? 'background:oklch(0.18 0.015 256 / .5);' : 'opacity:.7;') }));
 
     out.onOpenNotifs = () => this.setState({ notifOpen: true });
     out.toasts = s.toasts;
@@ -1482,6 +1494,17 @@ class Component extends DCLogic {
     this.mutLocal(d => { const a = d.appointments.find(x => x.id === id); if (a) a.adminNotes = notes; });
     await API.saveAdminNotes(id, notes);
     this.toast('Saved', 'Notes saved', 'var(--up)');
+  }
+
+  async mergeAdminNotes(id, updates) {
+    const appt = this.state.data.appointments.find(x => x.id === id);
+    const existing = appt ? (appt.adminNotes || '') : '';
+    let obj = {};
+    try { obj = existing ? JSON.parse(existing) : {}; } catch(_) { if (existing) obj.nt = existing; }
+    Object.assign(obj, updates);
+    const newNotes = JSON.stringify(obj);
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = newNotes; });
+    await API.saveAdminNotes(id, newNotes);
   }
 
   async rescheduleAppointment(id, newDate) {
