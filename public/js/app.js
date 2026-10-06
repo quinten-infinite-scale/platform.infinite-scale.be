@@ -270,6 +270,24 @@ class Component extends DCLogic {
     } catch (e) { /* silent */ }
   }
 
+  async _fetchHourlyForDate(date) {
+    if (!this._fetchedHourlyDates) this._fetchedHourlyDates = new Set();
+    if (this._fetchedHourlyDates.has(date)) return;
+    this._fetchedHourlyDates.add(date);
+    try {
+      const rows = await SB.get('dials_hourly', `?dial_date=eq.${date}&select=agent_id,hour,count`).catch(() => null);
+      if (!rows || !rows.length) return;
+      this.mutLocal(dd => {
+        if (!dd.dialsHourly) dd.dialsHourly = {};
+        rows.forEach(r => {
+          if (!dd.dialsHourly[r.agent_id]) dd.dialsHourly[r.agent_id] = {};
+          if (!dd.dialsHourly[r.agent_id][date]) dd.dialsHourly[r.agent_id][date] = {};
+          dd.dialsHourly[r.agent_id][date][r.hour] = r.count;
+        });
+      });
+    } catch (e) { /* silent */ }
+  }
+
   async _poll() {
     const role = this.state.role;
     if (!role) return;
@@ -284,11 +302,13 @@ class Component extends DCLogic {
           let action = null;
           if (rec.meta) { try { action = typeof rec.meta === 'string' ? JSON.parse(rec.meta) : rec.meta; } catch(e) {} }
           if (!action) action = kindAction(rec.kind);
-          const n = { id: rec.id, text: rec.text, time: rec.time, read: rec.read, kind: rec.kind, action };
-          this.mutLocal(dd => { if (!dd.notifs[role]) dd.notifs[role] = []; dd.notifs[role].unshift(n); });
-          // Only toast for notifications created within the last 5 minutes — prevents
-          // stale notifications from inactive agents firing on every fresh page load.
           const notifAge = Date.now() - new Date(rec.created_at || rec.time || 0).getTime();
+          // Auto-suppress unread state for notifications older than 2 hours — prevents stale
+          // backlog from showing as unread on every fresh login (DB read stays as-is, only local).
+          const locallyRead = rec.read || notifAge > 2 * 60 * 60 * 1000;
+          const n = { id: rec.id, text: rec.text, time: rec.time, read: locallyRead, kind: rec.kind, action };
+          this.mutLocal(dd => { if (!dd.notifs[role]) dd.notifs[role] = []; dd.notifs[role].unshift(n); });
+          // Only toast for notifications created within the last 5 minutes
           if (!rec.read && notifAge < 5 * 60 * 1000) this.toast(rec.text, '', kindAction(rec.kind) ? 'var(--accent)' : 'var(--info)');
         }
       }
@@ -714,6 +734,11 @@ class Component extends DCLogic {
     await API.markAllNotifsRead(this.state.role);
   }
 
+  async markOneRead(notifId) {
+    this.mutLocal(d => { const n = (d.notifs[this.state.role] || []).find(x => x.id === notifId); if (n) n.read = true; });
+    await SB.patch('notifications', `?id=eq.${notifId}`, { read: true }).catch(() => {});
+  }
+
   async markPaid(clientId) {
     this.mutLocal(d => { const c = d.clients.find(x => x.id === clientId); if (c) c.billStatus = 'paid'; d.appointments.forEach(a => { if (a.client === clientId && a.invoiced) a.paid = true; }); });
     await API.markInvoicePaid(clientId);
@@ -1066,7 +1091,7 @@ class Component extends DCLogic {
       return;
     }
     const saved = Array.isArray(result) ? result[0] : result;
-    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt, status: 'open', amount, agentRate: agentRate ?? null, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt, status: 'open', amount, agentRate: agentRate ?? null, invoiced: false, paid: false, clientFeedback: clientFeedback || '', loggedAt: new Date().toISOString() }));
 
     // Fire-and-forget: WhatsApp confirmation (never blocks the submit flow)
     if (saved?.id && f.client && f.phone) {
@@ -1627,7 +1652,9 @@ class Component extends DCLogic {
     const myNotifs = d.notifs[s.role] || [];
     out.hasUnread = myNotifs.some(n => !n.read);
     const ndot = { appt: 'var(--accent)', pay: 'var(--warn)', todo: 'var(--info)', remind: 'var(--warn)', bill: 'var(--accent)', eod: 'var(--info)', recruit: 'var(--violet)', ticket: 'var(--down)', contract: 'var(--accent)' };
-    out.notifications = myNotifs.map(n => ({ text: n.text, time: n.time, dot: ndot[n.kind] || 'var(--accent)', style: 'display:flex; gap:10px; padding:12px 14px; border-bottom:1px solid var(--border-soft); ' + (n.read ? 'opacity:.6;' : 'background:oklch(0.215 0.014 256 / .5);') }));
+    const nicon = { appt: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', pay: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', todo: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>', remind: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', bill: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', eod: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', recruit: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', ticket: '<path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1s1 .4 1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1h6a1 1 0 0 0 1-1v-2c0-.6.4-1 1-1s1-.4 1-1v-2c0-.6-.4-1-1-1s-1-.4-1-1V3a1 1 0 0 0-1-1z"/>', contract: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' };
+    const nibg = { appt: 'oklch(0.22 0.04 256 / .8)', pay: 'oklch(0.24 0.05 80 / .8)', todo: 'oklch(0.22 0.07 194 / .8)', remind: 'oklch(0.24 0.05 80 / .8)', bill: 'oklch(0.22 0.04 256 / .8)', eod: 'oklch(0.22 0.04 200 / .8)', recruit: 'oklch(0.22 0.04 290 / .8)', ticket: 'oklch(0.22 0.05 25 / .8)', contract: 'oklch(0.22 0.04 256 / .8)', info: 'oklch(0.22 0.04 200 / .8)' };
+    out.notifications = myNotifs.map(n => ({ text: n.text, time: n.time, dot: ndot[n.kind] || 'var(--accent)', iconPath: nicon[n.kind] || nicon.info, iconBg: nibg[n.kind] || 'oklch(0.22 0.04 256 / .8)', unread: !n.read, hasAction: !!n.action, onClick: n.action ? () => this.handleNotifClick(n) : null, onMarkRead: !n.read ? (ev => { ev.stopPropagation(); this.markOneRead(n.id); }) : null, style: 'display:flex; align-items:flex-start; gap:12px; padding:11px 16px; cursor:' + (n.action ? 'pointer' : 'default') + '; ' + (!n.read ? 'background:oklch(0.18 0.015 256 / .5);' : 'opacity:.7;') }));
 
     out.toasts = s.toasts;
 
