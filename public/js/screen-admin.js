@@ -192,7 +192,7 @@ const ScreenAdmin = {
     const now = new Date();
     const currentYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     const today = this.iso(this.today());
-    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : (cl.rate || 0); if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
+    const cRate = (a) => { try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {} if (a.amount === 0) return 0; const cl = d.clients.find(c => c.id === a.client); if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : (cl.rate || 0); if (a.sub && cl) { const sc = (cl.subclients || []).find(s => s.id === a.sub || s.name === a.sub); if (sc && sc.rate != null) return sc.rate; } return (cl && cl.rate) || 0; };
     const aRate = (a) => { if (a.client === 'c15') return rnAgentPay(a) ?? 0; const ag = d.agents.find(g => g.id === a.agent); if (!ag) return 0; const cl = d.clients.find(c => c.id === a.client); const agR = (ag && ((ag.rates||{})[a.sub]||(ag.rates||{})[a.client])) || 0; if (cl && cl.closeFee && agR === 0 && !a.quoteApproved) return 0; return agR; };
     const curMonthBillable = d.appointments.filter(a => a.dateLog && a.dateLog.startsWith(currentYM) && a.status !== 'cancel' && a.status !== 'no_show');
     const expected = curMonthBillable.reduce((x, a) => x + cRate(a), 0);
@@ -316,6 +316,7 @@ const ScreenAdmin = {
 
     const getRate = a => {
       try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && typeof RN_CAT_CLIENT_RATE !== 'undefined' && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {}
+      if (a.amount === 0) return 0;
       const cl = d.clients.find(c => c.id === a.client);
       if (cl && cl.closeFee) return a.quoteApproved ? cl.closeFee : (cl.rate || 0);
       if (a.sub && cl) { const sc = (cl.subclients || []).find(sc2 => sc2.id === a.sub || sc2.name === a.sub); if (sc && sc.rate != null) return sc.rate; }
@@ -796,7 +797,7 @@ const ScreenAdmin = {
                   const mOpen = !!clInvMonthExp[ym];
                   const toggleM = () => this.setState(st => ({ clInvMonthExp: { ...(st.clInvMonthExp || {}), [ym]: !mOpen } }));
                   const clientIds = [...new Set(monthAppts.map(a => a.client))];
-                  const _apptRateAdm = (r) => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(_) {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; const cl3 = d.clients.find(c => c.id === r.client); if (!cl3) return 0; if (r.sub && cl3.subclients) { const sc3 = cl3.subclients.find(sc => sc.id === r.sub || sc.name === r.sub); if (sc3 && sc3.rate != null) return sc3.rate; } return cl3.rate || 0; };
+                  const _apptRateAdm = (r) => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(_) {} if (r.amount === 0) return 0; if (r.client === 'c15') return rnAgentPay(r) ?? 0; const cl3 = d.clients.find(c => c.id === r.client); if (!cl3) return 0; if (r.sub && cl3.subclients) { const sc3 = cl3.subclients.find(sc => sc.id === r.sub || sc.name === r.sub); if (sc3 && sc3.rate != null) return sc3.rate; } return cl3.rate || 0; };
                   const monthShowsTotal = monthAppts.filter(a => a.status === 'show').reduce((s3, r) => s3 + _apptRateAdm(r), 0);
                   const openPending = pending.filter(a => a.status !== 'show');
                   const pendingOmzet = openPending.reduce((s3, r) => s3 + _apptRateAdm(r), 0);
@@ -821,7 +822,7 @@ const ScreenAdmin = {
                         const clBillable = clAppts.filter(a => a.status !== 'cancel' && a.status !== 'no_show');
                         const clPending = clBillable.filter(a => !a.invoiced);
                         const clIsInvoiced = clPending.length === 0 && clBillable.length > 0;
-                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
+                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch {} if (r.amount === 0) return 0; if (r.client === 'c15') return rnAgentPay(r) ?? 0; if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
                         const clTotal = clBillable.reduce((s2, r) => s2 + apptRate(r), 0);
                         const clPendingTotal = clPending.reduce((s2, r) => s2 + apptRate(r), 0);
                         const openCount = clPending.filter(a => a.status === 'open').length;
@@ -1499,6 +1500,12 @@ const ScreenAdmin = {
     const hourlyDate = activeQuick === 'hourly' ? hourlyPickedDate : rangeFrom;
     const hourlyHasData = activeQuick === 'hourly' || (isHourlyMode && d.dialsHourly && Object.values(d.dialsHourly).some(agMap => agMap[hourlyDate]));
 
+    // Fetch hourly data for the picked date if not already loaded (today is covered by poll)
+    if (activeQuick === 'hourly' && hourlyPickedDate !== todayStr) {
+      const alreadyHave = d.dialsHourly && Object.values(d.dialsHourly).some(agMap => agMap && agMap[hourlyPickedDate]);
+      if (!alreadyHave) this._fetchHourlyForDate(hourlyPickedDate);
+    }
+
     if (hourlyHasData) {
       // Hourly mode: 1 AM → 11 PM
       const nowLocalHour = (() => {
@@ -1699,10 +1706,17 @@ const ScreenAdmin = {
           SumCard('Appointments', totalAppts, periodLabel, 'var(--info)'),
           SumCard('Conversion', convPct === '—' ? '—' : convPct + '%', 'dials → appointments', parseFloat(convPct) >= 5 ? 'var(--up)' : convPct === '—' ? 'var(--text-mute)' : 'var(--warn)'))),
 
-      // Context graphs (wider window)
+      // Context graphs (wider window) — not shown in hourly mode
       ctxWindow ? UI.C({},
         UI.Hd(ctxWindow.label, { fontSize: 15, marginBottom: 10 }),
         UI.LineDual(ctxDialSeries, 'var(--accent)', ctxApptSeries, 'var(--info)', ctxLabels.filter((_, i) => i % ctxLabelStep === 0), v => String(v) + ' dials', v => String(v) + ' appts', ctxLabels, { dowLabels: ctxIsoLabels })) : null,
+
+      // Hourly graph — shown ABOVE leaderboard so it's immediately visible
+      hourlyHasData ? UI.C({},
+        UI.Hd('Dials per hour — ' + (hourlyDate === todayStr ? 'Today' : hourlyDate), { fontSize: 15, marginBottom: 10 }),
+        dialSeries.every(v => v === 0)
+          ? e('div', { style: { color: 'var(--text-mute)', fontSize: 13, padding: '12px 0' } }, 'No dial data yet for this hour range — syncing from CloudTalk…')
+          : UI.LineDual(dialSeries, 'var(--accent)', apptSeries, 'var(--info)', labels, v => String(v) + ' dials', v => String(v) + ' appts', labels, { dowLabels: null })) : null,
 
       // Agent leaderboard
       UI.C({},
@@ -1718,10 +1732,6 @@ const ScreenAdmin = {
             e('div', { style: { textAlign: 'right' } }, UI.Mono(b.agDials, { fontWeight: 700, color: 'var(--accent)' })),
             e('div', { style: { textAlign: 'right' } }, UI.Mono(b.agAppts, { fontWeight: 700, color: 'var(--info)' })),
             e('div', { style: { textAlign: 'right' } }, b.conv ? UI.Mono(b.conv + '%', { fontWeight: 700, color: parseFloat(b.conv) >= 5 ? 'var(--up)' : 'var(--warn)' }) : e('span', { style: { color: 'var(--text-mute)', fontSize: 12 } }, '—')))))),
-
-      hourlyHasData ? UI.C({},
-        UI.Hd('Dials per hour — ' + (hourlyDate === todayStr ? 'Vandaag' : hourlyDate), { fontSize: 15, marginBottom: 10 }),
-        UI.LineDual(dialSeries, 'var(--accent)', apptSeries, 'var(--info)', labels, v => String(v) + ' dials', v => String(v) + ' appts', labels, { dowLabels: null })) : null,
 
       UI.C({},
         UI.Row({ justifyContent: 'space-between', marginBottom: 16 },
@@ -4762,8 +4772,8 @@ const ScreenAdmin = {
     const SB_URL = SC_DB;
 
     const USERS = [
-      { id: 'quinten', label: 'Quinten' },
-      { id: 'senne.db', label: 'Senne' },
+      { id: 'quinten', label: 'Quinten', email: 'quinten@infinite-scale.be' },
+      { id: 'senne.db', label: 'Senne', email: 'senne.db@infinite-scale.be' },
     ];
 
     const today = new Date().toISOString().slice(0, 10);
@@ -4792,15 +4802,16 @@ const ScreenAdmin = {
     const priorityOrder = p => p === 'urgent' ? 0 : p === 'high' ? 1 : 2;
 
     const loadDay = async (targetDay) => {
+      const loadGen = (this._tdLoadGen = (this._tdLoadGen || 0) + 1);
       this.setState({ todosLoading: true, todosList: null, _todosLoaded: false });
       const res = await fetch(`${SB_URL}/rest/v1/todos?day=eq.${targetDay}&order=order_idx.asc,created_at.asc`, {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
       });
       let list = await res.json();
 
-      if (targetDay >= today) {
+      if (targetDay === today) {
         // Carry ALL uncompleted todos from ANY past day (not just yesterday)
-        // This fixes the bug where todos get stuck when the page isn't opened daily
+        // Only runs when viewing TODAY — viewing a future day must NOT move today's todos forward
         const pastRes = await fetch(`${SB_URL}/rest/v1/todos?day=lt.${targetDay}&completed_at=is.null&order=day.asc,order_idx.asc`, {
           headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
         });
@@ -4855,6 +4866,7 @@ const ScreenAdmin = {
         list.sort((a, b) => (a.order_idx || 0) - (b.order_idx || 0) || a.created_at.localeCompare(b.created_at));
       }
       const filteredList = list.filter(t => t.completed_by !== '__deleted__');
+      if (this._tdLoadGen !== loadGen) return; // navigated away while loading — discard stale result
       this.setState({ todosList: filteredList, todosLoading: false, _todosLoaded: true });
     };
 
@@ -4906,13 +4918,56 @@ const ScreenAdmin = {
       });
     };
 
+    const uploadTodoFile = async (file) => {
+      const session = SB.getSession();
+      if (!session?.access_token) return null;
+      const ext = file.name.split('.').pop().toLowerCase();
+      const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      try {
+        const r = await fetch('/api/db-write', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': file.type || 'application/octet-stream', 'x-file-path': safeName, 'x-bucket': 'todos' },
+          body: file,
+        });
+        if (!r.ok) return null;
+        const j = await r.json();
+        return j.ok ? { url: j.url, name: file.name, kind: ext === 'mp3' ? 'audio' : 'image' } : null;
+      } catch { return null; }
+    };
+
+    const notifyTodo = (ownerId, title, cat, priority, deadline) => {
+      const ownerUser = USERS.find(u => u.id === ownerId);
+      const ownerLabel = ownerUser ? ownerUser.label : ownerId;
+      const catStr = cat ? ` (${cat})` : '';
+      API.pushNotif('admin', `📋 Nieuwe taak voor ${ownerLabel}: "${title}"${catStr}`, 'todo', { route: 'todos' }).catch(() => {});
+      const assigneeEmail = ownerUser?.email;
+      const emailRecipients = [...new Set([assigneeEmail, 'quinten@infinite-scale.be'].filter(Boolean))];
+      const tok = session?.access_token || SB.getSession()?.access_token;
+      if (!tok || !emailRecipients.length) return;
+      const prioLabel = priority && priority !== 'normal' ? ` — prioriteit: ${priority === 'urgent' ? '🔴 Urgent' : '🟠 High'}` : '';
+      const emailHtml = `<div style="font-family:sans-serif;background:#0f1117;color:#f0f4ff;padding:32px;border-radius:12px;max-width:500px;"><p style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#67dcdf;font-weight:700;margin:0 0 8px;">To-Do — Infinite Scale Platform</p><h2 style="margin:0 0 16px;font-size:20px;">Nieuwe taak voor ${ownerLabel}</h2><table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;"><tr><td style="padding:8px 0;color:#5a6a8a;width:110px;">Taak</td><td style="color:#f0f4ff;font-weight:600;">${title}</td></tr>${cat ? `<tr><td style="padding:8px 0;color:#5a6a8a;">Categorie</td><td style="color:#f0f4ff;">${cat}</td></tr>` : ''}${deadline ? `<tr><td style="padding:8px 0;color:#5a6a8a;">Deadline</td><td style="color:#f97316;">${deadline}</td></tr>` : ''}${priority && priority !== 'normal' ? `<tr><td style="padding:8px 0;color:#5a6a8a;">Prioriteit</td><td style="color:${priority === 'urgent' ? '#ef4444' : '#f97316'};font-weight:700;">${priority === 'urgent' ? '🔴 Urgent' : '🟠 High'}</td></tr>` : ''}</table><a href="https://platform.infinite-scale.be" style="display:inline-block;padding:12px 24px;border-radius:10px;background:#67dcdf;color:#071a1c;font-weight:800;font-size:14px;text-decoration:none;">Open platform →</a></div>`;
+      fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` }, body: JSON.stringify({ to: emailRecipients, subject: `📋 Nieuwe taak voor ${ownerLabel}: "${title}"${prioLabel}`, html: emailHtml }) }).catch(() => {});
+    };
+
     const addTodoFor = async ownerId => {
-      const tk = 'todosAddTitle_' + ownerId, ck = 'todosAddCat_' + ownerId, dk = 'todosAddDl_' + ownerId, nk = 'todosAddNotes_' + ownerId, pk = 'todosAddPri_' + ownerId;
+      const tk = 'todosAddTitle_' + ownerId, ck = 'todosAddCat_' + ownerId, dk = 'todosAddDl_' + ownerId, nk = 'todosAddNotes_' + ownerId, pk = 'todosAddPri_' + ownerId, fk = 'todosAddFiles_' + ownerId;
       const title = (s[tk] || '').trim(); if (!title) return;
       const priority = s[pk] || 'normal';
       const userActive = (todos || []).filter(t => t.created_by === ownerId && !t.completed_at);
       const maxIdx = userActive.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
-      const notesEncoded = encodePriority(priority, s[nk] || '');
+      // Upload pending attachments
+      const pendingFiles = s[fk] || [];
+      const uploaded = [];
+      for (const f of pendingFiles) { const att = await uploadTodoFile(f); if (att) uploaded.push(att); }
+      // Encode notes with priority + optional attachments
+      const baseNotes = encodePriority(priority, s[nk] || '');
+      let notesEncoded = baseNotes;
+      if (uploaded.length > 0) {
+        let obj = {};
+        try { obj = baseNotes ? JSON.parse(baseNotes) : {}; } catch { obj = baseNotes ? { n: baseNotes } : {}; }
+        obj.a = uploaded;
+        notesEncoded = JSON.stringify(obj);
+      }
       const res = await fetch(`${SB_URL}/rest/v1/todos`, {
         method: 'POST',
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -4920,8 +4975,10 @@ const ScreenAdmin = {
       });
       const rows = await res.json();
       if (Array.isArray(rows) && rows[0]) {
-        const clear = { [tk]: '', [ck]: '', [dk]: '', [nk]: '', [pk]: 'normal', ['todosAddOpen_' + ownerId]: false };
+        const clear = { [tk]: '', [ck]: '', [dk]: '', [nk]: '', [pk]: 'normal', [fk]: [], ['todosAddOpen_' + ownerId]: false };
         this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], ...clear }));
+
+        notifyTodo(ownerId, title, s[ck], priority, s[dk]);
       }
     };
 
@@ -4990,6 +5047,7 @@ const ScreenAdmin = {
         const ek = 'todoEdit_' + todo.id;
         const isEditing = !!s[ek + '_open'];
         const { priority, text: notesText } = parsePriority(todo.notes);
+        const todoAttachments = (() => { try { const o = todo.notes ? JSON.parse(todo.notes) : {}; return Array.isArray(o.a) ? o.a : []; } catch { return []; } })();
         const isUrgent = !isDone && priority === 'urgent';
         const isHigh = !isDone && priority === 'high';
         const isTop = !isDone && idx === 0;
@@ -5054,6 +5112,10 @@ const ScreenAdmin = {
               e('span', { onClick: () => this.setState({ [ek + '_open']: true }), style: { fontSize: (isUrgent || isHigh || isTop) ? 14 : 13.5, fontWeight: (isUrgent || isHigh || isTop) ? 700 : 600, color: isDone ? 'var(--text-mute)' : 'var(--text)', textDecoration: isDone ? 'line-through' : 'none', textDecorationColor: 'var(--up)', textDecorationThickness: 2, flex: 1, minWidth: 0, cursor: isDone ? 'default' : 'text' } }, todo.title),
               priPill(priority), catPill(todo.category), deadlinePill(todo.deadline), carriedBadge(todo.carried_from)),
             notesText ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', marginTop: 3, lineHeight: 1.5 } }, notesText) : null,
+            todoAttachments.length > 0 ? e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 } },
+              ...todoAttachments.map((att, ai) => att.kind === 'audio'
+                ? e('audio', { key: ai, controls: true, src: att.url, style: { height: 28, maxWidth: '100%' } })
+                : e('a', { key: ai, href: att.url, target: '_blank', rel: 'noopener', style: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 6, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 11, color: 'var(--accent)', textDecoration: 'none' } }, '\ud83d\uddbc ' + att.name.slice(0, 20)))) : null,
             isDone && todo.completed_by ? e('div', { style: { fontSize: 11, color: 'var(--up)', marginTop: 2 } }, '\u2713 ' + todo.completed_by) : null),
           !isDone && todo.category === 'Platform' ? e('button', {
             title: 'Run with Claude',
@@ -5077,9 +5139,27 @@ const ScreenAdmin = {
           e('input', { type: 'date', value: s['todosAddDl_' + col] || '', onChange: ev => this.setState({ ['todosAddDl_' + col]: ev.target.value }), style: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' } }),
           priSelectAdd(col)),
         e('input', { placeholder: 'Notes', value: s['todosAddNotes_' + col] || '', onChange: ev => this.setState({ ['todosAddNotes_' + col]: ev.target.value }), style: { padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none' } }),
+        (() => {
+          const pendingFiles = s['todosAddFiles_' + col] || [];
+          return e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' } },
+            e('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer', userSelect: 'none' } },
+              e('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' }, e('path', { d: 'M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48' })),
+              'Bijlage',
+              e('input', { type: 'file', accept: '.mp3,image/jpeg,image/png,image/webp', multiple: true, style: { display: 'none' },
+                onChange: ev => {
+                  const files = Array.from(ev.target.files);
+                  this.setState(st => ({ ['todosAddFiles_' + col]: [...(st['todosAddFiles_' + col] || []), ...files] }));
+                  ev.target.value = '';
+                }
+              })),
+            ...pendingFiles.map((f, i) => e('span', { key: i, style: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'var(--surface-2)', border: '1px solid var(--border-soft)', fontSize: 11, color: 'var(--text-dim)' } },
+              f.type.startsWith('audio') ? '🎵' : '🖼',
+              f.name.slice(0, 20),
+              e('button', { onClick: () => this.setState(st => ({ ['todosAddFiles_' + col]: (st['todosAddFiles_' + col] || []).filter((_, j) => j !== i) })), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 13, padding: '0 0 0 2px', lineHeight: 1 } }, '×'))));
+        })(),
         e('div', { style: { display: 'flex', gap: 6 } },
           e('button', { onClick: () => addTodoFor(col), style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: isMe ? 'var(--accent)' : 'var(--info)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Add'),
-          e('button', { onClick: () => this.setState({ [addOpenKey]: false, ['todosAddTitle_' + col]: '' }), style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Cancel'))) : null;
+          e('button', { onClick: () => this.setState({ [addOpenKey]: false, ['todosAddTitle_' + col]: '', ['todosAddFiles_' + col]: [] }), style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Cancel'))) : null;
 
       const accentColor = isMe ? 'var(--accent)' : 'var(--info)';
       return e('div', { key: col, style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 } },
@@ -5293,7 +5373,7 @@ const ScreenAdmin = {
             const allForUser = (todos || []).filter(t => t.created_by === owner && !t.completed_at);
             const maxIdx = allForUser.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
             fetch(`${SB_URL}/rest/v1/todos`, { method: 'POST', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ title, notes: notesEncoded, created_by: owner, day, stage: sg.id, order_idx: maxIdx + 1, category: s[addKey + '_c'] || null, deadline: s[addKey + '_d'] || null }) })
-              .then(r => r.json()).then(rows => { if (Array.isArray(rows) && rows[0]) { this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], [addKey]: false, [addKey + '_t']: '', [addKey + '_p']: 'normal', [addKey + '_n']: '', [addKey + '_c']: '', [addKey + '_d']: '' })); } });
+              .then(r => r.json()).then(rows => { if (Array.isArray(rows) && rows[0]) { this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], [addKey]: false, [addKey + '_t']: '', [addKey + '_p']: 'normal', [addKey + '_n']: '', [addKey + '_c']: '', [addKey + '_d']: '' })); notifyTodo(owner, title, s[addKey + '_c'], priority, s[addKey + '_d']); } });
           } if (ev.key === 'Escape') this.setState({ [addKey]: false }); },
           autoFocus: true, style: { padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' } }),
         e('div', { style: { display: 'flex', gap: 5 } },
@@ -5312,7 +5392,7 @@ const ScreenAdmin = {
             const allForUser = (todos || []).filter(t => t.created_by === owner && !t.completed_at);
             const maxIdx = allForUser.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
             fetch(`${SB_URL}/rest/v1/todos`, { method: 'POST', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ title, notes: notesEncoded, created_by: owner, day, stage: sg.id, order_idx: maxIdx + 1, category: s[addKey + '_c'] || null, deadline: s[addKey + '_d'] || null }) })
-              .then(r => r.json()).then(rows => { if (Array.isArray(rows) && rows[0]) { this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], [addKey]: false, [addKey + '_t']: '', [addKey + '_p']: 'normal', [addKey + '_n']: '', [addKey + '_c']: '', [addKey + '_d']: '' })); } });
+              .then(r => r.json()).then(rows => { if (Array.isArray(rows) && rows[0]) { this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], [addKey]: false, [addKey + '_t']: '', [addKey + '_p']: 'normal', [addKey + '_n']: '', [addKey + '_c']: '', [addKey + '_d']: '' })); notifyTodo(owner, title, s[addKey + '_c'], priority, s[addKey + '_d']); } });
           }, style: { padding: '5px 14px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Opslaan'),
           e('button', { onClick: () => this.setState({ [addKey]: false }), style: { padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Annuleren'))) : null;
 
