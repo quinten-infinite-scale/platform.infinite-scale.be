@@ -16,6 +16,7 @@ const ALLOWED_TABLES = new Set([
   'invoice_states', 'whatsapp_messages', 'client_whatsapp_templates',
   'dials', 'dials_hourly', 'profiles', 'coaching_feed',
   'meta_lead_mappings', 'meta_lead_log',
+  'prospect_meetings',
 ]);
 
 const ALLOWED_BUCKETS = new Set(['contracts', 'coaching']);
@@ -257,6 +258,48 @@ TRANSCRIPT:\n${transcript}`;
         headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
         body: JSON.stringify(updates),
       });
+
+      // Also write to prospect_meetings timeline so CRM history stays consistent
+      const meetingPayload = {
+        prospect_id: prospectRow.id,
+        meeting_date: started_at || null,
+        meeting_title: title || null,
+        meeting_type: analysis?.meeting_type || 'sales_call',
+        status: analysis?.meeting_type === 'no_show' ? 'no_show' : 'completed',
+        closer_score: analysis?.score_total || null,
+        closer_analysis: analysis ? { ...analysis, call_date: started_at || new Date().toISOString() } : null,
+        fathom_summary: summary || null,
+        next_action_type: analysis?.next_action_type || null,
+        next_action_date: analysis?.next_action_date || null,
+        next_action_notes: analysis?.next_action_notes || null,
+        updated_at: new Date().toISOString(),
+      };
+      // Try to update existing booked meeting within ±30min, else insert new
+      let existingMeetingId = null;
+      if (started_at) {
+        const d = new Date(started_at);
+        const from = new Date(d.getTime() - 1800000).toISOString();
+        const to   = new Date(d.getTime() + 1800000).toISOString();
+        const existingRows = await fetch(
+          `${SB_URL}/rest/v1/prospect_meetings?prospect_id=eq.${prospectRow.id}&meeting_date=gte.${from}&meeting_date=lte.${to}&status=neq.canceled&limit=1`,
+          { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+        ).then(r => r.json()).catch(() => []);
+        existingMeetingId = existingRows?.[0]?.id || null;
+      }
+      if (existingMeetingId) {
+        await fetch(`${SB_URL}/rest/v1/prospect_meetings?id=eq.${existingMeetingId}`, {
+          method: 'PATCH',
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify(meetingPayload),
+        });
+      } else {
+        await fetch(`${SB_URL}/rest/v1/prospect_meetings`, {
+          method: 'POST',
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify(meetingPayload),
+        });
+      }
+
       return res.status(200).json({ ok: true, prospect_id: prospectRow.id, analysis: !!analysis, score: analysis?.score_total });
     } else {
       // No matching prospect found

@@ -500,13 +500,14 @@ const ScreenAgent = {
     const csStyle = (cs) => ({ padding: '3px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 700, color: CS_COLORS[cs] || 'var(--text-mute)', background: 'var(--bg-2)', border: '1px solid currentColor', cursor: 'pointer' });
     const grayBtnStyle = { padding: '3px 9px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: 'var(--bg-2)', color: 'var(--text-mute)', border: '1px solid var(--border)', flexShrink: 0, whiteSpace: 'nowrap' };
 
-    const saveMerge = async (id, updates) => {
+    const saveMerge = async (id, updates, { silent } = {}) => {
       const appt = d.appointments.find(x => x.id === id);
       const obj = parseNotes(appt ? appt.adminNotes : '');
       Object.assign(obj, updates);
       const newNotes = JSON.stringify(obj);
       this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = newNotes; });
       await API.saveAdminNotes(id, newNotes);
+      if (!silent) this.toast('Opgeslagen', 'Feedback bewaard', 'var(--accent)');
     };
 
     if (sortedClients.length === 0) {
@@ -555,7 +556,7 @@ const ScreenAgent = {
                       log.length > 0 ? e('span', { style: { color: 'var(--accent)', fontWeight: 700 } }, '· ' + log.length + 'x gebeld') : null,
                       cf ? e('span', { style: { marginLeft: 4, fontStyle: 'italic', color: 'var(--text-dim)' } }, '"' + cf.slice(0, 50) + (cf.length > 50 ? '…' : '') + '"') : null)),
                   a.phone ? e('button', { onClick: ev => { ev.stopPropagation(); navigator.clipboard.writeText(a.phone).catch(function(){}); }, style: grayBtnStyle }, 'Copy') : null,
-                  e('button', { onClick: ev => { ev.stopPropagation(); saveMerge(a.id, { cs: 'Gecontacteerd', cl: [...log, new Date().toISOString()] }); }, style: grayBtnStyle }, 'Gecontacteerd'),
+                  e('button', { onClick: ev => { ev.stopPropagation(); saveMerge(a.id, { cs: 'Gecontacteerd', cl: [...log, new Date().toISOString()] }, { silent: true }); }, style: grayBtnStyle }, 'Gecontacteerd'),
                   e('span', { onClick: ev => ev.stopPropagation(), style: csStyle(cs), title: 'Contact status' }, cs),
                   e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isExpA ? 'rotate(90deg)' : 'none', transition: 'transform .2s', marginLeft: 4 } }, '›')),
                 isExpA ? e('div', { style: { padding: '12px 18px 16px', background: 'var(--surface)', borderTop: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: 14 } },
@@ -568,10 +569,10 @@ const ScreenAgent = {
                       e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Contact status'),
                       e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
                         CS_OPTIONS.map(opt =>
-                          e('button', { key: opt, onClick: () => saveMerge(a.id, { cs: opt }), style: { ...csStyle(cs === opt ? opt : null), fontWeight: cs === opt ? 800 : 600, opacity: cs === opt ? 1 : 0.55, border: cs === opt ? '2px solid ' + (CS_COLORS[opt] || 'var(--border)') : '1px solid var(--border)' } }, opt)))),
+                          e('button', { key: opt, onClick: () => saveMerge(a.id, { cs: opt }, { silent: true }), style: { ...csStyle(cs === opt ? opt : null), fontWeight: cs === opt ? 800 : 600, opacity: cs === opt ? 1 : 0.55, border: cs === opt ? '2px solid ' + (CS_COLORS[opt] || 'var(--border)') : '1px solid var(--border)' } }, opt)))),
                     e('div', { style: { flex: 1, minWidth: 200 } },
                       e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, 'Caller feedback'),
-                      e('textarea', { value: cfVal, placeholder: 'Notities voor jezelf over dit contact…', onChange: ev => setCFDraft(ev.target.value), rows: 2, style: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
+                      e('textarea', { value: cfVal, placeholder: 'Notities voor jezelf over dit contact…', onChange: ev => setCFDraft(ev.target.value), onBlur: ev => { const v = ev.target.value; if (v !== cf) saveMerge(a.id, { cf: v }, { silent: false }).then(() => this.setState(st => { const d2 = { ...(st.fuCFDraft || {}) }; delete d2[a.id]; return { fuCFDraft: d2 }; })); }, rows: 2, style: { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
                       e('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 4 } },
                         UI.Btn('Opslaan', () => saveMerge(a.id, { cf: cfVal }).then(() => this.setState(st => { const d2 = { ...(st.fuCFDraft || {}) }; delete d2[a.id]; return { fuCFDraft: d2 }; })), 'primary', { fontSize: 12, padding: '5px 12px' })))),
                   log.length > 0 ? e('div', null,
@@ -607,7 +608,7 @@ const ScreenAgent = {
                     })(),
                     a.status !== 'show' ? e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
                       e('button', { onClick: async () => {
-                        await saveMerge(a.id, { cs: 'Show', fromOpv: true });
+                        await saveMerge(a.id, { cs: 'Show', fromOpv: true }, { silent: true });
                         await this.setApptStatus(a.id, 'show');
                       }, style: { ...grayBtnStyle, background: 'oklch(0.78 0.18 85 / 0.15)', color: 'oklch(0.78 0.18 85)', border: '1px solid oklch(0.78 0.18 85 / 0.4)', fontWeight: 700 } }, '✓ Toch Show'),
                       e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Lead was wel aanwezig – client liegt')) : null)) : null);

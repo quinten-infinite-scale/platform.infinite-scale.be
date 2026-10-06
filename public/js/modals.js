@@ -284,12 +284,22 @@ const Modals = {
               e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 } }, _anObj.nt))
           : null;
       const callerFeedbackVal = f.callerFeedbackDraft !== undefined ? f.callerFeedbackDraft : (_anObj.cf || '');
+      const cfSaving = !!f.cfSaving;
+      const saveCF = () => {
+        if (cfSaving) return;
+        this.setForm('cfSaving', true);
+        this.mergeAdminNotes(ap.id, { cf: callerFeedbackVal })
+          .then(() => { this.toast('Opgeslagen', 'Feedback bewaard', 'var(--accent)'); this.setForm('callerFeedbackDraft', undefined); })
+          .finally(() => this.setForm('cfSaving', false));
+      };
       const callerFeedbackSection = (role === 'agent' || role === 'admin')
         ? e('div', null,
             UI.Sub('Caller feedback', { marginBottom: 8 }),
             e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
-              e('textarea', { value: callerFeedbackVal, placeholder: 'Notities over contact met de lead…', onChange: ev => this.setForm('callerFeedbackDraft', ev.target.value), style: { width: '100%', minHeight: 60, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
-              UI.Btn('Opslaan', () => this.mergeAdminNotes(ap.id, { cf: callerFeedbackVal }).then(() => this.toast('Saved', 'Feedback opgeslagen', 'var(--accent)')), 'primary', { fontSize: 12, padding: '7px 14px', alignSelf: 'flex-end' })))
+              e('textarea', { value: callerFeedbackVal, placeholder: 'Notities over contact met de lead…', onChange: ev => this.setForm('callerFeedbackDraft', ev.target.value), onBlur: ev => { const v = ev.target.value; const saved = _anObj.cf || ''; if (v !== saved && !cfSaving) saveCF(); }, style: { width: '100%', minHeight: 60, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' } }),
+              e('button', { onClick: saveCF, disabled: cfSaving, style: { padding: '7px 14px', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: cfSaving ? 'default' : 'pointer', alignSelf: 'flex-end', border: 'none', background: cfSaving ? 'var(--border)' : 'var(--accent)', color: cfSaving ? 'var(--text-dim)' : 'var(--accent-ink)', display: 'flex', alignItems: 'center', gap: 6, transition: 'background .15s, color .15s' } },
+                cfSaving ? e('span', { style: { display: 'inline-block', width: 12, height: 12, border: '2px solid var(--text-dim)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'isp-spin .6s linear infinite' } }) : null,
+                cfSaving ? 'Opslaan…' : 'Opslaan')))
         : _anObj.cf
           ? e('div', null,
               UI.Sub('Caller feedback', { marginBottom: 8 }),
@@ -352,31 +362,53 @@ const Modals = {
             ]
         : [UI.Btn('Close', () => this.closeModal(), 'soft')];
 
-      return wrap('Appointment details', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+      // Reschedule history strip — shown for any rescheduled appointment
+      const rescheduleStrip = ap.rescheduled
+        ? e('div', { style: { borderRadius: 10, border: '1px solid #60a5fa40', background: 'oklch(0.18 0.05 240 / .35)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+            e('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: '#60a5fa', strokeWidth: 2, strokeLinecap: 'round', style: { flex: 'none' } },
+              e('path', { d: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8' }),
+              e('path', { d: 'M3 3v5h5' })),
+            e('span', { style: { fontSize: 11.5, fontWeight: 700, color: '#60a5fa', letterSpacing: '.04em', textTransform: 'uppercase', flex: 'none' } }, 'Herpland'),
+            e('span', { style: { fontSize: 11.5, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+              _anObj.pd
+                ? e('span', { style: { fontFamily: "'JetBrains Mono'", background: 'var(--bg-2)', padding: '2px 8px', borderRadius: 6, fontSize: 11.5 } }, this.fmtDate(_anObj.pd))
+                : e('span', { style: { fontSize: 11, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'vorige datum onbekend'),
+              e('span', { style: { color: 'var(--text-mute)' } }, '→'),
+              e('span', { style: { fontFamily: "'JetBrains Mono'", background: 'oklch(0.22 0.06 240 / .4)', padding: '2px 8px', borderRadius: 6, fontSize: 11.5, color: '#93c5fd', fontWeight: 700 } }, this.fmtDate(ap.dateAppt)),
+              _anObj.ps ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)', marginLeft: 4 } }, '(was: ' + _anObj.ps + ')') : null))
+        : null;
+
+      // Appt date field with reschedule action
+      const apptDateField = (() => {
+        const isRescheduling = !!f.reschedulingAppt;
+        const rescheduleDate = f.rescheduleDate || '';
+        const canReschedule = role === 'admin' || role === 'client' || role === 'agency' || role === 'subclient';
+        return this._kv('Datum afspraak', e('div', null,
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+            e('span', { style: { fontWeight: 600 } }, this.fmtDate(ap.dateAppt)),
+            canReschedule && !isRescheduling ? e('button', { onClick: () => this.setForm('reschedulingAppt', true), style: { fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-dim)', cursor: 'pointer' } }, 'Herplannen') : null),
+          isRescheduling ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
+            e('input', { type: 'date', value: rescheduleDate, onChange: ev => this.setForm('rescheduleDate', ev.target.value), style: { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, outline: 'none' } }),
+            e('button', { onClick: () => rescheduleDate && this.rescheduleAppointment(ap.id, rescheduleDate), disabled: !rescheduleDate, style: { fontSize: 12, fontWeight: 700, padding: '5px 14px', borderRadius: 8, border: 'none', background: rescheduleDate ? 'var(--accent)' : 'var(--bg-2)', color: rescheduleDate ? '#fff' : 'var(--text-mute)', cursor: rescheduleDate ? 'pointer' : 'default' } }, 'Opslaan'),
+            e('button', { onClick: () => { this.setForm('reschedulingAppt', false); this.setForm('rescheduleDate', ''); }, style: { fontSize: 12, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', cursor: 'pointer' } }, 'Annuleren')) : null));
+      })();
+
+      return wrap('Appointment details', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
         rnStatusBanner,
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
-          UI.statusPill(ap.status),
-          e('span', { style: { fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 18, color: 'var(--text)' } }, ap.lead),
-          ap.phone ? e('span', { style: { fontSize: 12.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, ap.phone) : null),
+        // Lead hero
+        e('div', { style: { background: 'var(--bg-2)', borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
+          e('div', { style: { flex: 1, minWidth: 0 } },
+            e('div', { style: { fontFamily: "'Space Grotesk'", fontWeight: 800, fontSize: 19, color: 'var(--text)', lineHeight: 1.2, marginBottom: 4 } }, ap.lead),
+            ap.phone ? e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, ap.phone) : null),
+          UI.statusPill(ap.status)),
+        // Reschedule history — prominent strip
+        rescheduleStrip,
+        // Info grid
         UI.Grid('1fr 1fr', 10,
           this._kv('Client', cl ? cl.name : ap.client),
           this._kv('Agent', ag ? ag.name : ap.agent),
-          (() => {
-            const isRescheduling = !!f.reschedulingAppt;
-            const rescheduleDate = f.rescheduleDate || '';
-            const canReschedule = role === 'admin' || role === 'client' || role === 'agency' || role === 'subclient';
-            return this._kv('Appt date', e('div', null,
-              e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-                e('span', null, this.fmtDate(ap.dateAppt)),
-                ap.rescheduled ? e('span', { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'oklch(0.22 0.06 240 / .35)', color: '#60a5fa', border: '1px solid #60a5fa', letterSpacing: '.04em', textTransform: 'uppercase' } }, 'Herpland') : null,
-                ap.rescheduled && (_anObj.ps || _anObj.pd) ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, (_anObj.ps ? 'was: ' + _anObj.ps : '') + (_anObj.ps && _anObj.pd ? ' · ' : '') + (_anObj.pd ? this.fmtDate(_anObj.pd) : '')) : null,
-                canReschedule && !isRescheduling ? e('button', { onClick: () => this.setForm('reschedulingAppt', true), style: { fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text-dim)', cursor: 'pointer' } }, 'Herplannen') : null),
-              isRescheduling ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
-                e('input', { type: 'date', value: rescheduleDate, onChange: ev => this.setForm('rescheduleDate', ev.target.value), style: { padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, outline: 'none' } }),
-                e('button', { onClick: () => rescheduleDate && this.rescheduleAppointment(ap.id, rescheduleDate), disabled: !rescheduleDate, style: { fontSize: 12, fontWeight: 700, padding: '5px 14px', borderRadius: 8, border: 'none', background: rescheduleDate ? 'var(--accent)' : 'var(--bg-2)', color: rescheduleDate ? '#fff' : 'var(--text-mute)', cursor: rescheduleDate ? 'pointer' : 'default' } }, 'Opslaan'),
-                e('button', { onClick: () => { this.setForm('reschedulingAppt', false); this.setForm('rescheduleDate', ''); }, style: { fontSize: 12, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', cursor: 'pointer' } }, 'Annuleren')) : null));
-          })(),
-          this._kv('Logged', this.fmtDate(ap.dateLog) + (loggedTime ? ' · ' + loggedTime : '')),
+          apptDateField,
+          this._kv('Ingelogd', this.fmtDate(ap.dateLog) + (loggedTime ? ' · ' + loggedTime : '')),
           role === 'admin' ? (() => {
             let amt = null;
             try {
@@ -387,7 +419,7 @@ const Modals = {
               }
             } catch {}
             if (amt == null) {
-              if (ap.amount != null && ap.amount > 0) { amt = ap.amount; } // explicit non-zero override (0 = stale default or waiver, fall through to config)
+              if (ap.amount != null && ap.amount > 0) { amt = ap.amount; }
               else {
                 const _cl = d.clients.find(c => c.id === ap.client);
                 if (_cl) {
@@ -396,7 +428,7 @@ const Modals = {
                 }
               }
             }
-            return this._kv('Amount', amt != null ? this.euro(amt) : '—');
+            return this._kv('Bedrag', amt != null ? this.euro(amt) : '—');
           })() : null,
           role === 'admin' ? (() => {
             let agentRate = ap.agentRate != null ? ap.agentRate : null;
@@ -413,7 +445,7 @@ const Modals = {
         callerFeedbackSection,
         adminNotesSection,
         f.deleteConfirm ? e('div', { style: { padding: '12px 14px', borderRadius: 10, background: 'oklch(0.22 0.08 0 / .25)', border: '1px solid var(--down)', fontSize: 13, color: 'var(--down)', fontWeight: 600 } }, '⚠ This will permanently delete this appointment. This cannot be undone.') : null),
-        detailBtns, '520px');
+        detailBtns, '540px');
     }
 
     if (k === 'todo') {
@@ -2123,6 +2155,29 @@ const Modals = {
            }, 'primary')], '620px');
       }
       const kv = (label, val) => val ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, label + ': '), e('span', { style: { color: 'var(--text)', fontSize: 13.5 } }, val)) : null;
+
+      // Lazy-load prospect_meetings timeline when modal opens for this prospect
+      if (f.pmProspectId !== p.id) {
+        setTimeout(() => {
+          this.setForm('pmProspectId', p.id);
+          this.setForm('pmMeetings', null);
+          const tok = typeof SB !== 'undefined' ? SB.getSession()?.access_token : null;
+          const sbUrl = 'https://database.infinite-scale.be';
+          const hdrs = tok
+            ? { apikey: tok, Authorization: 'Bearer ' + tok }
+            : {};
+          fetch(`${sbUrl}/rest/v1/prospect_meetings?prospect_id=eq.${encodeURIComponent(p.id)}&order=meeting_date.desc&limit=20`, { headers: hdrs })
+            .then(r => r.ok ? r.json() : [])
+            .then(rows => this.setForm('pmMeetings', Array.isArray(rows) ? rows : []))
+            .catch(() => this.setForm('pmMeetings', []));
+        }, 0);
+      }
+
+      const pmMeetings = f.pmMeetings;
+      const mtypeLabel = t => ({ sales_call: 'Sales call', kick_off: 'Kick-off', briefing: 'Briefing', follow_up: 'Follow-up', no_show: 'No-show' }[t] || (t || 'Call'));
+      const mtypeColor = t => ({ sales_call: 'var(--accent)', kick_off: 'var(--up)', briefing: '#a78bfa', follow_up: '#facc15', no_show: 'var(--down)' }[t] || 'var(--text-mute)');
+      const statusColor = s => ({ completed: 'var(--up)', booked: 'var(--accent)', canceled: 'var(--down)', no_show: 'var(--down)', rescheduled: '#facc15' }[s] || 'var(--text-mute)');
+
       return wrap(p.company || 'Prospect', e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
         // Stage pills
         e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
@@ -2146,6 +2201,35 @@ const Modals = {
           e('div', null,
             e('div', { style: { fontWeight: 700, fontSize: 12, color: 'var(--text)' } }, 'CLOSER Score'),
             e('div', { style: { fontSize: 11, color: 'var(--accent)' } }, 'Klik voor details →'))) : null,
+        // Meeting history timeline
+        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 } }, '📅 Meetinggeschiedenis'),
+          pmMeetings === null
+            ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', padding: '8px 0' } }, 'Laden…')
+            : pmMeetings.length === 0
+              ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', padding: '8px 0' } }, 'Nog geen meetings geregistreerd.')
+              : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+                  pmMeetings.map((m, i) => {
+                    const isLast = i === pmMeetings.length - 1;
+                    const dateStr = m.meeting_date ? new Date(m.meeting_date).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+                    const timeStr = m.meeting_date ? new Date(m.meeting_date).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '';
+                    const dotColor = m.status === 'completed' ? mtypeColor(m.meeting_type) : m.status === 'booked' ? 'var(--accent)' : 'var(--text-mute)';
+                    const hasAnalysis = m.closer_analysis && m.closer_score != null;
+                    return e('div', { key: m.id, style: { display: 'flex', gap: 12 } },
+                      e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 } },
+                        e('div', { style: { width: 10, height: 10, borderRadius: '50%', background: dotColor, marginTop: 5, flexShrink: 0 } }),
+                        !isLast ? e('div', { style: { width: 2, flex: 1, background: 'var(--border)', minHeight: 20, marginTop: 4 } }) : null),
+                      e('div', { style: { paddingBottom: isLast ? 0 : 16, flex: 1 } },
+                        e('div', { style: { fontSize: 11, fontFamily: 'monospace', color: 'var(--text-mute)', marginBottom: 2 } }, dateStr + (timeStr ? ' · ' + timeStr : '')),
+                        e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                          e('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, m.meeting_title || mtypeLabel(m.meeting_type) || 'Meeting'),
+                          m.meeting_type ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mtypeColor(m.meeting_type) + '22', color: mtypeColor(m.meeting_type), border: '1px solid ' + mtypeColor(m.meeting_type) + '44' } }, mtypeLabel(m.meeting_type)) : null,
+                          e('span', { style: { fontSize: 10, color: statusColor(m.status), fontFamily: 'monospace' } }, m.status || 'booked')),
+                        hasAnalysis ? e('div', { onClick: () => this.openModal('closerAnalysis', { prospect: { ...p, closer_analysis: m.closer_analysis, closer_score_total: m.closer_score } }),
+                          style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, cursor: 'pointer', fontSize: 11.5 } },
+                          e('span', { style: { fontWeight: 900, color: m.closer_score >= 7 ? 'var(--up)' : m.closer_score >= 5 ? '#facc15' : 'var(--down)', fontFamily: 'monospace' } }, m.closer_score?.toFixed(1) + '/10'),
+                          e('span', { style: { color: 'var(--accent)' } }, 'CLOSER →')) : null));
+                  }))),
         // Transcript analyse section
         f.showTranscriptInput ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
           e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Plak Fathom transcript'),
