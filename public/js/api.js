@@ -580,19 +580,17 @@ const API = {
 
   async updateContract(id, data) {
     const sess = SB.getSession();
-    const tok = sess?.access_token || window.SUPABASE_ANON_KEY;
-    const r = await fetch(window.SUPABASE_URL + '/rest/v1/contracts?id=eq.' + id, {
-      method: 'PATCH',
-      headers: {
-        'apikey': window.SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + tok,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify(data),
-    });
-    if (!r.ok) { const err = await r.text(); console.error('updateContract failed:', err); }
-    return r.ok;
+    const tok = sess?.access_token || '';
+    try {
+      const r = await fetch('/api/db-write', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'patch', table: 'contracts', query: '?id=eq.' + id, body: data }),
+      });
+      const json = await r.json().catch(() => ({}));
+      if (!json.ok) console.error('updateContract failed:', json.error || r.status);
+      return json.ok === true;
+    } catch (e) { console.error('updateContract error:', e); return false; }
   },
 
   async addFeedback(agentId, feedback) {

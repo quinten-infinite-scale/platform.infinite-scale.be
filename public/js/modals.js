@@ -47,10 +47,22 @@ function _showContractEditOverlay(html, onSave) {
   const saveBtn = document.createElement('button');
   saveBtn.textContent = '💾 Opslaan';
   saveBtn.style.cssText = 'padding:6px 14px;background:#00c896;border:none;border-radius:6px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;';
-  saveBtn.onclick = () => {
+  saveBtn.onclick = async () => {
     const newHtml = iframe.contentDocument.documentElement.outerHTML;
-    onSave(newHtml);
-    overlay.remove();
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ Opslaan...';
+    try {
+      const ok = await onSave(newHtml);
+      if (ok === false) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Opslaan';
+      } else {
+        overlay.remove();
+      }
+    } catch {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Opslaan';
+    }
   };
   bar.appendChild(saveBtn);
   const closeBtn = document.createElement('button');
@@ -2039,7 +2051,7 @@ const Modals = {
            this.toast('Geannuleerd', 'Contract gemarkeerd als void', 'var(--text-mute)');
          }, 'danger') : null,
          c.contract_html ? UI.Btn('Bekijken', () => { _showContractOverlay(_signedContractHtml(c), false); }, 'soft') : null,
-         c.contract_html ? UI.Btn('✏️ Bewerken', () => { _showContractEditOverlay(c.contract_html, (newHtml) => { this.updateContract(c.id, { contract_html: newHtml }); this.toast('Opgeslagen', 'Contract bijgewerkt', 'var(--up)'); }); }, 'soft') : null,
+         c.contract_html ? UI.Btn('✏️ Bewerken', () => { _showContractEditOverlay(c.contract_html, async (newHtml) => { return this.updateContract(c.id, { contract_html: newHtml }); }); }, 'soft') : null,
          c.contract_html ? UI.Btn('PDF downloaden', () => { _showContractOverlay(_signedContractHtml(c), true); }, 'ghost') : null,
          c.status === 'signed' && c.party_type === 'client' && !d.clients.find(cl => cl.name?.toLowerCase() === c.party?.toLowerCase())
            ? UI.Btn('Convert to Client', () => this.convertContractToClient(c), 'primary') : null,

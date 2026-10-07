@@ -1245,9 +1245,11 @@ class Component extends DCLogic {
   async updateContract(contractId, updates) {
     const existing = this.state.data.contracts.find(x => x.id === contractId);
     this.mutLocal(d => { const c = d.contracts.find(x => x.id === contractId); if (c) Object.assign(c, updates); });
-    await API.updateContract(contractId, updates);
+    const ok = await API.updateContract(contractId, updates);
+    if (!ok) { this.toast('Fout', 'Contract opslaan mislukt — probeer opnieuw', 'var(--down)'); return false; }
     if (updates.status) this._logActivity('contract_updated', 'Changed contract status → ' + updates.status + (existing ? ' (' + existing.party + ')' : ''));
     this.toast('Saved', 'Contract updated', 'var(--up)');
+    return true;
   }
 
   async sendFollowupEmail(prospectId, templateName, body) {
