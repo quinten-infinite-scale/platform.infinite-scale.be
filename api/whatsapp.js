@@ -243,8 +243,10 @@ async function handleGet(req, res) {
       const cl = waClientMap[appt.client_id];
       let clientName = cl?.name || '';
       let callbackPhone = tpl.callback_phone || '';
-      if (appt.sub_client_id && cl?.subclients) {
-        const sc = cl.subclients.find(s => s.id === appt.sub_client_id || s.name === appt.sub_client_id);
+      // Use appointment's sub_client_id, or fall back to the template's own subclient_id
+      const effectiveSubId = appt.sub_client_id || tpl.subclient_id || null;
+      if (effectiveSubId && cl?.subclients) {
+        const sc = cl.subclients.find(s => s.id === effectiveSubId || s.name === effectiveSubId);
         if (sc) {
           if (sc.whatsapp_enabled === false) { results.push({ id: appt.id, skipped: 'subclient_disabled' }); continue; }
           clientName = sc.name;
@@ -461,8 +463,10 @@ ${apptDate ? `<p><b>Afspraak:</b> ${dateStr}</p>` : ''}
   const clientData = Array.isArray(clientRows) && clientRows[0] ? clientRows[0] : null;
   let clientName = clientData?.name || '';
   let callbackPhone = tpl.callback_phone || '';
-  if (subId && clientData?.subclients) {
-    const sc = clientData.subclients.find(s => s.id === subId || s.name === subId);
+  // Use subId from appointment, or fall back to the template's own subclient_id if no subId given
+  const effectiveSubId = subId || tpl.subclient_id || null;
+  if (effectiveSubId && clientData?.subclients) {
+    const sc = clientData.subclients.find(s => s.id === effectiveSubId || s.name === effectiveSubId);
     if (sc) {
       if (sc.whatsapp_enabled === false) return res.status(200).json({ ok: false, reason: 'subclient_disabled' });
       clientName = sc.name;
