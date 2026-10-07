@@ -2,8 +2,14 @@
  * /api/sync-calendly — polls Calendly API for new/canceled meetings and updates the CRM.
  * Called by Vercel cron every 20 minutes during business hours.
  *
+ * Flow:
+ *   1. GET /scheduled_events?user=...&min_start_time=90daysago&max_start_time=30daysahead
+ *   2. For each event, GET /scheduled_events/{uuid}/invitees
+ *   3. Process each invitee: find/create prospect, set stage=appointment_booked, insert meeting
+ *   4. Dedup via calendly_event_id on prospect_meetings table
+ *
  * Env vars required:
- *   CALENDLY_PAT                 — Personal Access Token with webhooks:read, scheduled_events:read, users:read, organizations:read
+ *   CALENDLY_PAT                 — Personal Access Token with scheduled_events:read + users:read
  *   SUPABASE_SERVICE_ROLE_KEY    — already present
  */
 
@@ -34,15 +40,20 @@ async function sbPost(table, body) {
   const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
     method: 'POST', headers: sbHeaders(), body: JSON.stringify(body),
   });
+  if (!r.ok) { const e = await r.text().catch(() => ''); console.error(`[sync-cal] sbPost ${table} ${r.status}: ${e}`); return null; }
   const rows = await r.json().catch(() => []);
   return rows?.[0] || null;
 }
 
-async function calGet(path, pat) {
-  const r = await fetch(`${CAL_BASE}${path}`, {
+async function calGet(url, pat) {
+  const r = await fetch(url, {
     headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
   });
-  if (!r.ok) { const err = await r.text().catch(() => ''); console.error(`[sync-cal] Calendly ${path} failed ${r.status}: ${err}`); return null; }
+  if (!r.ok) {
+    const err = await r.text().catch(() => '');
+    console.error(`[sync-cal] Calendly ${url} failed ${r.status}: ${err}`);
+    return null;
+  }
   return r.json().catch(() => null);
 }
 
@@ -64,24 +75,27 @@ function getBookingStage(pipelineId) {
   return map[pipelineId] || 'appointment_booked';
 }
 
-async function processScheduledEvent(event, inviteeData, pat) {
-  const inviteeEmail = inviteeData?.email || '';
-  const inviteeName = inviteeData?.name || '';
+async function processInvitee(event, invitee) {
+  const eventUri = event?.uri || '';
+  const inviteeUri = invitee?.uri || '';
+  const inviteeEmail = invitee?.email || '';
+  const inviteeName = invitee?.name || '';
   const eventName = event?.name || '';
   const startTime = event?.start_time || null;
   const endTime = event?.end_time || null;
-  const eventUri = event?.uri || '';
   const eventStatus = event?.status || 'active';
+  const inviteeStatus = invitee?.status || 'active';
 
   if (!inviteeEmail && !inviteeName) return { skipped: true, reason: 'no contact info' };
 
-  // Check if we already have this event in prospect_meetings
-  if (eventUri) {
-    const existing = await sbGet(`prospect_meetings?calendly_event_id=eq.${encodeURIComponent(eventUri)}&select=id,prospect_id,status`);
+  // Check if this specific invitee is already synced
+  // We use the invitee URI (not the event URI) for deduplication since each invitee is unique
+  if (inviteeUri) {
+    const existing = await sbGet(`prospect_meetings?calendly_event_id=eq.${encodeURIComponent(inviteeUri)}&select=id,prospect_id,status`);
     if (existing?.[0]) {
       const meeting = existing[0];
-      // If event was canceled and meeting is not yet marked canceled, update it
-      if (eventStatus === 'canceled' && meeting.status !== 'canceled') {
+      // Handle cancellation if status changed
+      if ((eventStatus === 'canceled' || inviteeStatus === 'canceled') && meeting.status !== 'canceled') {
         await sbPatch('prospect_meetings', `?id=eq.${meeting.id}`, { status: 'canceled' });
         await sbPatch('prospects', `?id=eq.${meeting.prospect_id}`, {
           calendly_event_id: null,
@@ -94,21 +108,24 @@ async function processScheduledEvent(event, inviteeData, pat) {
         });
         return { updated: 'canceled', prospect_id: meeting.prospect_id };
       }
-      return { skipped: true, reason: 'already synced', event_uri: eventUri };
+      return { skipped: true, reason: 'already synced', invitee: inviteeEmail };
     }
   }
 
-  if (eventStatus === 'canceled') return { skipped: true, reason: 'canceled with no existing meeting record' };
+  if (eventStatus === 'canceled' || inviteeStatus === 'canceled') {
+    return { skipped: true, reason: 'canceled, no existing record' };
+  }
 
   let prospect = await findProspect(inviteeEmail, inviteeName);
 
   if (!prospect) {
+    const domain = inviteeEmail ? inviteeEmail.split('@')[1]?.split('.')[0] || '' : '';
     const newProspect = {
       pipeline_id: 'meta_ads',
       stage: 'appointment_booked',
       contact: inviteeName || null,
       email: inviteeEmail || null,
-      company: inviteeEmail ? inviteeEmail.split('@')[1]?.split('.')[0] || inviteeName : inviteeName,
+      company: domain || inviteeName || 'Onbekend',
       lead_source: 'Calendly',
       created_at: new Date().toISOString(),
     };
@@ -123,7 +140,7 @@ async function processScheduledEvent(event, inviteeData, pat) {
 
   await sbPatch('prospects', `?id=eq.${prospect.id}`, {
     stage: bookingStage,
-    calendly_event_id: eventUri,
+    calendly_event_id: inviteeUri || eventUri,
     appointment_date: meetingDateStr,
     next_action_type: 'meeting',
     next_action_date: meetingDateStr,
@@ -138,11 +155,11 @@ async function processScheduledEvent(event, inviteeData, pat) {
     meeting_end: endTime || null,
     meeting_title: eventName || null,
     status: 'booked',
-    calendly_event_id: eventUri || null,
+    calendly_event_id: inviteeUri || eventUri || null,
   });
 
-  console.log(`[sync-cal] Prospect ${prospect.id} → stage=${bookingStage}, meeting inserted`);
-  return { synced: true, prospect_id: prospect.id, stage: bookingStage };
+  console.log(`[sync-cal] Prospect ${prospect.id} → stage=${bookingStage}, meeting inserted (${inviteeName} ${meetingDateStr})`);
+  return { synced: true, prospect_id: prospect.id, stage: bookingStage, name: inviteeName, date: meetingDateStr };
 }
 
 export default async function handler(req, res) {
@@ -150,66 +167,56 @@ export default async function handler(req, res) {
 
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.authorization || '';
-  if (cronSecret && req.method === 'GET' && authHeader !== `Bearer ${cronSecret}`) {
-    // Cron jobs hit with authorization header, manual test via GET without it is fine for debugging
-    // but only if this is not from Vercel cron (Vercel adds x-vercel-cron header)
-    const isVercelCron = req.headers['x-vercel-cron'] === '1';
-    if (isVercelCron && authHeader !== `Bearer ${cronSecret}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  const isVercelCron = req.headers['x-vercel-cron'] === '1';
+  if (isVercelCron && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const pat = process.env.CALENDLY_PAT;
   if (!pat) return res.status(500).json({ error: 'CALENDLY_PAT not set' });
 
-  // Look back 30 minutes (covers the cron interval + buffer)
-  const lookbackMinutes = parseInt(req.query.lookback || '30', 10);
-  const minCreated = new Date(Date.now() - lookbackMinutes * 60 * 1000).toISOString();
+  // Date range: past 90 days to 30 days future (capture past meetings + upcoming)
+  const lookbackDays = parseInt(req.query.lookback_days || '90', 10);
+  const minStartTime = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+  const maxStartTime = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  console.log(`[sync-cal] Polling Calendly events since ${minCreated}`);
+  console.log(`[sync-cal] Fetching events ${minStartTime} → ${maxStartTime}`);
 
-  // Get all scheduled events (active + canceled) within lookback window
-  const params = new URLSearchParams({
-    organization: CAL_ORG_URI,
-    user: CAL_USER_URI,
-    min_start_time: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // look back 90 days for meeting dates
-    count: '100',
-    sort: 'start_time:desc',
-  });
+  // Get all scheduled events in window
+  const eventsUrl = `${CAL_BASE}/scheduled_events?user=${encodeURIComponent(CAL_USER_URI)}&min_start_time=${encodeURIComponent(minStartTime)}&max_start_time=${encodeURIComponent(maxStartTime)}&count=100&sort=start_time:desc`;
+  const eventsResp = await calGet(eventsUrl, pat);
 
-  // Get recently created invitees (more useful than events because we need contact info)
-  const inviteesResp = await calGet(`/scheduled_events/invitees?organization=${encodeURIComponent(CAL_ORG_URI)}&count=100&sort=created_at:desc`, pat);
-
-  if (!inviteesResp?.collection) {
-    return res.status(500).json({ error: 'Failed to fetch Calendly invitees', details: inviteesResp });
+  if (!eventsResp?.collection) {
+    return res.status(500).json({ error: 'Failed to fetch Calendly events', details: eventsResp });
   }
 
-  const invitees = inviteesResp.collection;
-  console.log(`[sync-cal] Found ${invitees.length} recent invitees`);
+  const events = eventsResp.collection;
+  console.log(`[sync-cal] Found ${events.length} scheduled events`);
 
-  // Filter to those created in the lookback window
-  const recentInvitees = invitees.filter(inv => {
-    const created = new Date(inv.created_at);
-    const cutoff = new Date(minCreated);
-    return created >= cutoff;
-  });
+  // Also get canceled events
+  const canceledUrl = `${CAL_BASE}/scheduled_events?user=${encodeURIComponent(CAL_USER_URI)}&min_start_time=${encodeURIComponent(minStartTime)}&max_start_time=${encodeURIComponent(maxStartTime)}&count=100&sort=start_time:desc&status=canceled`;
+  const canceledResp = await calGet(canceledUrl, pat);
+  const canceledEvents = canceledResp?.collection || [];
+  console.log(`[sync-cal] Found ${canceledEvents.length} canceled events`);
 
-  console.log(`[sync-cal] ${recentInvitees.length} invitees since ${minCreated}`);
-
+  const allEvents = [...events, ...canceledEvents];
   const results = [];
-  for (const invitee of recentInvitees) {
-    const eventUri = invitee.event;
-    const eventResp = await calGet(`/scheduled_events/${eventUri.split('/').pop()}`, pat);
-    const event = eventResp?.resource || {};
 
-    const result = await processScheduledEvent(event, invitee, pat);
-    results.push({ invitee: invitee.email || invitee.name, ...result });
+  for (const event of allEvents) {
+    const eventUuid = event.uri.split('/').pop();
+    const inviteesResp = await calGet(`${CAL_BASE}/scheduled_events/${eventUuid}/invitees?count=20`, pat);
+    const invitees = inviteesResp?.collection || [];
+
+    for (const invitee of invitees) {
+      const result = await processInvitee(event, invitee);
+      results.push(result);
+    }
   }
 
-  // Also check for any prospects with appointment_booked that have calendly_event_id
-  // to see if they were canceled in Calendly
-  // (handled on next run when the invitee's event shows as canceled)
+  const synced = results.filter(r => r.synced).length;
+  const updated = results.filter(r => r.updated).length;
+  const skipped = results.filter(r => r.skipped).length;
 
-  console.log(`[sync-cal] Done. Processed ${results.length} invitees.`);
-  return res.status(200).json({ ok: true, processed: results.length, results, polled_since: minCreated });
+  console.log(`[sync-cal] Done. synced=${synced} updated=${updated} skipped=${skipped}`);
+  return res.status(200).json({ ok: true, events: allEvents.length, results: { synced, updated, skipped }, details: results });
 }
