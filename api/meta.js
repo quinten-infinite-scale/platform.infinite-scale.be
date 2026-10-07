@@ -220,6 +220,38 @@ export default async function handler(req, res) {
     for await (const chunk of req) chunks.push(chunk);
     const rawBody = Buffer.concat(chunks);
 
+    // setup_token action — admin POST to store a user access token
+    if (req.query?.action === 'setup_token') {
+      const adminUser = await verifyAdminToken(req);
+      if (!adminUser) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      let body2;
+      try { body2 = JSON.parse(rawBody.toString('utf8')); } catch { body2 = {}; }
+      const shortToken = body2.user_token;
+      if (!shortToken) return res.status(400).json({ ok: false, error: 'user_token required in body' });
+      try {
+        const appId = process.env.META_APP_ID;
+        const appSecret = process.env.META_APP_SECRET;
+        const longR = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${encodeURIComponent(shortToken)}`);
+        if (!longR.ok) {
+          const err2 = await longR.json().catch(() => ({}));
+          return res.status(400).json({ ok: false, error: 'Token exchange failed', details: err2 });
+        }
+        const longData2 = await longR.json();
+        const meR2 = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${longData2.access_token}`);
+        const meData2 = meR2.ok ? await meR2.json().catch(() => ({})) : {};
+        const pages2 = await getPageTokens(longData2.access_token);
+        const pageTokenMap2 = Object.fromEntries(pages2.map(p => [p.id, p.access_token]));
+        await Promise.all([
+          saveSetting('meta_account', { user_id: meData2.id, user_name: meData2.name, token: longData2.access_token, expires_in: longData2.expires_in, connected_at: new Date().toISOString(), pages: pages2.map(p => ({ id: p.id, name: p.name })) }),
+          saveSetting('meta_page_tokens', pageTokenMap2),
+        ]);
+        await Promise.all(pages2.map(p => subscribePageToLeadgen(p.id, p.access_token).catch(() => {})));
+        return res.status(200).json({ ok: true, user_name: meData2.name, pages: pages2.map(p => ({ id: p.id, name: p.name })) });
+      } catch (err2) {
+        return res.status(500).json({ ok: false, error: err2.message });
+      }
+    }
+
     const sig = req.headers['x-hub-signature-256'] || '';
     if (!verifySignature(rawBody, sig)) return res.status(401).json({ error: 'Invalid signature' });
 
