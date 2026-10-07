@@ -121,11 +121,12 @@ async function processInvitee(event, invitee) {
   if (!prospect) {
     const domain = inviteeEmail ? inviteeEmail.split('@')[1]?.split('.')[0] || '' : '';
     const newProspect = {
+      id: 'p' + Date.now() + Math.random().toString(36).slice(2, 5),
       pipeline_id: 'meta_ads',
       stage: 'appointment_booked',
       contact: inviteeName || null,
       email: inviteeEmail || null,
-      company: domain || inviteeName || 'Onbekend',
+      company: domain || inviteeName || 'Calendly',
       lead_source: 'Calendly',
       created_at: new Date().toISOString(),
     };
