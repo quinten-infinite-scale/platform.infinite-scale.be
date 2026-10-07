@@ -200,8 +200,8 @@ const ScreenAdmin = {
     const invoiced = d.appointments.filter(a => a.invoiced && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
     const received = d.appointments.filter(a => a.paid && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
     const agentCost = curMonthBillable.filter(a => a.status === 'show').reduce((x, a) => x + aRate(a), 0);
-    const revToday    = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
-    const costToday   = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + aRate(a), 0);
+    const revToday    = d.appointments.filter(a => a.dateLog === today && a.status === 'show').reduce((x, a) => x + cRate(a), 0);
+    const costToday   = d.appointments.filter(a => a.dateLog === today && a.status === 'show').reduce((x, a) => x + aRate(a), 0);
     const pnl = expected - agentCost;
     const pnlToday = revToday - costToday;
     const margin = expected > 0 ? Math.round(pnl / expected * 100) : null;
