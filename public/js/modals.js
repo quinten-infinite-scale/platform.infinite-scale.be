@@ -2175,20 +2175,23 @@ const Modals = {
       }
       const kv = (label, val) => val ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, label + ': '), e('span', { style: { color: 'var(--text)', fontSize: 13.5 } }, val)) : null;
 
-      // Lazy-load prospect_meetings timeline when modal opens for this prospect
+      // Lazy-load prospect_meetings + prospect_history when modal opens for this prospect
       if (f.pmProspectId !== p.id) {
         setTimeout(() => {
           this.setForm('pmProspectId', p.id);
           this.setForm('pmMeetings', null);
+          this.setForm('phHistory', null);
           const tok = typeof SB !== 'undefined' ? SB.getSession()?.access_token : null;
           const sbUrl = 'https://database.infinite-scale.be';
-          const hdrs = tok
-            ? { apikey: tok, Authorization: 'Bearer ' + tok }
-            : {};
+          const hdrs = tok ? { apikey: tok, Authorization: 'Bearer ' + tok } : {};
           fetch(`${sbUrl}/rest/v1/prospect_meetings?prospect_id=eq.${encodeURIComponent(p.id)}&order=meeting_date.desc&limit=20`, { headers: hdrs })
             .then(r => r.ok ? r.json() : [])
             .then(rows => this.setForm('pmMeetings', Array.isArray(rows) ? rows : []))
             .catch(() => this.setForm('pmMeetings', []));
+          fetch(`${sbUrl}/rest/v1/prospect_history?prospect_id=eq.${encodeURIComponent(p.id)}&order=date.desc&limit=50`, { headers: hdrs })
+            .then(r => r.ok ? r.json() : [])
+            .then(rows => this.setForm('phHistory', Array.isArray(rows) ? rows : []))
+            .catch(() => this.setForm('phHistory', []));
         }, 0);
       }
 
@@ -2220,35 +2223,71 @@ const Modals = {
           e('div', null,
             e('div', { style: { fontWeight: 700, fontSize: 12, color: 'var(--text)' } }, 'CLOSER Score'),
             e('div', { style: { fontSize: 11, color: 'var(--accent)' } }, 'Klik voor details →'))) : null,
-        // Meeting history timeline
-        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
-          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 10 } }, '📅 Meetinggeschiedenis'),
-          pmMeetings === null
-            ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', padding: '8px 0' } }, 'Laden…')
-            : pmMeetings.length === 0
-              ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', padding: '8px 0' } }, 'Nog geen meetings geregistreerd.')
-              : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
-                  pmMeetings.map((m, i) => {
-                    const isLast = i === pmMeetings.length - 1;
-                    const dateStr = m.meeting_date ? new Date(m.meeting_date).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-                    const timeStr = m.meeting_date ? new Date(m.meeting_date).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '';
-                    const dotColor = m.status === 'completed' ? mtypeColor(m.meeting_type) : m.status === 'booked' ? 'var(--accent)' : 'var(--text-mute)';
-                    const hasAnalysis = m.closer_analysis && m.closer_score != null;
-                    return e('div', { key: m.id, style: { display: 'flex', gap: 12 } },
-                      e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 } },
-                        e('div', { style: { width: 10, height: 10, borderRadius: '50%', background: dotColor, marginTop: 5, flexShrink: 0 } }),
-                        !isLast ? e('div', { style: { width: 2, flex: 1, background: 'var(--border)', minHeight: 20, marginTop: 4 } }) : null),
-                      e('div', { style: { paddingBottom: isLast ? 0 : 16, flex: 1 } },
-                        e('div', { style: { fontSize: 11, fontFamily: 'monospace', color: 'var(--text-mute)', marginBottom: 2 } }, dateStr + (timeStr ? ' · ' + timeStr : '')),
-                        e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-                          e('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, m.meeting_title || mtypeLabel(m.meeting_type) || 'Meeting'),
-                          m.meeting_type ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mtypeColor(m.meeting_type) + '22', color: mtypeColor(m.meeting_type), border: '1px solid ' + mtypeColor(m.meeting_type) + '44' } }, mtypeLabel(m.meeting_type)) : null,
-                          e('span', { style: { fontSize: 10, color: statusColor(m.status), fontFamily: 'monospace' } }, m.status || 'booked')),
-                        hasAnalysis ? e('div', { onClick: () => this.openModal('closerAnalysis', { prospect: { ...p, closer_analysis: m.closer_analysis, closer_score_total: m.closer_score } }),
-                          style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, cursor: 'pointer', fontSize: 11.5 } },
-                          e('span', { style: { fontWeight: 900, color: m.closer_score >= 7 ? 'var(--up)' : m.closer_score >= 5 ? '#facc15' : 'var(--down)', fontFamily: 'monospace' } }, m.closer_score?.toFixed(1) + '/10'),
-                          e('span', { style: { color: 'var(--accent)' } }, 'CLOSER →')) : null));
-                  }))),
+        // Contact Geschiedenis tab (meetings + history merged timeline)
+        (() => {
+          const phHistory = f.phHistory;
+          const isLoading = pmMeetings === null || phHistory === null;
+          // Merge meetings and history into one sorted list
+          const allItems = [];
+          if (Array.isArray(pmMeetings)) {
+            pmMeetings.forEach(m => allItems.push({ _src: 'meeting', _date: m.meeting_date ? new Date(m.meeting_date) : new Date(0), ...m }));
+          }
+          if (Array.isArray(phHistory)) {
+            phHistory.forEach(h => allItems.push({ _src: 'history', _date: h.date ? new Date(h.date) : new Date(0), ...h }));
+          }
+          allItems.sort((a, b) => b._date - a._date);
+
+          const typeIcon = t => ({ email: '📧', fathom: '🎙', calendar: '📅', contract: '📄', call: '📞', note: '📝' }[t] || '📌');
+          const typeColor = t => ({ email: '#60a5fa', fathom: '#a78bfa', calendar: 'var(--accent)', contract: 'var(--up)', call: '#facc15', note: 'var(--text-mute)' }[t] || 'var(--text-mute)');
+
+          return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+            e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+              e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, '🕐 Contact Geschiedenis'),
+              e('button', { onClick: () => this.openModal('addContactHistory', { prospect: p }), style: { fontSize: 11, padding: '3px 10px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', cursor: 'pointer' } }, '+ Toevoegen')),
+            isLoading
+              ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', padding: '8px 0' } }, 'Laden…')
+              : allItems.length === 0
+                ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', padding: '8px 0' } }, 'Nog geen contactgeschiedenis.')
+                : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+                    allItems.map((item, i) => {
+                      const isLast = i === allItems.length - 1;
+                      const dateStr = item._date > new Date(1000) ? item._date.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+                      const timeStr = item._date > new Date(1000) ? item._date.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '';
+                      if (item._src === 'meeting') {
+                        const dotColor = item.status === 'completed' ? mtypeColor(item.meeting_type) : item.status === 'booked' ? 'var(--accent)' : 'var(--text-mute)';
+                        const hasAnalysis = item.closer_analysis && item.closer_score != null;
+                        return e('div', { key: 'm_' + item.id, style: { display: 'flex', gap: 12 } },
+                          e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 } },
+                            e('div', { style: { width: 10, height: 10, borderRadius: '50%', background: dotColor, marginTop: 5, flexShrink: 0 } }),
+                            !isLast ? e('div', { style: { width: 2, flex: 1, background: 'var(--border)', minHeight: 20, marginTop: 4 } }) : null),
+                          e('div', { style: { paddingBottom: isLast ? 0 : 16, flex: 1 } },
+                            e('div', { style: { fontSize: 11, fontFamily: 'monospace', color: 'var(--text-mute)', marginBottom: 2 } }, dateStr + (timeStr ? ' · ' + timeStr : '')),
+                            e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                              e('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, item.meeting_title || mtypeLabel(item.meeting_type) || 'Meeting'),
+                              item.meeting_type ? e('span', { style: { fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mtypeColor(item.meeting_type) + '22', color: mtypeColor(item.meeting_type), border: '1px solid ' + mtypeColor(item.meeting_type) + '44' } }, mtypeLabel(item.meeting_type)) : null,
+                              e('span', { style: { fontSize: 10, color: statusColor(item.status), fontFamily: 'monospace' } }, item.status || 'booked')),
+                            hasAnalysis ? e('div', { onClick: () => this.openModal('closerAnalysis', { prospect: { ...p, closer_analysis: item.closer_analysis, closer_score_total: item.closer_score } }),
+                              style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, cursor: 'pointer', fontSize: 11.5 } },
+                              e('span', { style: { fontWeight: 900, color: item.closer_score >= 7 ? 'var(--up)' : item.closer_score >= 5 ? '#facc15' : 'var(--down)', fontFamily: 'monospace' } }, item.closer_score?.toFixed(1) + '/10'),
+                              e('span', { style: { color: 'var(--accent)' } }, 'CLOSER →')) : null));
+                      }
+                      // History item
+                      const tc = typeColor(item.type);
+                      const expanded = f['phExpand_' + item.id];
+                      return e('div', { key: 'h_' + item.id, style: { display: 'flex', gap: 12 } },
+                        e('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 } },
+                          e('div', { style: { width: 10, height: 10, borderRadius: '50%', background: tc, marginTop: 5, flexShrink: 0 } }),
+                          !isLast ? e('div', { style: { width: 2, flex: 1, background: 'var(--border)', minHeight: 20, marginTop: 4 } }) : null),
+                        e('div', { style: { paddingBottom: isLast ? 0 : 16, flex: 1 } },
+                          e('div', { style: { fontSize: 11, fontFamily: 'monospace', color: 'var(--text-mute)', marginBottom: 2 } }, dateStr + (timeStr && timeStr !== '01:00' && timeStr !== '02:00' ? ' · ' + timeStr : '')),
+                          e('div', { onClick: item.body ? () => this.setForm('phExpand_' + item.id, !expanded) : undefined,
+                            style: { display: 'flex', alignItems: 'center', gap: 6, cursor: item.body ? 'pointer' : 'default' } },
+                            e('span', { style: { fontSize: 13 } }, typeIcon(item.type)),
+                            e('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', flex: 1 } }, item.subject || '—'),
+                            item.body ? e('span', { style: { fontSize: 11, color: 'var(--text-mute)' } }, expanded ? '▲' : '▼') : null),
+                          expanded && item.body ? e('div', { style: { marginTop: 6, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-2)', fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.65, whiteSpace: 'pre-wrap' } }, item.body) : null));
+                    })));
+        })(),
         // Transcript analyse section
         f.showTranscriptInput ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
           e('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Plak Fathom transcript'),
@@ -2350,6 +2389,36 @@ const Modals = {
             e('span', { style: { fontWeight: 700, color: 'var(--text)' } }, k2 + ': '), v))) : null,
         a.call_date ? e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)', textAlign: 'right' } }, 'Analyse van ' + new Date(a.call_date).toLocaleDateString('nl-BE')) : null
       ), [UI.Btn('Sluiten', () => this.closeModal(), 'soft')], '680px');
+    }
+
+    if (k === 'addContactHistory') {
+      const p = f.prospect || {};
+      const hType = f.hType || 'note';
+      const hSubject = f.hSubject || '';
+      const hBody = f.hBody || '';
+      const hDate = f.hDate || new Date().toISOString().slice(0, 16);
+      const typeOpts = [{ v: 'note', l: '📝 Notitie' }, { v: 'email', l: '📧 Email' }, { v: 'call', l: '📞 Call' }, { v: 'calendar', l: '📅 Meeting' }, { v: 'fathom', l: '🎙 Fathom recap' }, { v: 'contract', l: '📄 Contract' }];
+      return wrap('+ Contact toevoegen — ' + (p.company || ''),
+        e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+          UI.Field('Type', UI.Select(hType, v => this.setForm('hType', v), typeOpts)),
+          UI.Field('Datum', e('input', { type: 'datetime-local', value: hDate, onChange: ev => this.setForm('hDate', ev.target.value), style: { padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', boxSizing: 'border-box' } })),
+          UI.Field('Onderwerp', UI.Input(hSubject, v => this.setForm('hSubject', v), 'Email subject, call onderwerp...')),
+          UI.Field('Inhoud', UI.Area(hBody, v => this.setForm('hBody', v), 'Samenvatting, notities, email content...'))),
+        [UI.Btn('Annuleer', () => this.closeModal(), 'soft'),
+         UI.Btn('Opslaan', async () => {
+           const tok = typeof SB !== 'undefined' ? SB.getSession()?.access_token : null;
+           const sbUrl = 'https://database.infinite-scale.be';
+           const hdrs = { 'Content-Type': 'application/json', ...(tok ? { apikey: tok, Authorization: 'Bearer ' + tok } : {}) };
+           try {
+             await fetch(sbUrl + '/rest/v1/prospect_history', {
+               method: 'POST', headers: hdrs,
+               body: JSON.stringify({ prospect_id: p.id, type: hType, date: new Date(hDate).toISOString(), subject: hSubject, body: hBody })
+             });
+             this.setForm('pmProspectId', null); // force reload
+             this.closeModal();
+             setTimeout(() => this.openModal('prospectDetail', { prospect: p, salespeople: f.salespeople }), 100);
+           } catch(err) { this.toast('Fout', 'Opslaan mislukt', 'var(--down)'); }
+         }, 'primary')], '480px');
     }
 
     if (k === 'prospectFollowup') {
