@@ -200,8 +200,8 @@ const ScreenAdmin = {
     const invoiced = d.appointments.filter(a => a.invoiced && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
     const received = d.appointments.filter(a => a.paid && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
     const agentCost = curMonthBillable.filter(a => a.status === 'show').reduce((x, a) => x + aRate(a), 0);
-    const revToday    = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + cRate(a), 0);
-    const costToday   = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel').reduce((x, a) => x + aRate(a), 0);
+    const revToday    = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + cRate(a), 0);
+    const costToday   = d.appointments.filter(a => a.dateLog === today && a.status !== 'cancel' && a.status !== 'no_show').reduce((x, a) => x + aRate(a), 0);
     const pnl = expected - agentCost;
     const pnlToday = revToday - costToday;
     const margin = expected > 0 ? Math.round(pnl / expected * 100) : null;
@@ -5573,7 +5573,7 @@ const ScreenAdmin = {
       const t = agentTargets[agent.id] || {};
       const dialsActual = dialsMap[agent.id] || 0;
       const dayAppts = (d.appointments || [])
-        .filter(a => a.dateLog === dialsDay && a.agent === agent.id);
+        .filter(a => a.dateLog === dialsDay && a.agent === agent.id && a.status !== 'cancel' && a.status !== 'no_show');
       const agRates = ((d.agents||[]).find(g=>g.id===agent.id)||{}).rates||{};
       const revActual = dayAppts.reduce((sum, a) => sum + (a.agentRate != null ? a.agentRate : (rnAgentPay(a) ?? agRates[a.sub] ?? agRates[a.client] ?? 0)), 0);
       const isRev = dayAppts.reduce((sum, a) => sum + cRate(a), 0);
