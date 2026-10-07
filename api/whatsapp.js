@@ -199,9 +199,13 @@ async function handleGet(req, res) {
   }
   const waClientMap = {};
   for (const c of (Array.isArray(waClients) ? waClients : [])) waClientMap[c.id] = c;
+  // tplByClient[client_id][subclient_id || ''] = template (subclient-specific wins over generic)
   const tplByClient = {};
   for (const t of tplRows) {
-    if (waClientMap[t.client_id]) tplByClient[t.client_id] = t;
+    if (!waClientMap[t.client_id]) continue;
+    if (!tplByClient[t.client_id]) tplByClient[t.client_id] = {};
+    const key = t.subclient_id || '';
+    tplByClient[t.client_id][key] = t;
   }
 
   const now = new Date();
@@ -221,7 +225,8 @@ async function handleGet(req, res) {
 
   const results = [];
   for (const appt of apptRows) {
-    const tpl = tplByClient[appt.client_id];
+    const clientTpls = tplByClient[appt.client_id];
+    const tpl = (appt.sub_client_id && clientTpls?.[appt.sub_client_id]) || clientTpls?.[''] || (clientTpls && Object.values(clientTpls)[0]);
     if (!tpl) { results.push({ id: appt.id, skipped: 'no_template' }); continue; }
     if (tpl.template_name !== 'hello_world' && !tpl.callback_phone) { results.push({ id: appt.id, skipped: 'no_callback_phone' }); continue; }
 
@@ -443,10 +448,12 @@ ${apptDate ? `<p><b>Afspraak:</b> ${dateStr}</p>` : ''}
   if (appt?.confirmation_sent_at) return res.status(200).json({ ok: false, reason: 'already_sent' });
 
   const [templates, clientRows] = await Promise.all([
-    sbGet(`client_whatsapp_templates?client_id=eq.${clientId}&active=eq.true&limit=1`).catch(() => []),
+    sbGet(`client_whatsapp_templates?client_id=eq.${clientId}&active=eq.true&order=subclient_id.desc.nullslast`).catch(() => []),
     sbGet(`clients?id=eq.${clientId}&select=name,subclients`).catch(() => []),
   ]);
-  const tpl = Array.isArray(templates) ? templates[0] : null;
+  const allTpls = Array.isArray(templates) ? templates : [];
+  // Prefer subclient-specific template, fall back to generic client template
+  const tpl = (subId && allTpls.find(t => t.subclient_id === subId)) || allTpls.find(t => !t.subclient_id) || allTpls[0] || null;
   if (!tpl) return res.status(200).json({ ok: false, reason: 'no_template' });
   if (tpl.confirmation_enabled === false) return res.status(200).json({ ok: false, reason: 'confirmations_disabled' });
   if (tpl.template_name !== 'hello_world' && !tpl.callback_phone) return res.status(200).json({ ok: false, reason: 'no_callback_phone' });
