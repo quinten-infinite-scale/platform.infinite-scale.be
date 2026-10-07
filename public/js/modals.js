@@ -2104,7 +2104,7 @@ const Modals = {
         try {
           const raw = (this.state?.data?.settings || {}).prospect_pipelines;
           if (raw) {
-            const pls = JSON.parse(raw);
+            const pls = Array.isArray(raw) ? raw : JSON.parse(raw);
             const pl = pls.find(pl2 => pl2.id === (p.pipeline_id || 'manuele'));
             return pl?.stages || [];
           }
@@ -2121,9 +2121,10 @@ const Modals = {
         let allPipelines = [];
         try {
           const raw = (this.state?.data?.settings || {}).prospect_pipelines;
-          if (raw) allPipelines = JSON.parse(raw);
+          if (Array.isArray(raw)) allPipelines = raw;
+          else if (raw) allPipelines = JSON.parse(raw);
         } catch(_) {}
-        const fallbackPipelines = [{ id: 'manuele', name: 'Manuele', stages: [{ id: 'nieuwe_leads', label: 'Nieuwe leads' }, { id: 'first_call', label: 'First Call' }, { id: 'second_call', label: 'Second Call' }, { id: 'gewonnen', label: 'Gewonnen' }, { id: 'niet_gewonnen', label: 'Niet gewonnen' }] }, { id: 'meta_ads', name: 'Meta Ads', stages: [{ id: 'appointment_booked', label: 'Appointment Booked' }, { id: 'call_2', label: 'Second Call' }, { id: 'gewonnen', label: 'Gewonnen' }, { id: 'niet_gewonnen', label: 'Niet gewonnen' }] }];
+        const fallbackPipelines = [{ id: 'manuele', name: 'Manuele', stages: [{ id: 'nieuwe_leads', label: 'Nieuwe leads' }, { id: 'first_call', label: 'First Call' }, { id: 'second_call', label: 'Second Call' }, { id: 'gewonnen', label: 'Gewonnen' }, { id: 'niet_gewonnen', label: 'Niet gewonnen' }] }, { id: 'meta_ads', name: 'Meta Ads B2B Acquisitie', stages: [{ id: 'new_lead', label: 'Nieuwe lead' }, { id: 'call_1', label: 'Call 1' }, { id: 'call_2', label: 'Call 2' }, { id: 'call_3', label: 'Call 3' }, { id: 'call_4', label: 'Call 4' }, { id: 'send_info', label: 'Info gestuurd' }, { id: 'interested_follow_up', label: 'Geïnteresseerd' }, { id: 'appointment_booked', label: 'Afspraak gepland' }, { id: 'long_term_follow_up', label: 'LT follow-up' }, { id: 'not_qualified', label: 'Niet gekwalificeerd' }, { id: 'afgevallen', label: 'Afgevallen' }] }];
         const effectivePipelines = allPipelines.length > 0 ? allPipelines : fallbackPipelines;
         const pipelineOpts = effectivePipelines.map(pl => ({ v: pl.id, l: pl.name || pl.id }));
         const selectedPipelineId = g('pipeline_id', p.pipeline_id || 'manuele');

@@ -1516,15 +1516,19 @@ const ScreenAdmin = {
       })();
       const isToday = hourlyDate === todayStr;
       const maxHour = isToday ? Math.min(nowLocalHour, 23) : 23;
+      const hourlyMonth = new Date(hourlyDate + 'T12:00:00').getMonth() + 1;
+      const tzOffset = (hourlyMonth >= 4 && hourlyMonth <= 9) ? 2 : 1;
+      const getBelgianHour = (iso) => { const dt = new Date(iso); return (dt.getUTCHours() + tzOffset) % 24; };
       const dayAppts = d.appointments.filter(a => a.dateLog === hourlyDate);
       const dialsHourly = d.dialsHourly || {};
       for (let h = 1; h <= maxHour; h++) {
         const hourCount = Object.keys(dialsHourly).reduce((x, id) => x + (((dialsHourly[id] || {})[hourlyDate] || {})[h] || 0), 0);
+        const hourAppts = dayAppts.filter(a => a.loggedAt && getBelgianHour(a.loggedAt) === h);
         dialSeries.push(hourCount);
-        apptSeries.push(dayAppts.length);
+        apptSeries.push(hourAppts.length);
         labels.push(h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h - 12) + ' PM');
         isoLabels.push(hourlyDate);
-        apptBreakdowns.push([]);
+        apptBreakdowns.push(activeAgents.map((ag, ai) => ({ label: ag.name.split(' ')[0], value: hourAppts.filter(a => a.agent === ag.id).length, color: agentPalette[ai % agentPalette.length] })).filter(b => b.value > 0));
         dialBreakdowns.push(activeAgents.map((ag, ai) => ({ label: ag.name.split(' ')[0], value: ((dialsHourly[ag.id] || {})[hourlyDate] || {})[h] || 0, color: agentPalette[ai % agentPalette.length] })).filter(b => b.value > 0));
       }
     } else {
@@ -3108,11 +3112,12 @@ const ScreenAdmin = {
     // ── Pipeline state ────────────────────────────────────────────────────────
     const savePipelines = (next) => {
       this.setState({ _prospectPipelines: next });
-      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.prospect_pipelines = JSON.stringify(next); });
+      this.mutLocal(dd => { dd.settings = dd.settings || {}; dd.settings.prospect_pipelines = next; });
       API.saveSetting('prospect_pipelines', JSON.stringify(next));
     };
     const pipelines = s._prospectPipelines || (() => {
       const raw = (d.settings || {}).prospect_pipelines;
+      if (Array.isArray(raw)) return raw;
       if (raw) { try { return JSON.parse(raw); } catch(_) {} }
       // Auto-save defaults once so the modal can read them (use a module-level guard to avoid re-render loops)
       if (!window._prospectPipelinesSaved) {
@@ -3418,15 +3423,18 @@ const ScreenAdmin = {
             const startTime = ev.data.payload?.event?.start_time || null;
             const prospectId = window._calendlyProspectId;
             if (prospectId) {
+              const updates = {
+                stage: 'appointment_booked',
+                calendly_event_uri: uri,
+                calendly_event_start: startTime,
+                next_action_type: 'meeting',
+                next_action_date: startTime ? startTime.slice(0, 10) : null,
+              };
               this.mutLocal(dd => {
                 const p = dd.prospects.find(x => x.id === prospectId);
-                if (p) {
-                  p.calendly_event_uri = uri;
-                  p.calendly_event_start = startTime;
-                  p.next_action_type = 'meeting';
-                  if (startTime) p.next_action_date = startTime.slice(0, 10);
-                }
+                if (p) Object.assign(p, updates);
               });
+              API.updateProspect(prospectId, updates).catch(() => {});
               this._lastProspectRefresh = Date.now(); // don't overwrite immediately
             }
           }
