@@ -370,7 +370,7 @@ class Component extends DCLogic {
             id: rec.id, agent: rec.agent_id, client: rec.client_id,
             sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
             dateLog: rec.date_logged, dateAppt: rec.date_appt,
-            status: rec.status, amount: rec.amount || 0, agentRate: rec.agent_rate ?? null,
+            status: rec.status, amount: rec.amount ?? null, agentRate: rec.agent_rate ?? null,
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
             rescheduled: rec.rescheduled || false,
@@ -392,7 +392,7 @@ class Component extends DCLogic {
             id: rec.id, agent: rec.agent_id, client: rec.client_id,
             sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
             dateLog: rec.date_logged, dateAppt: rec.date_appt,
-            status: rec.status, amount: rec.amount || 0, agentRate: rec.agent_rate ?? null,
+            status: rec.status, amount: rec.amount ?? null, agentRate: rec.agent_rate ?? null,
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
             rescheduled: rec.rescheduled || false,
@@ -914,7 +914,7 @@ class Component extends DCLogic {
     if (apptError) { this.setState(s => ({ form: { ...s.form, apptError, apptSubmitting: false } })); this.toast('Fout', apptError, 'var(--down)'); return; }
     this.setState(s => ({ form: { ...s.form, apptError: null } }));
     const c = this.state.data.clients.find(x => x.id === f.client);
-    let amount = c ? (c.rate ?? 0) : 0;
+    let amount = c ? (c.rate ?? null) : null;
     if (f.sub && c && c.subclients) {
       const sc = c.subclients.find(s => s.id === f.sub);
       if (sc) amount = sc.rate ?? amount;
