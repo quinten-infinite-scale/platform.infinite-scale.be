@@ -364,5 +364,43 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  if (action === 'test_lead') {
+    // Creates a fake test lead prospect without calling the Meta Graph API
+    const pageId = page_id || '789414644246156';
+    const mappingRows = await sbGet('meta_lead_mappings', `?facebook_page_id=eq.${encodeURIComponent(pageId)}&active=eq.true&order=facebook_form_id.desc.nullslast`);
+    const mapping = mappingRows[0] || null;
+    const pipelineId = mapping?.target_pipeline_id || 'meta_ads';
+    const stageId    = mapping?.target_stage_id    || 'new_lead';
+    const ownerId    = mapping?.owner_id            || null;
+    const mappingId  = mapping?.id || null;
+    const testLeadgenId = 'test_' + Date.now();
+    const prospectId = 'p' + Date.now() + 'test';
+    const prospectFields = {
+      id: prospectId,
+      pipeline_id: pipelineId,
+      stage: stageId,
+      contact: 'Test Lead (Meta)',
+      email: 'test@meta-lead.be',
+      phone: '+32 499 000 000',
+      company: 'Test Bedrijf BV',
+      source: 'Meta Ads',
+      notes: '[TEST LEAD] Aangemaakt via test_lead action om webhook flow te testen.',
+    };
+    if (ownerId) prospectFields.assigned = ownerId;
+    await sbInsert('prospects', prospectFields);
+    await sbInsert('meta_lead_log', {
+      id: 'log_' + Date.now(),
+      leadgen_id: testLeadgenId,
+      page_id: pageId,
+      form_id: 'test_form',
+      raw_payload: { test: true },
+      mapping_id: mappingId,
+      prospect_id: prospectId,
+      status: 'success',
+      processed_at: new Date().toISOString(),
+    });
+    return res.status(200).json({ ok: true, prospect_id: prospectId, pipeline_id: pipelineId, stage: stageId, mapping_used: !!mapping });
+  }
+
   return res.status(400).json({ ok: false, error: `Unknown action: ${action}` });
 }
