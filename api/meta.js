@@ -174,6 +174,7 @@ async function processLead(entry) {
     full_name: 'contact',
     email: 'email',
     phone_number: 'phone',
+    phone: 'phone',
     company_name: 'company',
     'is_je_sales-agenda_momenteel_voldoende_gevuld_met_b2b-afspraken?': 'form_agenda_vol',
     'heb_je_nu_de_capaciteit_(sales_team)_om_nieuwe_afspraken_effectief_te_lopen?': 'form_capaciteit',
@@ -400,6 +401,83 @@ export default async function handler(req, res) {
       processed_at: new Date().toISOString(),
     });
     return res.status(200).json({ ok: true, prospect_id: prospectId, pipeline_id: pipelineId, stage: stageId, mapping_used: !!mapping });
+  }
+
+  if (action === 'sync_forms') {
+    const pid = page_id || '789414644246156';
+    const tokenMap = await getSetting('meta_page_tokens');
+    const pageToken = tokenMap?.[pid];
+    if (!pageToken) return res.status(400).json({ ok: false, error: 'No page token — reconnect Meta' });
+
+    // Ensure form_name column exists
+    try {
+      await fetch(`${SB_URL}/pg/query`, {
+        method: 'POST',
+        headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: "ALTER TABLE meta_lead_mappings ADD COLUMN IF NOT EXISTS form_name TEXT DEFAULT NULL" }),
+      });
+    } catch(_) {}
+
+    const formsR = await fetch(`https://graph.facebook.com/v19.0/${pid}/leadgen_forms?fields=id,name,status&limit=100&access_token=${pageToken}`);
+    if (!formsR.ok) return res.status(200).json({ ok: false, error: `Graph API ${formsR.status}` });
+    const formsData = await formsR.json().catch(() => ({ data: [] }));
+    const activeForms = (formsData.data || []).filter(f => f.status === 'ACTIVE');
+
+    const LABEL_TO_CRM = {
+      'agenda': 'form_agenda_vol', 'gevuld': 'form_agenda_vol',
+      'capaciteit': 'form_capaciteit', 'sales team': 'form_capaciteit',
+      'waarde': 'form_deal_waarde', 'deal': 'form_deal_waarde',
+      'afspraken': 'form_afspraken_pw', 'per week': 'form_afspraken_pw',
+      'sector': 'form_sector', 'bouw': 'form_sector',
+      'website': 'form_website', 'url': 'form_website',
+      'bedrijfsnaam': 'company', 'company': 'company',
+    };
+
+    const synced = [];
+    for (const form of activeForms) {
+      // Fetch questions for this form
+      let fieldMap = {};
+      try {
+        const qR = await fetch(`https://graph.facebook.com/v19.0/${form.id}?fields=questions&access_token=${pageToken}`);
+        if (qR.ok) {
+          const qData = await qR.json().catch(() => ({}));
+          for (const q of (qData.questions || [])) {
+            const key = q.key;
+            const label = (q.label || '').toLowerCase();
+            if (key === 'full_name') fieldMap[key] = 'contact';
+            else if (key === 'email') fieldMap[key] = 'email';
+            else if (key === 'phone_number' || key === 'phone') fieldMap[key] = 'phone';
+            else if (key === 'company_name') fieldMap[key] = 'company';
+            else {
+              for (const [kw, crmField] of Object.entries(LABEL_TO_CRM)) {
+                if (label.includes(kw)) { fieldMap[key] = crmField; break; }
+              }
+            }
+          }
+        }
+      } catch(_) {}
+
+      const mappingId = `map_${pid}_${form.id}`;
+      const row = {
+        id: mappingId,
+        facebook_page_id: pid,
+        facebook_form_id: form.id,
+        form_name: form.name,
+        target_pipeline_id: 'meta_ads',
+        target_stage_id: 'new_lead',
+        active: true,
+        field_map: JSON.stringify(fieldMap),
+      };
+
+      const upsertR = await fetch(`${SB_URL}/rest/v1/meta_lead_mappings?on_conflict=id`, {
+        method: 'POST',
+        headers: { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(row),
+      });
+      synced.push({ id: mappingId, form_id: form.id, form_name: form.name, ok: upsertR.ok });
+    }
+
+    return res.status(200).json({ ok: true, synced: synced.length, forms: synced });
   }
 
   return res.status(400).json({ ok: false, error: `Unknown action: ${action}` });

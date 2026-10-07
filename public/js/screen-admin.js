@@ -3445,33 +3445,52 @@ const ScreenAdmin = {
 
     // ── Settings panel — Meta forms with auto-fetch ───────────────────────────
     const showSettings = !!s._prospectSettings;
-    const metaForms = (() => { try { return JSON.parse((d.settings || {}).meta_lead_forms || '[]'); } catch(_) { return []; } })();
-    const fetchedMetaForms = s._metaFormsList || null; // null = not fetched yet, [] = fetched empty
     const pipelineOptions = pipelines.map(p => p.id);
     const stageOptions = (pid) => (pipelines.find(p => p.id === pid)?.stages || []).map(sg => sg.id);
     const spNames = ['', ...salespeopleDB.map(sp => sp.name)];
 
-    const saveMetaForms = (forms) => {
-      this.mutLocal(dd => { if (!dd.settings) dd.settings = {}; dd.settings.meta_lead_forms = JSON.stringify(forms); });
-      API.saveSetting('meta_lead_forms', JSON.stringify(forms));
-    };
+    // Load meta_lead_mappings from Supabase when settings panel opens
+    if (showSettings && s._metaMappings === undefined && !s._metaMappingsLoading) {
+      this.setState({ _metaMappingsLoading: true });
+      SB.get('meta_lead_mappings', '?order=created_at').then(rows => {
+        this.setState({ _metaMappings: rows || [], _metaMappingsLoading: false });
+      }).catch(err => {
+        this.setState({ _metaMappings: [], _metaMappingsLoading: false, _metaMappingsError: err.message });
+      });
+    }
+    const metaMappings = s._metaMappings || [];
+
     const saveCalendlyDefault = (url) => {
       this.mutLocal(dd => { if (!dd.settings) dd.settings = {}; dd.settings.calendly_url_default = url; });
       API.saveSetting('calendly_url_default', url);
     };
-    const fetchMetaForms = async () => {
-      this.setState({ _metaFormsLoading: true });
-      try {
-        const r = await fetch('/api/whatsapp?source=meta-forms');
-        const data = await r.json();
-        this.setState({ _metaFormsList: data.forms || [], _metaFormsLoading: false, _metaFormsError: data.error || null });
-      } catch(err) {
-        this.setState({ _metaFormsLoading: false, _metaFormsError: err.message });
-      }
+
+    const updateMapping = (id, field, value) => {
+      this.setState({ _metaMappings: metaMappings.map(m => m.id === id ? { ...m, [field]: value } : m) });
+      SB.patch('meta_lead_mappings', '?id=eq.' + encodeURIComponent(id), { [field]: value }).catch(console.error);
     };
-    const addMetaFormFromFetched = (fetchedForm) => {
-      if (metaForms.find(f => f.form_id === fetchedForm.id)) return;
-      saveMetaForms([...metaForms, { form_id: fetchedForm.id, form_name: fetchedForm.name, pipeline_id: 'meta_ads', stage: 'new_lead', assigned: '', source: 'Meta forms' }]);
+
+    const deleteMapping = (id) => {
+      this.setState({ _metaMappings: metaMappings.filter(m => m.id !== id) });
+      SB.del('meta_lead_mappings', '?id=eq.' + encodeURIComponent(id)).catch(console.error);
+    };
+
+    const syncFormsFromMeta = async () => {
+      this.setState({ _metaSyncLoading: true, _metaSyncResult: null });
+      try {
+        const tok = SB.getSession()?.access_token || '';
+        const r = await fetch('/api/meta?action=sync_forms&page_id=789414644246156', { headers: { Authorization: 'Bearer ' + tok } });
+        const data = await r.json();
+        if (data.ok) {
+          this.setState({ _metaSyncLoading: false, _metaSyncResult: data.synced + ' forms gesynchroniseerd', _metaMappings: undefined });
+          const rows = await SB.get('meta_lead_mappings', '?order=created_at').catch(() => []);
+          this.setState({ _metaMappings: rows || [] });
+        } else {
+          this.setState({ _metaSyncLoading: false, _metaSyncResult: 'Fout: ' + (data.error || 'Unknown') });
+        }
+      } catch(err) {
+        this.setState({ _metaSyncLoading: false, _metaSyncResult: 'Fout: ' + err.message });
+      }
     };
 
     const settingsPanel = showSettings ? e('div', { style: { padding: '16px 18px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 18 } },
@@ -3490,39 +3509,31 @@ const ScreenAdmin = {
         e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
           e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, '📋 Meta Lead Forms → Pipeline'),
           e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
-            s._metaFormsLoading
-              ? e('span', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, 'Laden...')
-              : e('button', { onClick: fetchMetaForms, style: { fontSize: 11.5, fontWeight: 700, color: 'oklch(0.82 0.17 145)', background: 'oklch(0.22 0.06 145 / .3)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' } }, '🔄 Haal formulieren op uit Meta'),
-            e('button', { onClick: () => saveMetaForms([...metaForms, { form_id: '', form_name: 'Handmatig', pipeline_id: 'meta_ads', stage: 'new_lead', assigned: '', source: 'Meta forms' }]), style: { fontSize: 11.5, fontWeight: 700, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' } }, '+ Handmatig'))),
-        s._metaFormsError && e('div', { style: { fontSize: 11.5, color: 'var(--down)', marginBottom: 8 } }, 'Fout: ' + s._metaFormsError),
+            s._metaSyncResult && e('span', { style: { fontSize: 11, color: metaSyncResult => s._metaSyncResult.startsWith('Fout') ? 'var(--down)' : 'oklch(0.82 0.17 145)' } }, s._metaSyncResult),
+            s._metaSyncLoading
+              ? e('span', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, 'Bezig...')
+              : e('button', { onClick: syncFormsFromMeta, style: { fontSize: 11.5, fontWeight: 700, color: 'oklch(0.82 0.17 145)', background: 'oklch(0.22 0.06 145 / .3)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' } }, '🔄 Sync Forms uit Meta'))),
+        s._metaMappingsError && e('div', { style: { fontSize: 11.5, color: 'var(--down)', marginBottom: 8 } }, 'Fout: ' + s._metaMappingsError),
+        s._metaMappingsLoading && e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Laden...'),
 
-        // Fetched forms from Meta — click to add
-        fetchedMetaForms && fetchedMetaForms.length > 0 && e('div', { style: { marginBottom: 10 } },
-          e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 6, fontWeight: 600 } }, fetchedMetaForms.length + ' formulieren gevonden in Meta — klik om toe te voegen:'),
-          e('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } },
-            fetchedMetaForms.map(ff => {
-              const already = metaForms.some(m => m.form_id === ff.id);
-              return e('button', { key: ff.id, onClick: () => !already && addMetaFormFromFetched(ff), style: { fontSize: 11.5, padding: '4px 10px', borderRadius: 6, border: '1px solid ' + (already ? 'var(--border)' : 'var(--accent)'), background: already ? 'var(--bg-2)' : 'oklch(0.22 0.08 194 / .3)', color: already ? 'var(--text-mute)' : 'var(--accent)', cursor: already ? 'default' : 'pointer', fontWeight: already ? 400 : 600 } }, (already ? '✓ ' : '+ ') + ff.name);
-            }))),
-        fetchedMetaForms && fetchedMetaForms.length === 0 && e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginBottom: 10 } }, 'Geen formulieren gevonden. Controleer of de Meta-verbinding correct is.'),
-
-        // Configured mappings
-        metaForms.length === 0
-          ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Nog geen form mappings. Klik "Haal formulieren op uit Meta" om ze automatisch te laden.')
-          : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
-              e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 24px', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.04em', padding: '0 2px', marginBottom: 2 } },
+        // Configured mappings from meta_lead_mappings table
+        !s._metaMappingsLoading && metaMappings.length === 0
+          ? e('div', { style: { fontSize: 12, color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Nog geen form mappings. Klik "Sync Forms uit Meta" om automatisch te laden.')
+          : !s._metaMappingsLoading && e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+              e('div', { style: { display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 24px', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.04em', padding: '0 2px', marginBottom: 2 } },
                 e('span', null, 'Formulier'), e('span', null, 'Pipeline'), e('span', null, 'Stage'), e('span', null, 'Toewijzen aan'), e('span', null, '')),
-              metaForms.map((fm, i) => {
-                const stOpts = stageOptions(fm.pipeline_id);
-                return e('div', { key: i, style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 24px', gap: 6, alignItems: 'center' } },
-                  e('div', { style: { fontSize: 11.5, color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, fm.form_name || fm.form_id || '—'),
-                  e('select', { value: fm.pipeline_id, onChange: ev => saveMetaForms(metaForms.map((x, j) => j === i ? { ...x, pipeline_id: ev.target.value, stage: stageOptions(ev.target.value)[0] || '' } : x)), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
+              metaMappings.map((fm) => {
+                const stOpts = stageOptions(fm.target_pipeline_id || 'meta_ads');
+                const label = fm.form_name || (fm.facebook_form_id ? fm.facebook_form_id : '🔁 Catch-all');
+                return e('div', { key: fm.id, style: { display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 24px', gap: 6, alignItems: 'center' } },
+                  e('div', { style: { fontSize: 11.5, color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label),
+                  e('select', { value: fm.target_pipeline_id || 'meta_ads', onChange: ev => updateMapping(fm.id, 'target_pipeline_id', ev.target.value), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
                     pipelineOptions.map(pid => e('option', { key: pid, value: pid }, pipelines.find(p => p.id === pid)?.name || pid))),
-                  e('select', { value: fm.stage, onChange: ev => saveMetaForms(metaForms.map((x, j) => j === i ? { ...x, stage: ev.target.value } : x)), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
-                    stOpts.map(sg => e('option', { key: sg, value: sg }, pipelines.find(p => p.id === fm.pipeline_id)?.stages?.find(s2 => s2.id === sg)?.label || sg))),
-                  e('select', { value: fm.assigned || '', onChange: ev => saveMetaForms(metaForms.map((x, j) => j === i ? { ...x, assigned: ev.target.value } : x)), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
+                  e('select', { value: fm.target_stage_id || 'new_lead', onChange: ev => updateMapping(fm.id, 'target_stage_id', ev.target.value), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
+                    stOpts.map(sg => e('option', { key: sg, value: sg }, pipelines.find(p => p.id === (fm.target_pipeline_id || 'meta_ads'))?.stages?.find(s2 => s2.id === sg)?.label || sg))),
+                  e('select', { value: fm.owner_id || '', onChange: ev => updateMapping(fm.id, 'owner_id', ev.target.value || null), style: { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11.5, cursor: 'pointer' } },
                     spNames.map(n => e('option', { key: n, value: n }, n || '— Niemand —'))),
-                  e('button', { onClick: () => saveMetaForms(metaForms.filter((_, j) => j !== i)), style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 15, lineHeight: 1 } }, '×'));
+                  e('button', { onClick: () => deleteMapping(fm.id), style: { background: 'none', border: 'none', color: 'var(--down)', cursor: 'pointer', fontSize: 15, lineHeight: 1 } }, '×'));
               }))),
     ) : null;
 
