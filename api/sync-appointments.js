@@ -24,6 +24,7 @@ const RENO_RATES = {
   'Ramen en deuren':  { revenue: 70, agent: 15 },
   'Crepi':            { revenue: 70, agent: 15 },
   'Dak':              { revenue: 80, agent: 20 },
+  'Chapewerken':      { revenue: 25, agent: 12 },
 };
 
 // FACTURATIE data for June 2026 — same as migrate.js

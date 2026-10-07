@@ -949,7 +949,7 @@ const ScreenAdmin = {
 
     // Rate helpers
     const getRate = (a) => {
-      try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn && fb.revenue != null) return fb.revenue; } catch {}
+      try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch {}
       const cl = d.clients.find(c => c.id === a.client);
       if (!cl) return 0;
       if (a.sub && cl.subclients) {
