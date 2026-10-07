@@ -1817,7 +1817,13 @@ const Modals = {
           const pilotPayVals = f.pilotPayVals || {};
           const setPPSel = (k, v) => this.setForm('pilotPaySel', { ...pilotPaySel, [k]: v });
           const setPPVal = (k, v) => this.setForm('pilotPayVals', { ...pilotPayVals, [k]: v });
-          const qualCriteria = Array.isArray(f.qualCriteria) && f.qualCriteria.length > 0 ? f.qualCriteria : [{ text: '' }];
+          const defaultQualCriteria = [
+            { text: 'Beslissingsnemer — prospect bevestigt tijdens het gesprek zelf (mede-)eigenaar te zijn en akkoord te kunnen geven.' },
+            { text: 'Concreet product — prospect geeft aan interesse te hebben in ....... .' },
+            { text: 'Interesse — prospect geeft tijdens het gesprek een duidelijk positief signaal (bv. bevestigt open te staan voor een voorstel, gesprek ter plaatse of online).' },
+            { text: 'Prospect bevestigt fysiek/online aanwezig te zijn op het voorgestelde moment.' },
+          ];
+          const qualCriteria = Array.isArray(f.qualCriteria) && f.qualCriteria.length > 0 ? f.qualCriteria : defaultQualCriteria;
           const addCrit = () => this.setForm('qualCriteria', [...qualCriteria, { text: '' }]);
           const remCrit = (i) => this.setForm('qualCriteria', qualCriteria.filter((_, idx) => idx !== i));
           const updCrit = (i, val) => { const next = qualCriteria.map((c, idx) => idx === i ? { text: val } : c); this.setForm('qualCriteria', next); };
@@ -1881,7 +1887,7 @@ const Modals = {
                     qualCriteria.length > 1 ? e('button', { onClick: () => remCrit(i), style: { padding: '6px 10px', background: 'var(--surface-2)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, flexShrink: 0 } }, '✕') : null))),
               e('button', { onClick: addCrit, style: { alignSelf: 'flex-start', padding: '6px 14px', background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-dim)', fontSize: 13, marginTop: 4 } }, '+ Criterium toevoegen')) },
             vergoedingStep,
-            { t: 'Bekijk & verzend', body: step3Body(false, { ctype: 'Pilot — Cold Calling', ...pilotVarsBase, doelsector: f.doelsector, doelgroep: f.doelgroep, herkomstLeads: f.herkomstLeads, qualCriteria: f.qualCriteria && f.qualCriteria.length > 0 ? f.qualCriteria : [{ text: '' }] }) },
+            { t: 'Bekijk & verzend', body: step3Body(false, { ctype: 'Pilot — Cold Calling', ...pilotVarsBase, doelsector: f.doelsector, doelgroep: f.doelgroep, herkomstLeads: f.herkomstLeads, qualCriteria: f.qualCriteria && f.qualCriteria.length > 0 ? f.qualCriteria : defaultQualCriteria }) },
           ];
         }
         return [

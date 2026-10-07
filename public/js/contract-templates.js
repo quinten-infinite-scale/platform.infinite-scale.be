@@ -2,13 +2,19 @@ window.ContractTemplates = {
 
   generate(ctype, isAgent, vars) {
     const slug = this._slug(ctype, isAgent);
-    // Pilot contracts use complex dynamic rendering (tables, qualCriteria, pilotPaySel)
-    // that cannot be represented by simple {{var}} template overrides — skip DB overrides.
-    const isPilotType = !isAgent && (ctype === 'Pilot — Cold Calling' || ctype === 'Pilot — Leadopvolging' || ctype === 'Pilot' || ctype === 'client-pilot');
-    const override = !isPilotType && window.__ctplOverrides && window.__ctplOverrides[slug];
+    const override = window.__ctplOverrides && window.__ctplOverrides[slug];
     if (override) {
       try {
         const computedVars = this._computeVars(ctype, isAgent, vars);
+        // For pilot types, pre-compute dynamic sections so {{__qualCriteria}} and {{__payTable}} work
+        if (!isAgent && (ctype === 'Pilot — Cold Calling' || ctype === 'Pilot — Leadopvolging' || ctype === 'Pilot' || ctype === 'client-pilot')) {
+          const criteria = Array.isArray(vars.qualCriteria) ? vars.qualCriteria.filter(c => c && c.text && c.text.trim()) : [];
+          computedVars.__qualCriteria = criteria.length > 0
+            ? criteria.map((c, i) => `<p>&#9744; <strong>Criterium ${i + 1}:</strong> ${c.text}</p>`).join('\n  ')
+            : '<p>&#9744; [Criteria nader te bepalen tussen Partijen]</p>';
+          computedVars.__payTable = this._pilotPayTable(vars.pilotPaySel, vars.pilotPayVals, vars.hasBellijst, vars.bellijstPrice, vars.bellijstBron);
+          computedVars.__validApptDef = vars.validApptDef || '';
+        }
         const body = this._renderTpl(override, computedVars);
         return this._wrap(body, vars);
       } catch(e) { console.error('Template render error', e); }
@@ -1557,11 +1563,16 @@ ${rows.map(r => `  <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8
     const d = date || new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
     const months = pilotMonths || '2';
     const term = paymentTerm || '14';
-    const payTable = this._pilotPayTable(pilotPaySel, pilotPayVals, hasBellijst, bellijstPrice, bellijstBron);
-    const criteria = Array.isArray(qualCriteria) ? qualCriteria.filter(c => c && c.text && c.text.trim()) : [];
-    const criteriaHtml = criteria.length > 0
-      ? criteria.map((c, i) => `<p>&#9744; <strong>Criterium ${i + 1}:</strong> ${c.text}</p>`).join('\n  ')
-      : '<p>&#9744; [Criteria nader te bepalen tussen Partijen]</p>';
+    // String pass-throughs: when called from _initDefaults to generate a storable template body,
+    // qualCriteria and pilotPaySel may be placeholder strings like '{{__qualCriteria}}' / '{{__payTable}}'
+    const payTable = typeof pilotPaySel === 'string' ? pilotPaySel : this._pilotPayTable(pilotPaySel, pilotPayVals, hasBellijst, bellijstPrice, bellijstBron);
+    const criteriaHtml = typeof qualCriteria === 'string' ? qualCriteria
+      : (() => {
+          const criteria = Array.isArray(qualCriteria) ? qualCriteria.filter(c => c && c.text && c.text.trim()) : [];
+          return criteria.length > 0
+            ? criteria.map((c, i) => `<p>&#9744; <strong>Criterium ${i + 1}:</strong> ${c.text}</p>`).join('\n  ')
+            : '<p>&#9744; [Criteria nader te bepalen tussen Partijen]</p>';
+        })();
     return `
 <div class="doc-header">
   <div class="doc-header-logo">
@@ -1698,7 +1709,7 @@ ${rows.map(r => `  <tr><td style="padding:7px 12px;border-bottom:1px solid #e8e8
     });
     const tplVarsLeadopvolging = { party: '{{party}}', contact: '{{contact}}', vat: '{{vat}}', address: '{{address}}', email: '{{email}}', pilotMonths: '{{pilotMonths}}', paymentTerm: '{{paymentTerm}}', pilotPaySel: { perAfspraak: true }, pilotPayVals: { perAfspraak: '75' }, hasBellijst: false, validApptDef: '{{validApptDef}}' };
     if (!this._defaults['client-pilot-leadopvolging']) this._defaults['client-pilot-leadopvolging'] = this._pilotLeadopvolgingTemplate(tplVarsLeadopvolging);
-    const tplVarsCC = { party: '{{party}}', contact: '{{contact}}', vat: '{{vat}}', address: '{{address}}', email: '{{email}}', pilotMonths: '{{pilotMonths}}', paymentTerm: '{{paymentTerm}}', pilotPaySel: { perAfspraak: true }, pilotPayVals: { perAfspraak: '75' }, hasBellijst: false, doelsector: '{{doelsector}}', doelgroep: '{{doelgroep}}', herkomstLeads: '{{herkomstLeads}}', qualCriteria: [{ text: 'Bedrijf actief in doelsector' }, { text: 'Beslisser aan de lijn' }] };
+    const tplVarsCC = { party: '{{party}}', contact: '{{contact}}', vat: '{{vat}}', address: '{{address}}', email: '{{email}}', pilotMonths: '{{pilotMonths}}', paymentTerm: '{{paymentTerm}}', pilotPaySel: '{{__payTable}}', hasBellijst: false, doelsector: '{{doelsector}}', doelgroep: '{{doelgroep}}', herkomstLeads: '{{herkomstLeads}}', qualCriteria: '{{__qualCriteria}}' };
     if (!this._defaults['client-pilot-cold-calling']) this._defaults['client-pilot-cold-calling'] = this._coldCallingPilotTemplate(tplVarsCC);
   },
 
