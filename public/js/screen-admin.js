@@ -967,9 +967,10 @@ const ScreenAdmin = {
       return ((ag.rates || {})[a.sub] || (ag.rates || {})[a.client] || 0) + (a.dealCommission || 0);
     };
 
+    const todayStr = now.toISOString().slice(0, 10);
     const monthAppts = d.appointments.filter(a => {
       const ym = (a.dateLog || '').slice(0, 7);
-      return ym === monthYM && a.status !== 'cancel' && a.status !== 'no_show';
+      return ym === monthYM && a.status !== 'cancel' && a.status !== 'no_show' && (a.dateLog || '') <= todayStr;
     });
 
     // Fixed costs (defaults = Aug 2026 actuals from Excel)
