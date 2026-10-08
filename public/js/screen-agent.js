@@ -116,6 +116,15 @@ const ScreenAgent = {
       return { name: c.name, cnt };
     }).filter(x => x.cnt > 0);
 
+    // Load latest coaching item for dashboard widget
+    if (s._dashCfItem === undefined && !s._dashCfLoading) {
+      this.setState({ _dashCfLoading: true });
+      fetch(SC_DB + '/rest/v1/coaching_feed?agent_id=in.(' + encodeURIComponent(me.id + ',all') + ')&order=created_at.desc&limit=1', { headers: { apikey: SC_KEY, Authorization: 'Bearer ' + SC_KEY } })
+        .then(r => r.json())
+        .then(items => this.setState({ _dashCfItem: Array.isArray(items) && items.length ? items[0] : null, _dashCfLoading: false }))
+        .catch(() => this.setState({ _dashCfItem: null, _dashCfLoading: false }));
+    }
+
     // Load targets for this agent — lazy fetch as fallback in case platform_settings RLS blocks agent reads
     if (s._agentTargets === undefined && !s._agentTargetsLoading) {
       this.setState({ _agentTargetsLoading: true });
@@ -179,7 +188,27 @@ const ScreenAgent = {
               board.map((b, i) => e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 11, padding: '9px 10px', borderRadius: 9, background: b.me ? 'oklch(0.30 0.10 194 / .35)' : 'transparent' } },
                 e('span', { style: { width: 22, fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 14, color: i === 0 ? 'var(--accent)' : 'var(--text-mute)' } }, '#' + (i + 1)),
                 e('span', { style: { flex: 1, fontSize: 13.5, fontWeight: b.me ? 700 : 600, color: b.me ? 'var(--text)' : 'var(--text-dim)' } }, b.name + (b.me ? ' (you)' : '')),
-                UI.Mono(b.appts, { fontWeight: 700, color: 'var(--text)' }))))))),
+                UI.Mono(b.appts, { fontWeight: 700, color: 'var(--text)' })))))))
+          ),
+          s._dashCfItem ? (() => {
+            const cfTypeInfo = { w: { border: 'var(--up)', bg: 'oklch(0.22 0.10 145 / .12)', text: 'var(--up)', label: '🟢 Win' }, c: { border: 'var(--warn)', bg: 'oklch(0.22 0.12 75 / .12)', text: 'var(--warn)', label: '🟡 Coaching' }, a: { border: 'var(--info)', bg: 'oklch(0.22 0.08 255 / .12)', text: 'var(--info)', label: '🔵 Actie' } };
+            const item = s._dashCfItem;
+            const ti = cfTypeInfo[item.type] || { border: 'var(--border)', bg: 'var(--surface)', text: 'var(--text-mute)', label: item.type };
+            const itemText = (() => { try { const p = JSON.parse(item.text || ''); return p.t || item.text; } catch(_) { return item.text || ''; } })();
+            const newCount = s._cfNewCount || 0;
+            return UI.C({},
+              e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 } },
+                UI.Hd('Coaching', { fontSize: 15 }),
+                newCount > 0 ? e('span', { style: { fontSize: 10, fontWeight: 700, background: 'var(--accent)', color: 'var(--accent-ink)', borderRadius: 20, padding: '1px 8px' } }, newCount + ' nieuw') : null),
+              e('div', {
+                onClick: () => this.go('coaching'),
+                style: { cursor: 'pointer', padding: '11px 13px', borderRadius: 10, background: ti.bg, border: '1px solid var(--border-soft)', borderLeft: '3px solid ' + ti.border, transition: 'opacity .12s' }
+              },
+                e('div', { style: { fontSize: 10, fontWeight: 700, color: ti.text, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 } }, ti.label),
+                e('div', { style: { fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' } }, itemText),
+                e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 7, textAlign: 'right' } }, new Date(item.created_at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }))));
+          })() : null
+        )),
       UI.C({},
         UI.SectionHd('Updates & events'),
         UI.Grid('repeat(auto-fit,minmax(240px,1fr))', 12,
@@ -1273,6 +1302,10 @@ const ScreenAgent = {
       this.setState({ cfAgItems: Array.isArray(items) ? items : [], cfAgLoaded: true });
     };
     if (!s.cfAgLoaded) { loadItems(); return e('div', { style: { padding: 24, color: 'var(--text-mute)' } }, 'Laden…'); }
+
+    // Mark all items as seen: update localStorage timestamp and clear nav badge
+    try { localStorage.setItem('cf_seen_' + me.id, new Date().toISOString()); } catch(_) {}
+    if ((s._cfNewCount || 0) > 0) setTimeout(() => this.setState({ _cfNewCount: 0 }), 0);
 
     const items = s.cfAgItems || [];
     const cfDay = s.cfAgDay || 0;

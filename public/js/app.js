@@ -1564,6 +1564,18 @@ class Component extends DCLogic {
       manager: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['settings', 'Instellingen', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
     };
     const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
+    // Coaching unread badge for agents — lazy background count
+    if (s.role === 'agent' && me) {
+      if (s._cfNewCount === undefined && !s._cfNewCountLoading) {
+        this.setState({ _cfNewCountLoading: true });
+        const _lastSeen = (() => { try { return localStorage.getItem('cf_seen_' + me.id) || '1970-01-01T00:00:00.000Z'; } catch(_) { return '1970-01-01T00:00:00.000Z'; } })();
+        fetch(SC_DB + '/rest/v1/coaching_feed?agent_id=in.(' + encodeURIComponent(me.id + ',all') + ')&created_at=gt.' + encodeURIComponent(_lastSeen) + '&select=id&limit=50', { headers: { apikey: SC_KEY, Authorization: 'Bearer ' + SC_KEY } })
+          .then(r => r.json())
+          .then(items => this.setState({ _cfNewCount: Array.isArray(items) ? items.length : 0, _cfNewCountLoading: false }))
+          .catch(() => this.setState({ _cfNewCount: 0, _cfNewCountLoading: false }));
+      }
+      if ((s._cfNewCount || 0) > 0) badges.agent.coaching = String(s._cfNewCount);
+    }
     const _rp = (d.settings || {}).role_permissions;
     const _rolePerms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
 
