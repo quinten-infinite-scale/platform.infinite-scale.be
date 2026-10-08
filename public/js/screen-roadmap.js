@@ -1102,6 +1102,22 @@ const ScreenRoadmap = {
 
     const statusLabel = { in_progress:'🔵 In Progress', upcoming:'⬜ Upcoming', complete:'✅ Complete' };
 
+    /* milestone notes — stored in platform_settings.roadmap_notes */
+    const notesRaw = (d.platformSettings||d.platform_settings||[]).find(r=>r.key==='roadmap_notes');
+    const savedNotes = (() => { try { return JSON.parse(notesRaw?.value||'{}'); } catch(_) { return {}; } })();
+    const notes = s._rmNotes !== undefined ? s._rmNotes : savedNotes;
+    const hasNote = id => !!(notes[id] && notes[id].trim());
+    const openNote = id => {
+      if (s._rmNoteOpen === id) { this.setState({ _rmNoteOpen: null }); return; }
+      this.setState({ _rmNoteOpen: id, _rmNoteDraft: notes[id] || '' });
+    };
+    const saveNote = (id, text) => {
+      const next = { ...notes };
+      if (text.trim()) next[id] = text; else delete next[id];
+      this.setState({ _rmNotes: next, _rmNoteOpen: null });
+      API.saveSetting('roadmap_notes', JSON.stringify(next));
+    };
+
     return e('div', null,
       /* target summary */
       e('div', { style:{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'} },
@@ -1110,28 +1126,58 @@ const ScreenRoadmap = {
         this._card('Current Forecast', euro(forecastEOM)+'/mo', 'based on MTD pace', forecastEOM>=T.monthlyRevTarget*0.7?'var(--up)':'var(--warn)'),
       ),
       /* phases */
-      phases.map(ph => e('div', { key:ph.id, style:{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:'4px solid '+ph.color,borderRadius:12,padding:'18px 20px',marginBottom:16} },
-        e('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12} },
-          e('div', null,
-            e('div', { style:{fontSize:14,fontWeight:800,color:'var(--text)',marginBottom:3} }, ph.label),
-            e('div', { style:{fontSize:12,color:'var(--text-mute)'} }, ph.target)
+      phases.map(ph => {
+        const doneCount = ph.milestones.filter(m=>m.done).length;
+        const totalCount = ph.milestones.length;
+        return e('div', { key:ph.id, style:{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:'4px solid '+ph.color,borderRadius:12,padding:'18px 20px',marginBottom:16} },
+          e('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12} },
+            e('div', null,
+              e('div', { style:{fontSize:14,fontWeight:800,color:'var(--text)',marginBottom:3} }, ph.label),
+              e('div', { style:{fontSize:12,color:'var(--text-mute)'} }, ph.target)
+            ),
+            e('div', { style:{display:'flex',gap:8,alignItems:'center',flexShrink:0} },
+              e('div', { style:{fontSize:12,fontWeight:700,color:ph.color,fontVariantNumeric:'tabular-nums'} }, doneCount+'/'+totalCount),
+              e('div', { style:{fontSize:11,fontWeight:700,color:ph.color,padding:'3px 8px',borderRadius:6,border:'1px solid '+ph.color} }, statusLabel[ph.status])
+            )
           ),
-          e('div', { style:{fontSize:11,fontWeight:700,color:ph.color,padding:'3px 8px',borderRadius:6,border:'1px solid '+ph.color,flexShrink:0} }, statusLabel[ph.status])
-        ),
-        e('div', { style:{display:'flex',gap:20,flexWrap:'wrap'} },
-          e('div', { style:{flex:'1 1 200px'} },
-            e('div', { style:{fontSize:10.5,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6} }, 'KPI Requirements'),
-            ph.kpis.map((k,i) => e('div', { key:i, style:{fontSize:12,color:'var(--text-dim)',marginBottom:3} }, '· ' + k))
-          ),
-          e('div', { style:{flex:'1 1 200px'} },
-            e('div', { style:{fontSize:10.5,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6} }, 'Milestones'),
-            ph.milestones.map((m,i) => e('div', { key:i, style:{display:'flex',alignItems:'center',gap:6,fontSize:12,marginBottom:3,color:m.done?'var(--text)':'var(--text-mute)'} },
-              e('span', { style:{fontSize:10} }, m.done ? '✅' : '⬜'),
-              m.label
-            ))
+          e('div', { style:{display:'flex',gap:20,flexWrap:'wrap'} },
+            e('div', { style:{flex:'1 1 200px'} },
+              e('div', { style:{fontSize:10.5,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6} }, 'KPI Requirements'),
+              ph.kpis.map((k,i) => e('div', { key:i, style:{fontSize:12,color:'var(--text-dim)',marginBottom:3} }, '· ' + k))
+            ),
+            e('div', { style:{flex:'1 1 200px'} },
+              e('div', { style:{fontSize:10.5,fontWeight:700,color:'var(--text-mute)',textTransform:'uppercase',letterSpacing:'.07em',marginBottom:6} }, 'Milestones'),
+              ph.milestones.map((m,i) => {
+                const mid = ph.id+'_m'+i;
+                const isOpen = s._rmNoteOpen === mid;
+                const noted = hasNote(mid);
+                return e('div', { key:i },
+                  e('div', { style:{display:'flex',alignItems:'center',gap:6,fontSize:12,marginBottom: isOpen ? 2 : 3,color:m.done?'var(--text)':'var(--text-mute)'} },
+                    e('span', { style:{fontSize:10,flexShrink:0} }, m.done ? '✅' : '⬜'),
+                    e('span', { style:{flex:1} }, m.label),
+                    e('button', {
+                      onClick: () => openNote(mid),
+                      title: noted ? 'Notitie aanpassen' : 'Notitie toevoegen',
+                      style:{background:'none',border:'none',cursor:'pointer',padding:'1px 3px',fontSize:11,lineHeight:1,color:noted?'var(--accent)':'var(--text-mute)',opacity:noted?1:0.35,borderRadius:4,flexShrink:0}
+                    }, noted ? '📝' : '+')
+                  ),
+                  isOpen && e('div', { style:{paddingLeft:18,marginBottom:5} },
+                    e('textarea', {
+                      value: s._rmNoteDraft || '',
+                      onChange: ev => this.setState({ _rmNoteDraft: ev.target.value }),
+                      onBlur: () => saveNote(mid, s._rmNoteDraft || ''),
+                      onKeyDown: ev => { if(ev.key==='Escape') this.setState({_rmNoteOpen:null}); if(ev.key==='Enter'&&ev.metaKey) saveNote(mid,s._rmNoteDraft||''); },
+                      placeholder: 'Notitie toevoegen…',
+                      autoFocus: true,
+                      style:{width:'100%',fontSize:11.5,padding:'6px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-2)',color:'var(--text)',resize:'vertical',minHeight:52,boxSizing:'border-box',fontFamily:'inherit',lineHeight:1.5,display:'block'}
+                    })
+                  )
+                );
+              })
+            )
           )
-        )
-      ))
+        );
+      })
     );
   },
 
