@@ -2049,7 +2049,7 @@ const Modals = {
                   e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, ev.details || '')),
                 e('span', { style: { fontSize: 11, fontFamily: "'JetBrains Mono'", color: 'var(--text-mute)' } }, ts));
             }));
-        })()),
+        })(),
         (() => {
           // Account koppeling
           const isAgent = c.party_type === 'agent';
@@ -2081,7 +2081,7 @@ const Modals = {
                     e('select', { onChange: ev => { if (ev.target.value) doLink(ev.target.value); }, defaultValue: '', style: { flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', cursor: 'pointer' } },
                       e('option', { value: '' }, '— Kies ' + (isAgent ? 'agent' : 'klant') + ' —'),
                       items.map(x => e('option', { key: x.id, value: x.id }, x.name || x.id))))));
-        })(),
+        })()),
         [c.status !== 'void' ? UI.Btn('Void contract', () => {
            if (!confirm('Weet je zeker dat je dit contract wil annuleren? ' + (c.email ? 'Er wordt een e-mail gestuurd naar ' + c.email + '.' : ''))) return;
            this.setForm('contractStatus', 'void');
