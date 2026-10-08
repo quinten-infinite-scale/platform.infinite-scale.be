@@ -1990,6 +1990,13 @@ const Modals = {
           row('Company', c.party), row('Contact', c.contact), row('Email', c.email), row('VAT', c.vat), row('Address', c.address),
           row('Type', c.type), row('Terms', c.value), row('Duration', c.duration), row('Sent', c.sent),
           c.notes ? row('Notes', c.notes) : null,
+          c.setup_fee > 0 ? e('div', { style: { display: 'flex', gap: 10, alignItems: 'flex-start' } },
+            e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', minWidth: 90, paddingTop: 1 } }, 'Opstartkost'),
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flex: 1 } },
+              e('span', { style: { fontSize: 13.5, color: 'var(--text)', fontWeight: 700, fontFamily: "'JetBrains Mono'" } }, '€' + c.setup_fee),
+              c.setup_fee_invoiced
+                ? e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--up)', background: 'oklch(0.22 0.08 152 / .4)', padding: '2px 8px', borderRadius: 12 } }, '✓ Gefactureerd')
+                : e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--warn)', background: 'oklch(0.22 0.05 85 / .3)', padding: '2px 8px', borderRadius: 12 } }, '○ Te factureren'))) : null,
           c.pdf_url ? e('div', { style: { display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 4 } },
             e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', minWidth: 90, paddingTop: 1 } }, 'PDF'),
             e('a', { href: c.pdf_url, target: '_blank', rel: 'noopener noreferrer', style: { fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 } }, '📄 Bekijk geüpload contract')) : null),
@@ -2043,6 +2050,38 @@ const Modals = {
                 e('span', { style: { fontSize: 11, fontFamily: "'JetBrains Mono'", color: 'var(--text-mute)' } }, ts));
             }));
         })()),
+        (() => {
+          // Account koppeling
+          const isAgent = c.party_type === 'agent';
+          const linkedId = isAgent ? c.linked_agent_id : c.linked_client_id;
+          const items = isAgent ? d.agents : d.clients;
+          const linkedItem = linkedId ? items.find(x => x.id === linkedId) : null;
+          // Auto-suggest by email
+          const suggestItem = !linkedId && c.email ? items.find(x => x.email && x.email.toLowerCase() === c.email.toLowerCase()) : null;
+          const linkField = isAgent ? 'linked_agent_id' : 'linked_client_id';
+          const doLink = async (itemId) => {
+            this.mutLocal(dd => { const ct = dd.contracts.find(x => x.id === c.id); if (ct) ct[linkField] = itemId || null; });
+            const ok = await API.updateContract(c.id, { [linkField]: itemId || null });
+            if (ok) this.toast('Gekoppeld', itemId ? 'Contract gekoppeld aan account' : 'Koppeling verwijderd', 'var(--up)');
+            else this.toast('Fout', 'Opslaan mislukt', 'var(--down)');
+          };
+          return e('div', { style: { padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-soft)', background: 'var(--bg-2)' } },
+            e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 } }, isAgent ? 'Gekoppeld aan agent-account' : 'Gekoppeld aan klant-account'),
+            linkedItem
+              ? e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 } },
+                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    e('div', { style: { width: 8, height: 8, borderRadius: '50%', background: 'var(--up)', flexShrink: 0 } }),
+                    e('span', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)' } }, linkedItem.name || linkedItem.id)),
+                  e('button', { onClick: () => doLink(null), style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer', fontFamily: "'Manrope'" } }, 'Ontkoppelen'))
+              : e('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+                  suggestItem ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'oklch(0.20 0.10 194 / .15)', border: '1px solid oklch(0.35 0.08 194 / .4)' } },
+                    e('span', { style: { fontSize: 12, color: 'var(--text-mute)', flex: 1 } }, 'Suggestie op e-mail: ', e('strong', { style: { color: 'var(--text)' } }, suggestItem.name || suggestItem.id)),
+                    UI.Btn('Koppelen', () => doLink(suggestItem.id), 'primary', { padding: '4px 10px', fontSize: 12 })) : null,
+                  e('div', { style: { display: 'flex', gap: 8 } },
+                    e('select', { onChange: ev => { if (ev.target.value) doLink(ev.target.value); }, defaultValue: '', style: { flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, outline: 'none', cursor: 'pointer' } },
+                      e('option', { value: '' }, '— Kies ' + (isAgent ? 'agent' : 'klant') + ' —'),
+                      items.map(x => e('option', { key: x.id, value: x.id }, x.name || x.id))))));
+        })(),
         [c.status !== 'void' ? UI.Btn('Void contract', () => {
            if (!confirm('Weet je zeker dat je dit contract wil annuleren? ' + (c.email ? 'Er wordt een e-mail gestuurd naar ' + c.email + '.' : ''))) return;
            this.setForm('contractStatus', 'void');

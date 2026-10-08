@@ -745,6 +745,52 @@ const ScreenAdmin = {
     const now = new Date();
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       (() => {
+        // Opstartkosten: contracts with setup_fee > 0
+        const sfContracts = (d.contracts || []).filter(c => c.setup_fee > 0);
+        if (!sfContracts.length) return null;
+        const sfOpen = s.sfInvOpen !== false;
+        const pending = sfContracts.filter(c => !c.setup_fee_invoiced);
+        const invoiced = sfContracts.filter(c => c.setup_fee_invoiced);
+        const pendingTotal = pending.reduce((s2, c) => s2 + (c.setup_fee || 0), 0);
+        const markSfInvoiced = async (ct) => {
+          this.mutLocal(dd => { const c = dd.contracts.find(x => x.id === ct.id); if (c) c.setup_fee_invoiced = true; });
+          const ok = await API.updateContract(ct.id, { setup_fee_invoiced: true });
+          if (ok) this.toast('Gefactureerd', 'Opstartkost ' + ct.party + ' gemarkeerd als gefactureerd', 'var(--up)');
+          else { this.mutLocal(dd => { const c = dd.contracts.find(x => x.id === ct.id); if (c) c.setup_fee_invoiced = false; }); this.toast('Fout', 'Opslaan mislukt', 'var(--down)'); }
+        };
+        const sfRow = (ct, i, arr) => {
+          const linkedCl = ct.linked_client_id ? d.clients.find(c => c.id === ct.linked_client_id) : d.clients.find(c => c.email && c.email.toLowerCase() === (ct.email || '').toLowerCase());
+          const dateStr = ct.signed_at ? new Date(ct.signed_at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : ct.sent ? new Date(ct.sent).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+          return e('div', { key: ct.id, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderTop: i > 0 ? '1px solid var(--border-soft)' : 'none', gap: 12, flexWrap: 'wrap' } },
+            e('div', { style: { display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 } },
+              e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                e('span', { style: { fontWeight: 700, fontSize: 13.5, color: ct.setup_fee_invoiced ? 'var(--text-mute)' : 'var(--text)' } }, ct.party),
+                linkedCl ? e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'oklch(0.20 0.10 194 / .3)', padding: '1px 7px', borderRadius: 12 } }, linkedCl.name) : null,
+                e('span', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, ct.type || 'Contract')),
+              e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, dateStr + (ct.status === 'signed' ? ' · Getekend' : ' · ' + ct.status))),
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 } },
+              e('span', { style: { fontWeight: 800, fontSize: 14, fontFamily: "'JetBrains Mono'", color: ct.setup_fee_invoiced ? 'var(--text-mute)' : 'var(--info)' } }, '€' + ct.setup_fee),
+              ct.setup_fee_invoiced
+                ? UI.Pill('Gefactureerd', 'var(--up)', 'oklch(0.28 0.06 152 / .4)')
+                : UI.Btn('Markeer als gefactureerd', () => markSfInvoiced(ct), 'primary', { padding: '5px 12px', fontSize: 12 })));
+        };
+        return UI.C({ border: pending.length > 0 ? '1px solid var(--warn)' : undefined },
+          e('div', { onClick: () => this.setState(st => ({ sfInvOpen: !sfOpen })), style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: sfOpen ? 12 : 0, cursor: 'pointer', userSelect: 'none' } },
+            e('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
+              UI.Hd('Opstartkosten'),
+              pending.length > 0 ? e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--warn)', background: 'oklch(0.22 0.05 85 / .35)', padding: '2px 9px', borderRadius: 20 } }, pending.length + ' openstaand · €' + pendingTotal) : e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--up)', background: 'oklch(0.22 0.08 152 / .35)', padding: '2px 9px', borderRadius: 20 } }, '✓ Alles gefactureerd')),
+            e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: sfOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›')),
+          sfOpen ? e('div', { style: { borderRadius: 10, border: '1px solid var(--border-soft)', overflow: 'hidden', background: 'var(--bg-2)' } },
+            pending.length > 0 ? [
+              e('div', { key: 'pending-lbl', style: { padding: '7px 18px 4px', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, 'Te factureren'),
+              ...pending.map((ct, i) => sfRow(ct, i, pending)),
+            ] : null,
+            invoiced.length > 0 ? [
+              e('div', { key: 'inv-lbl', style: { padding: '7px 18px 4px', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'", borderTop: pending.length > 0 ? '1px solid var(--border-soft)' : 'none', marginTop: pending.length > 0 ? 8 : 0 } }, 'Gefactureerd'),
+              ...invoiced.map((ct, i) => sfRow(ct, i, invoiced)),
+            ] : null) : null);
+      })(),
+      (() => {
         const clInvMonthExp = s.clInvMonthExp || {};
         const clClientExp = s.clClientExp || {};
         const now3 = new Date();
@@ -3962,9 +4008,17 @@ const ScreenAdmin = {
     const statusBg2 = { sent: 'oklch(0.22 0.05 220 / .25)', overdue: 'oklch(0.22 0.08 0 / .25)', signed: 'oklch(0.22 0.08 152 / .25)', canceled: 'oklch(0.18 0.02 256 / .25)', void: 'oklch(0.22 0.08 0 / .25)' };
     const statusPill = st => e('span', { style: { fontSize: 11.5, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: statusBg2[st] || 'var(--bg-2)', color: statusColor[st] || 'var(--text-mute)', border: '1px solid ' + (statusColor[st] || 'var(--border)') } }, (st || 'sent').charAt(0).toUpperCase() + (st || 'sent').slice(1));
     const cols = [
-      { label: 'Party', render: x => e('div', null, e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.party), x.email ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, x.email) : null) },
+      { label: 'Party', render: x => {
+        const linkedItem = (x.party_type === 'agent' ? (x.linked_agent_id ? d.agents.find(a => a.id === x.linked_agent_id) : null) : (x.linked_client_id ? d.clients.find(c => c.id === x.linked_client_id) : d.clients.find(c => c.email && c.email.toLowerCase() === (x.email || '').toLowerCase())));
+        return e('div', null,
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+            e('span', { style: { color: 'var(--text)', fontWeight: 700 } }, x.party),
+            linkedItem ? e('span', { style: { fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'oklch(0.20 0.10 194 / .25)', padding: '1px 6px', borderRadius: 10 } }, '↔ ' + linkedItem.name) : null),
+          x.email ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, x.email) : null);
+      } },
       { label: 'Type', render: x => e('span', { style: { color: 'var(--text-dim)' } }, x.type || '—') },
       { label: 'Terms', render: x => e('span', { style: { color: 'var(--text-dim)' } }, x.value || '—') },
+      { label: 'Opstart', align: 'right', render: x => x.setup_fee > 0 ? e('div', { style: { textAlign: 'right' } }, e('span', { style: { fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 12, color: x.setup_fee_invoiced ? 'var(--text-mute)' : 'var(--warn)' } }, '€' + x.setup_fee), x.setup_fee_invoiced ? e('div', { style: { fontSize: 10, color: 'var(--up)', fontWeight: 700 } }, '✓ gefact.') : null) : e('span', { style: { color: 'var(--text-mute)', fontSize: 12 } }, '—') },
       { label: 'Sent', render: x => UI.Mono(this.fmtDate(x.sent), { fontSize: 12 }) },
       { label: 'Status', align: 'center', render: x => statusPill(x.status) },
     ];
