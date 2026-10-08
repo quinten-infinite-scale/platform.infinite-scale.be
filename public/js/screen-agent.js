@@ -189,7 +189,7 @@ const ScreenAgent = {
                 e('span', { style: { width: 22, fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 14, color: i === 0 ? 'var(--accent)' : 'var(--text-mute)' } }, '#' + (i + 1)),
                 e('span', { style: { flex: 1, fontSize: 13.5, fontWeight: b.me ? 700 : 600, color: b.me ? 'var(--text)' : 'var(--text-dim)' } }, b.name + (b.me ? ' (you)' : '')),
                 UI.Mono(b.appts, { fontWeight: 700, color: 'var(--text)' })))))))
-          ),
+          ,
           s._dashCfItem ? (() => {
             const cfTypeInfo = { w: { border: 'var(--up)', bg: 'oklch(0.22 0.10 145 / .12)', text: 'var(--up)', label: '🟢 Win' }, c: { border: 'var(--warn)', bg: 'oklch(0.22 0.12 75 / .12)', text: 'var(--warn)', label: '🟡 Coaching' }, a: { border: 'var(--info)', bg: 'oklch(0.22 0.08 255 / .12)', text: 'var(--info)', label: '🔵 Actie' } };
             const item = s._dashCfItem;
@@ -208,7 +208,7 @@ const ScreenAgent = {
                 e('div', { style: { fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' } }, itemText),
                 e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 7, textAlign: 'right' } }, new Date(item.created_at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }))));
           })() : null
-        )),
+          ,
       UI.C({},
         UI.SectionHd('Updates & events'),
         UI.Grid('repeat(auto-fit,minmax(240px,1fr))', 12,
