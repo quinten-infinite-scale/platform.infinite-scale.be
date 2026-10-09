@@ -207,6 +207,18 @@ async function processLead(entry) {
   await sbInsert('prospects', prospectFields);
   await sbInsert('meta_lead_log', { ...baseLog, mapping_id: mappingId, prospect_id: prospectId, status, processed_at: new Date().toISOString() });
   console.log(`[meta] ${status}: leadgen ${leadgen_id} → prospect ${prospectId} in ${pipelineId}/${stageId}`);
+  // Push notification to admin so the bell lights up instantly
+  const leadName = prospectFields.contact || prospectFields.company || 'Onbekend';
+  const leadCo = prospectFields.company ? ` (${prospectFields.company})` : '';
+  await sbInsert('notifications', {
+    id: 'n' + Date.now() + Math.random().toString(36).slice(2, 5),
+    target_role: 'admin',
+    text: `🎯 Nieuwe Meta Ads lead: ${leadName}${leadCo}`,
+    kind: 'lead',
+    read: false,
+    time: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    meta: JSON.stringify({ route: 'prospect_crm', pipeline: pipelineId }),
+  }).catch(() => {});
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -363,6 +375,28 @@ export default async function handler(req, res) {
   if (action === 'disconnect') {
     await Promise.all([saveSetting('meta_account', null), saveSetting('meta_page_tokens', {})]);
     return res.status(200).json({ ok: true });
+  }
+
+  if (action === 'register_webhook') {
+    const appId = process.env.META_APP_ID;
+    const appSecret = process.env.META_APP_SECRET;
+    if (!appId || !appSecret) return res.status(500).json({ ok: false, error: 'META_APP_ID or META_APP_SECRET not configured' });
+    const appToken = `${appId}|${appSecret}`;
+    const callbackUrl = `${PLATFORM_URL}/api/meta`;
+    const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || 'infinitescale2026';
+    const subUrl = `https://graph.facebook.com/v19.0/${appId}/subscriptions`;
+    const body = new URLSearchParams({
+      object: 'page',
+      callback_url: callbackUrl,
+      verify_token: verifyToken,
+      fields: 'leadgen',
+      access_token: appToken,
+    });
+    const r = await fetch(subUrl, { method: 'POST', body });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(400).json({ ok: false, error: 'Meta API error', details: data });
+    console.log('[meta] register_webhook result:', data);
+    return res.status(200).json({ ok: true, callback_url: callbackUrl, result: data });
   }
 
   if (action === 'test_lead') {

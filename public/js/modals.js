@@ -2277,6 +2277,15 @@ const Modals = {
           kv('Afspraak datum', p.appointment_date), kv('Bellen op', p.call_on), kv('Revenue', p.revenue), kv('Last follow-up', p.last_followup),
           p.caller_note ? e('div', null, e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em' } }, 'Opmerking beller: '), e('span', { style: { color: 'var(--text-dim)', fontSize: 13 } }, p.caller_note)) : null,
           p.notes ? e('div', { style: { marginTop: 6, padding: 10, borderRadius: 8, background: 'var(--surface-2)', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6 } }, p.notes) : null),
+        // Meta Ads form answers (only for meta_ads pipeline leads)
+        p.pipeline_id === 'meta_ads' && (p.form_agenda_vol || p.form_capaciteit || p.form_deal_waarde || p.form_afspraken_pw) ?
+          e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
+            e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 } }, '📋 Meta Ads formulier antwoorden'),
+            e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+              kv('Sales-agenda vol?', p.form_agenda_vol),
+              kv('Capaciteit sales team?', p.form_capaciteit),
+              kv('Gem. dealwaarde', p.form_deal_waarde),
+              kv('Afspraken per week', p.form_afspraken_pw))) : null,
         // Fathom summary + action items (if available)
         p.fathom_summary ? e('div', { style: { padding: '10px 14px', borderRadius: 10, background: 'var(--bg-2)', border: '1px solid var(--border-soft)' } },
           e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 } }, '🎙 Fathom samenvatting'),
