@@ -2192,84 +2192,133 @@ const ScreenAdmin = {
       // Build month list from data
       const months = [...new Set(allFollowupAppts.map(a => (a.dateAppt || a.dateLog || '').slice(0, 7)).filter(Boolean))].sort().reverse();
       const monthLabel = ym => { const d2 = new Date(ym + '-02'); return d2.toLocaleString('nl-BE', { month: 'long', year: 'numeric' }); };
-      const monthAppts = allFollowupAppts.filter(a => (a.dateAppt || a.dateLog || '').startsWith(selMonth));
 
-      const noShows = monthAppts.filter(a => a.status === 'no_show');
-      const cancels = monthAppts.filter(a => a.status === 'cancel');
-      const converted = monthAppts.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv);
-      const herboekt = monthAppts.filter(a => a.rescheduled);
-      const recoveredRev = [...converted, ...herboekt].reduce((sum, a) => sum + apptRate(a), 0);
-      const lostRev = [...noShows, ...cancels].reduce((sum, a) => sum + apptRate(a), 0);
-
-      // Per client breakdown
-      const clientIds = [...new Set(monthAppts.map(a => a.client).filter(Boolean))];
-      const clientStats = clientIds.map(cid => {
-        const cl2 = d.clients.find(c => c.id === cid);
-        const appts2 = monthAppts.filter(a => a.client === cid);
-        const ns = appts2.filter(a => a.status === 'no_show').length;
-        const cn = appts2.filter(a => a.status === 'cancel').length;
-        const conv = appts2.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv).length;
-        const hb = appts2.filter(a => a.rescheduled).length;
-        const recRev = appts2.filter(a => a.status === 'show' || a.rescheduled).reduce((s2, a) => s2 + apptRate(a), 0);
-        return { name: cl2 ? cl2.name : cid, ns, cn, conv, hb, total: appts2.length, recRev };
-      }).sort((a, b) => b.total - a.total);
-
-      // Per agent breakdown
-      const agentIds = [...new Set(monthAppts.map(a => a.agent).filter(Boolean))];
-      const agentStats = agentIds.map(aid => {
-        const ag = d.agents ? d.agents.find(x => x.id === aid) : null;
-        const appts2 = monthAppts.filter(a => a.agent === aid);
-        const ns = appts2.filter(a => a.status === 'no_show').length;
-        const cn = appts2.filter(a => a.status === 'cancel').length;
-        const conv = appts2.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv).length;
-        const hb = appts2.filter(a => a.rescheduled).length;
-        const total = appts2.length;
-        const recRate = total > 0 ? Math.round((conv + hb) / total * 100) : 0;
-        return { name: ag ? ag.name : aid, ns, cn, conv, hb, total, recRate };
-      }).sort((a, b) => b.total - a.total);
+      // All toch-shows across all time (no_show/cancel that later showed up)
+      const allTochShows = allFollowupAppts.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv);
 
       const Stat = (label, val, color, sub) => e('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
         e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, label),
         e('div', { style: { fontSize: 28, fontWeight: 800, color, fontFamily: "'JetBrains Mono'" } }, val),
         sub ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: -2 } }, sub) : null);
 
+      const buildMonthData = (ym) => {
+        const mAppts = allFollowupAppts.filter(a => (a.dateAppt || a.dateLog || '').startsWith(ym));
+        const ns = mAppts.filter(a => a.status === 'no_show');
+        const cn = mAppts.filter(a => a.status === 'cancel');
+        const conv = mAppts.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv);
+        const hb = mAppts.filter(a => a.rescheduled);
+        const recovRev = [...conv, ...hb].reduce((sum, a) => sum + apptRate(a), 0);
+        const lostRev2 = [...ns, ...cn].reduce((sum, a) => sum + apptRate(a), 0);
+        const agentStats = [...new Set(mAppts.map(a => a.agent).filter(Boolean))].map(aid => {
+          const ag = d.agents ? d.agents.find(x => x.id === aid) : null;
+          const ap = mAppts.filter(a => a.agent === aid);
+          const ans = ap.filter(a => a.status === 'no_show').length;
+          const acn = ap.filter(a => a.status === 'cancel').length;
+          const acv = ap.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv).length;
+          const ahb = ap.filter(a => a.rescheduled).length;
+          const tot = ap.length;
+          return { name: ag ? ag.name : aid, ns: ans, cn: acn, conv: acv, hb: ahb, total: tot, recRate: tot > 0 ? Math.round((acv + ahb) / tot * 100) : 0 };
+        }).sort((a, b) => b.total - a.total);
+        const clientStats = [...new Set(mAppts.map(a => a.client).filter(Boolean))].map(cid => {
+          const cl2 = d.clients.find(c => c.id === cid);
+          const ap = mAppts.filter(a => a.client === cid);
+          const ans = ap.filter(a => a.status === 'no_show').length;
+          const acn = ap.filter(a => a.status === 'cancel').length;
+          const acv = ap.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv).length;
+          const ahb = ap.filter(a => a.rescheduled).length;
+          const recRev = ap.filter(a => a.status === 'show' || a.rescheduled).reduce((s2, a) => s2 + apptRate(a), 0);
+          const isAgency = cl2 && cl2.type === 'agency';
+          const subStats = isAgency ? [...new Set(ap.map(a => a.sub).filter(Boolean))].map(sid => {
+            const sc = (cl2.subclients || []).find(s => s.id === sid || s.name === sid);
+            const sap = ap.filter(a => a.sub === sid);
+            return { name: sc ? sc.name : sid, ns: sap.filter(a => a.status === 'no_show').length, cn: sap.filter(a => a.status === 'cancel').length, conv: sap.filter(a => a.status === 'show' && parseNotes(a.adminNotes).fromOpv).length, hb: sap.filter(a => a.rescheduled).length, total: sap.length };
+          }).sort((a, b) => b.total - a.total) : [];
+          return { name: cl2 ? cl2.name : cid, ns: ans, cn: acn, conv: acv, hb: ahb, total: ap.length, recRev, isAgency, subStats };
+        }).sort((a, b) => b.total - a.total);
+        return { mAppts, ns, cn, conv, hb, recovRev, lostRev2, agentStats, clientStats };
+      };
+
+      const expandedMonths = s.fuStatExpM || {};
+      const toggleMonth = ym => this.setState(st => ({ fuStatExpM: { ...(st.fuStatExpM || {}), [ym]: !(st.fuStatExpM || {})[ym] } }));
+
+      const agentCols = [
+        { label: 'Callagent', render: r => e('span', { style: { fontWeight: 600 } }, r.name) },
+        { label: 'Totaal', align: 'right', render: r => e('span', null, r.total) },
+        { label: 'No-shows', align: 'right', render: r => e('span', { style: { color: r.ns > 0 ? 'var(--down)' : 'var(--text-mute)', fontWeight: r.ns > 0 ? 700 : 400 } }, r.ns) },
+        { label: 'Cancels', align: 'right', render: r => e('span', { style: { color: r.cn > 0 ? 'var(--warn)' : 'var(--text-mute)', fontWeight: r.cn > 0 ? 700 : 400 } }, r.cn) },
+        { label: 'Herboekt', align: 'right', render: r => e('span', { style: { color: r.hb > 0 ? 'var(--info)' : 'var(--text-mute)', fontWeight: r.hb > 0 ? 700 : 400 } }, r.hb) },
+        { label: '✓ Toch Show', align: 'right', render: r => e('span', { style: { color: r.conv > 0 ? 'oklch(0.78 0.18 85)' : 'var(--text-mute)', fontWeight: r.conv > 0 ? 800 : 400 } }, r.conv > 0 ? '✓ ' + r.conv : '—') },
+        { label: 'Recovery %', align: 'right', render: r => e('span', { style: { color: r.recRate > 0 ? 'var(--accent)' : 'var(--text-mute)', fontWeight: r.recRate > 0 ? 700 : 400 } }, r.recRate + '%') },
+      ];
+
+      const clientColDefs = [
+        { label: 'Klant', render: r => e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } }, e('span', { style: { fontWeight: 600 } }, r.name), r.isAgency ? e('span', { style: { fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 20, color: 'var(--info)', border: '1px solid var(--info)', opacity: 0.8 } }, 'Agency') : null) },
+        { label: 'Totaal', align: 'right', render: r => e('span', null, r.total) },
+        { label: 'No-shows', align: 'right', render: r => e('span', { style: { color: r.ns > 0 ? 'var(--down)' : 'var(--text-mute)', fontWeight: r.ns > 0 ? 700 : 400 } }, r.ns) },
+        { label: 'Cancels', align: 'right', render: r => e('span', { style: { color: r.cn > 0 ? 'var(--warn)' : 'var(--text-mute)', fontWeight: r.cn > 0 ? 700 : 400 } }, r.cn) },
+        { label: '✓ Toch Show', align: 'right', render: r => e('span', { style: { color: r.conv > 0 ? 'oklch(0.78 0.18 85)' : 'var(--text-mute)', fontWeight: r.conv > 0 ? 800 : 400, padding: r.conv > 0 ? '1px 7px' : undefined, borderRadius: r.conv > 0 ? 20 : undefined, border: r.conv > 0 ? '1px solid oklch(0.78 0.18 85 / 0.4)' : undefined, background: r.conv > 0 ? 'oklch(0.78 0.18 85 / 0.1)' : undefined } }, r.conv > 0 ? '✓ ' + r.conv : '—') },
+        { label: 'Herboekt', align: 'right', render: r => e('span', { style: { color: r.hb > 0 ? 'var(--info)' : 'var(--text-mute)', fontWeight: r.hb > 0 ? 700 : 400 } }, r.hb) },
+        { label: 'Recovered', align: 'right', render: r => e('span', { style: { color: r.recRev > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: r.recRev > 0 ? 700 : 400 } }, r.recRev > 0 ? this.euro(r.recRev) : '—') },
+      ];
+
       return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16, padding: 16 } },
-        e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' } },
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 } },
           UI.Btn('← Terug naar overzicht', () => this.setState({ fuAdminStats: false }), 'soft', { fontSize: 12 }),
-          e('span', { style: { fontWeight: 700, fontSize: 16, flex: 1 } }, 'Opvolging — Statistieken'),
-          e('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-            months.map(ym => e('button', { key: ym, onClick: () => this.setState({ fuStatMonth: ym }),
-              style: { padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--border)', background: ym === selMonth ? 'var(--accent)' : 'var(--surface)', color: ym === selMonth ? 'var(--accent-ink)' : 'var(--text-mute)' } }, monthLabel(ym))))),
-        UI.C({ padding: '18px 20px' },
-          e('div', { style: { display: 'flex', gap: 32, flexWrap: 'wrap' } },
-            Stat('No-shows', noShows.length, 'var(--down)'),
-            Stat('Cancels', cancels.length, 'var(--warn)'),
-            Stat('Herboekt', herboekt.length, 'var(--info)'),
-            Stat('Converted → Show', converted.length, 'var(--up)'),
-            converted.length + herboekt.length > 0 ? Stat('Recovery rate', Math.round((converted.length + herboekt.length) / Math.max(noShows.length + cancels.length, 1) * 100) + '%', 'var(--accent)') : null,
-            recoveredRev > 0 ? Stat('Recovered', this.euro(recoveredRev), 'var(--up)', 'van €' + Math.round(lostRev) + ' verloren') : null)),
-        UI.C({ padding: 0, overflow: 'hidden' },
-          e('div', { style: { padding: '12px 18px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, fontSize: 13.5 } }, 'Per callagent'),
+          e('span', { style: { fontWeight: 700, fontSize: 16 } }, 'Opvolging — Statistieken')),
+
+        allTochShows.length > 0 ? e('div', { style: { borderRadius: 14, border: '2px solid oklch(0.78 0.18 85 / 0.5)', overflow: 'hidden' } },
+          e('div', { style: { padding: '12px 18px', borderBottom: '1px solid oklch(0.78 0.18 85 / 0.3)', background: 'oklch(0.78 0.18 85 / 0.08)', display: 'flex', alignItems: 'center', gap: 10 } },
+            e('span', { style: { fontWeight: 800, fontSize: 15, color: 'oklch(0.78 0.18 85)' } }, '✓ Toch Show — alle tijden'),
+            e('span', { style: { fontSize: 12.5, color: 'var(--text-mute)', fontWeight: 600 } }, allTochShows.length + ' no-shows/cancels die toch kwamen · tellen als show in billing')),
           UI.Table([
-            { label: 'Agent', render: r => e('span', { style: { fontWeight: 600 } }, r.name) },
-            { label: 'Totaal', align: 'right', render: r => e('span', null, r.total) },
-            { label: 'No-shows', align: 'right', render: r => e('span', { style: { color: r.ns > 0 ? 'var(--down)' : 'var(--text-mute)', fontWeight: r.ns > 0 ? 700 : 400 } }, r.ns) },
-            { label: 'Cancels', align: 'right', render: r => e('span', { style: { color: r.cn > 0 ? 'var(--warn)' : 'var(--text-mute)', fontWeight: r.cn > 0 ? 700 : 400 } }, r.cn) },
-            { label: 'Herboekt', align: 'right', render: r => e('span', { style: { color: r.hb > 0 ? 'var(--info)' : 'var(--text-mute)', fontWeight: r.hb > 0 ? 700 : 400 } }, r.hb) },
-            { label: '→ Show', align: 'right', render: r => e('span', { style: { color: r.conv > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: r.conv > 0 ? 700 : 400 } }, r.conv) },
-            { label: 'Recovery %', align: 'right', render: r => e('span', { style: { color: r.recRate > 0 ? 'var(--accent)' : 'var(--text-mute)', fontWeight: r.recRate > 0 ? 700 : 400 } }, r.recRate + '%') },
-          ], agentStats, { min: 480 })),
-        UI.C({ padding: 0, overflow: 'hidden' },
-          e('div', { style: { padding: '12px 18px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, fontSize: 13.5 } }, 'Per klant'),
-          UI.Table([
-            { label: 'Klant', render: r => e('span', { style: { fontWeight: 600 } }, r.name) },
-            { label: 'Totaal', align: 'right', render: r => e('span', null, r.total) },
-            { label: 'No-shows', align: 'right', render: r => e('span', { style: { color: r.ns > 0 ? 'var(--down)' : 'var(--text-mute)', fontWeight: r.ns > 0 ? 700 : 400 } }, r.ns) },
-            { label: 'Cancels', align: 'right', render: r => e('span', { style: { color: r.cn > 0 ? 'var(--warn)' : 'var(--text-mute)', fontWeight: r.cn > 0 ? 700 : 400 } }, r.cn) },
-            { label: 'Herboekt', align: 'right', render: r => e('span', { style: { color: r.hb > 0 ? 'var(--info)' : 'var(--text-mute)', fontWeight: r.hb > 0 ? 700 : 400 } }, r.hb) },
-            { label: '→ Show', align: 'right', render: r => e('span', { style: { color: r.conv > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: r.conv > 0 ? 700 : 400 } }, r.conv) },
-            { label: 'Recovered', align: 'right', render: r => e('span', { style: { color: r.recRev > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: r.recRev > 0 ? 700 : 400 } }, r.recRev > 0 ? this.euro(r.recRev) : '—') },
-          ], clientStats, { min: 480 })));
+            { label: 'Datum', render: r => e('span', null, r.dateAppt || r.dateLog || '—') },
+            { label: 'Lead', render: r => e('span', { style: { fontWeight: 600 } }, r.lead || '—') },
+            { label: 'Agent', render: r => { const ag = d.agents ? d.agents.find(x => x.id === r.agent) : null; return e('span', null, ag ? ag.name : '—'); } },
+            { label: 'Client / Sub', render: r => { const cl2 = d.clients.find(c => c.id === r.client); const sc = r.sub && cl2 ? (cl2.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null; return e('span', null, (cl2 ? cl2.name : '—') + (sc ? ' / ' + sc.name : '')); } },
+            { label: 'Waarde', align: 'right', render: r => { const v = apptRate(r); return e('span', { style: { color: v > 0 ? 'var(--up)' : 'var(--text-mute)', fontWeight: v > 0 ? 700 : 400 } }, v > 0 ? this.euro(v) : '—'); } },
+          ], allTochShows.slice().sort((a, b) => (b.dateAppt || b.dateLog || '').localeCompare(a.dateAppt || a.dateLog || '')), { min: 500 })) : null,
+
+        ...months.map(ym => {
+          const { mAppts, ns, cn, conv, hb, recovRev, lostRev2, agentStats, clientStats } = buildMonthData(ym);
+          const isExpanded = expandedMonths[ym] !== undefined ? expandedMonths[ym] : ym === months[0];
+          const recRate = Math.round((conv.length + hb.length) / Math.max(ns.length + cn.length, 1) * 100);
+          return e('div', { key: ym, style: { borderRadius: 14, border: '2px solid var(--border)', overflow: 'hidden' } },
+            e('div', { onClick: () => toggleMonth(ym), style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', background: isExpanded ? 'var(--surface)' : 'var(--bg-2)' } },
+              e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+                e('span', { style: { fontWeight: 800, fontSize: 15, textTransform: 'capitalize' } }, monthLabel(ym)),
+                e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontWeight: 600 } }, mAppts.length + ' afspraken'),
+                ns.length > 0 ? e('span', { style: { fontSize: 12, color: 'var(--down)', fontWeight: 700 } }, ns.length + ' NS') : null,
+                cn.length > 0 ? e('span', { style: { fontSize: 12, color: 'var(--warn)', fontWeight: 700 } }, cn.length + ' CN') : null,
+                conv.length > 0 ? e('span', { style: { fontSize: 12, color: 'oklch(0.78 0.18 85)', fontWeight: 800, padding: '1px 8px', borderRadius: 20, border: '1px solid oklch(0.78 0.18 85 / 0.5)', background: 'oklch(0.78 0.18 85 / 0.1)' } }, '✓ ' + conv.length + ' Toch Show') : null,
+                recovRev > 0 ? e('span', { style: { fontSize: 12, color: 'var(--up)', fontWeight: 700 } }, '+' + this.euro(recovRev) + ' recovered') : null),
+              e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›')),
+            isExpanded ? e('div', { style: { borderTop: '1px solid var(--border-soft)', background: 'var(--bg-2)', display: 'flex', flexDirection: 'column' } },
+              e('div', { style: { padding: '14px 20px', display: 'flex', gap: 24, flexWrap: 'wrap', borderBottom: '1px solid var(--border-soft)' } },
+                Stat('No-shows', ns.length, 'var(--down)'),
+                Stat('Cancels', cn.length, 'var(--warn)'),
+                Stat('Herboekt', hb.length, 'var(--info)'),
+                Stat('Toch Show', conv.length, 'oklch(0.78 0.18 85)'),
+                recRate > 0 ? Stat('Recovery %', recRate + '%', 'var(--accent)') : null,
+                recovRev > 0 ? Stat('Recovered', this.euro(recovRev), 'var(--up)', 'van €' + Math.round(lostRev2) + ' verloren') : null),
+              agentStats.length > 0 ? e('div', null,
+                e('div', { style: { padding: '10px 18px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, fontSize: 13, color: 'var(--text)', background: 'var(--surface)' } }, 'Per callagent'),
+                UI.Table(agentCols, agentStats, { min: 480 })) : null,
+              clientStats.length > 0 ? e('div', null,
+                e('div', { style: { padding: '10px 18px', borderBottom: '1px solid var(--border-soft)', fontWeight: 700, fontSize: 13, color: 'var(--text)', background: 'var(--surface)' } }, 'Per klant'),
+                UI.Table(clientColDefs, clientStats, { min: 480 }),
+                ...clientStats.filter(r => r.isAgency && r.subStats.length > 0).map(r =>
+                  e('div', { key: 'sub_' + r.name, style: { borderTop: '1px solid var(--border-soft)', padding: '10px 18px 8px', background: 'var(--bg-2)' } },
+                    e('div', { style: { fontWeight: 700, fontSize: 12, color: 'var(--text-mute)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.05em' } }, r.name + ' — per subclient'),
+                    UI.Table([
+                      { label: 'Subclient', render: s2 => e('span', { style: { fontWeight: 600 } }, s2.name) },
+                      { label: 'Totaal', align: 'right', render: s2 => e('span', null, s2.total) },
+                      { label: 'No-shows', align: 'right', render: s2 => e('span', { style: { color: s2.ns > 0 ? 'var(--down)' : 'var(--text-mute)', fontWeight: s2.ns > 0 ? 700 : 400 } }, s2.ns) },
+                      { label: 'Cancels', align: 'right', render: s2 => e('span', { style: { color: s2.cn > 0 ? 'var(--warn)' : 'var(--text-mute)', fontWeight: s2.cn > 0 ? 700 : 400 } }, s2.cn) },
+                      { label: '✓ Toch Show', align: 'right', render: s2 => e('span', { style: { color: s2.conv > 0 ? 'oklch(0.78 0.18 85)' : 'var(--text-mute)', fontWeight: s2.conv > 0 ? 800 : 400 } }, s2.conv > 0 ? '✓ ' + s2.conv : '—') },
+                      { label: 'Herboekt', align: 'right', render: s2 => e('span', { style: { color: s2.hb > 0 ? 'var(--info)' : 'var(--text-mute)', fontWeight: s2.hb > 0 ? 700 : 400 } }, s2.hb) },
+                    ], r.subStats, { min: 480 })))) : null
+            ) : null);
+        }));
     }
 
     // Group by agent, then by client
