@@ -72,23 +72,24 @@ export default async function handler(req, res) {
           END IF;
         END $$;
       `;
-      const r = await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`, {
-        method: 'POST',
-        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-        body: JSON.stringify({ sql: migrationSQL }),
-      });
-      // If exec_sql RPC doesn't exist, fall back to pg-meta
-      if (r.status === 404 || r.status === 400) {
-        const r2 = await fetch(`${SB_URL.replace('https://', 'https://quinten:Cobalt%23River%248@')}/pg-meta/v0/query`, {
+      try {
+        // Try pg-meta query endpoint with service role key
+        const r = await fetch(`${SB_URL}/pg-meta/v0/query`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-pg-meta-key': SERVICE_KEY },
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ query: migrationSQL }),
         });
-        const j2 = await r2.json().catch(() => ({ error: 'parse error' }));
-        return res.status(r2.ok ? 200 : 500).json({ ok: r2.ok, data: j2 });
+        const text = await r.text();
+        let j;
+        try { j = JSON.parse(text); } catch { j = { raw: text }; }
+        return res.status(r.ok ? 200 : 500).json({ ok: r.ok, status: r.status, data: j });
+      } catch (err) {
+        return res.status(500).json({ ok: false, error: String(err) });
       }
-      const j = await r.json().catch(() => ({}));
-      return res.status(r.ok ? 200 : 500).json({ ok: r.ok, data: j, status: r.status });
     }
 
     // Magic link: generate and verify server-side so browser never hits database.infinite-scale.be directly
