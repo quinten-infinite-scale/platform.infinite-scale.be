@@ -3250,12 +3250,18 @@ const ScreenAdmin = {
     // ── Prospects for this pipeline ───────────────────────────────────────────
     const mySalespersonName = (d.salespeople || []).find(sp => sp.user_id === (typeof SB !== 'undefined' ? SB.getSession()?.user?.id : null))?.name || null;
     const isSalesperson = s.role === 'salesperson';
+    const prospectSearchQ = (s._prospectSearch || '').toLowerCase().trim();
     const pipelineProspects = (d.prospects || []).filter(p => {
       const inPipeline = activePipelineId === 'manuele'
         ? (!p.pipeline_id || p.pipeline_id === 'manuele')
         : p.pipeline_id === activePipelineId;
       if (!inPipeline) return false;
       if (isSalesperson && mySalespersonName) return p.assigned === mySalespersonName;
+      if (prospectSearchQ) {
+        const contact = (p.contact || '').toLowerCase();
+        const company = (p.company || '').toLowerCase();
+        return contact.includes(prospectSearchQ) || company.includes(prospectSearchQ);
+      }
       return true;
     });
 
@@ -3669,7 +3675,21 @@ const ScreenAdmin = {
       // Top bar
       e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
         e('div', null, UI.Hd('Prospect CRM'), UI.Sub('B2B acquisition pipeline — drag rows between stages', { marginTop: 3 })),
-        e('div', { style: { display: 'flex', gap: 8 } },
+        e('div', { style: { display: 'flex', gap: 8, alignItems: 'center' } },
+          e('div', { style: { position: 'relative', display: 'flex', alignItems: 'center' } },
+            e('svg', { style: { position: 'absolute', left: 8, pointerEvents: 'none', color: 'var(--text-mute)' }, width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+              e('circle', { cx: 11, cy: 11, r: 8 }), e('line', { x1: 21, y1: 21, x2: 16.65, y2: 16.65 })),
+            e('input', {
+              type: 'text',
+              placeholder: 'Zoek op naam of bedrijf…',
+              value: s._prospectSearch || '',
+              onChange: ev => this.setState({ _prospectSearch: ev.target.value }),
+              style: { fontSize: 12.5, padding: '6px 10px 6px 28px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', outline: 'none', width: 210 },
+            }),
+            (s._prospectSearch || '') ? e('button', {
+              onClick: () => this.setState({ _prospectSearch: '' }),
+              style: { position: 'absolute', right: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, lineHeight: 1, padding: 0 },
+            }, '×') : null),
           UI.Btn('Statuses', () => this.setState({ _prospectStatusMgr: showStatusMgr ? null : activePipelineId }), 'ghost'),
           UI.Btn('⚙️ Instellingen', () => this.setState({ _prospectSettings: !showSettings }), showSettings ? 'primary' : 'ghost'),
           UI.Btn('+ Add prospect', () => this.openModal('prospectAdd', { pipelineId: activePipelineId, defaultStage: stages[0]?.id || 'nieuwe_leads' }), 'primary'))),
