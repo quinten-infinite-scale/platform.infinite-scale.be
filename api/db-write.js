@@ -16,7 +16,7 @@ const ALLOWED_TABLES = new Set([
   'invoice_states', 'whatsapp_messages', 'client_whatsapp_templates',
   'dials', 'dials_hourly', 'profiles', 'coaching_feed',
   'meta_lead_mappings', 'meta_lead_log',
-  'prospect_meetings',
+  'prospect_meetings', 'client_resources',
 ]);
 
 const ALLOWED_BUCKETS = new Set(['contracts', 'coaching']);
@@ -47,6 +47,49 @@ export default async function handler(req, res) {
     const { action, email, table: tbl, query: q } = req.query || {};
 
 
+
+    // Run pending DB migrations (protected by service role key secret)
+    if (action === 'run_migration') {
+      const { secret } = req.query;
+      if (secret !== SERVICE_KEY) return res.status(403).json({ ok: false, error: 'Forbidden' });
+      const migrationSQL = `
+        CREATE TABLE IF NOT EXISTS client_resources (
+          id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+          client_id uuid NOT NULL UNIQUE,
+          script text DEFAULT '',
+          logins jsonb DEFAULT '[]',
+          productkennis text DEFAULT '',
+          leadlijsten jsonb DEFAULT '[]',
+          canvases jsonb DEFAULT '[]',
+          vis jsonb DEFAULT '{"script":{"agent":true,"client":true},"login":{"agent":true,"client":true},"product":{"agent":true,"client":true},"leads":{"agent":true,"client":true},"canvas":{"agent":true,"client":true}}',
+          updated_at timestamptz DEFAULT now(),
+          updated_by text
+        );
+        ALTER TABLE client_resources ENABLE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='client_resources' AND policyname='Authenticated read') THEN
+            CREATE POLICY "Authenticated read" ON client_resources FOR SELECT USING (auth.role() = 'authenticated');
+          END IF;
+        END $$;
+      `;
+      const r = await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`, {
+        method: 'POST',
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ sql: migrationSQL }),
+      });
+      // If exec_sql RPC doesn't exist, fall back to pg-meta
+      if (r.status === 404 || r.status === 400) {
+        const r2 = await fetch(`${SB_URL.replace('https://', 'https://quinten:Cobalt%23River%248@')}/pg-meta/v0/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-pg-meta-key': SERVICE_KEY },
+          body: JSON.stringify({ query: migrationSQL }),
+        });
+        const j2 = await r2.json().catch(() => ({ error: 'parse error' }));
+        return res.status(r2.ok ? 200 : 500).json({ ok: r2.ok, data: j2 });
+      }
+      const j = await r.json().catch(() => ({}));
+      return res.status(r.ok ? 200 : 500).json({ ok: r.ok, data: j, status: r.status });
+    }
 
     // Magic link: generate and verify server-side so browser never hits database.infinite-scale.be directly
     if (action === 'magic_link') {

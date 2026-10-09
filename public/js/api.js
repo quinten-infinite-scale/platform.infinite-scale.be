@@ -103,6 +103,7 @@ const API = {
         needsLeadlist: !!c.needs_leadlist,
         closeFee: c.close_fee || null,
         timelineChecklist: c.timeline_checklist || null,
+        timelineNotes: c.timeline_notes || '',
       };
       if (role === 'agent') {
         delete norm.rate;
@@ -411,6 +412,14 @@ const API = {
       `?agent_id=eq.${agentId}&invoiced=eq.false&date_logged=gte.${yearMonth}-01&date_logged=lt.${nextMo}-01`,
       { invoiced: true }
     );
+  },
+
+  async setClientInvRef(clientId, ym, value) {
+    const cl = (await SB.get('clients', `?id=eq.${clientId}&select=inv_refs`))[0];
+    const current = (cl && cl.inv_refs) ? cl.inv_refs : {};
+    const updated = value ? { ...current, [ym]: value } : (() => { const cp = { ...current }; delete cp[ym]; return cp; })();
+    await SB.patch('clients', `?id=eq.${clientId}`, { inv_refs: updated });
+    return updated;
   },
 
   async markClientInvoiced(clientId, yearMonth) {

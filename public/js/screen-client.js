@@ -16,6 +16,7 @@ const ScreenClient = {
     if (s.route === 'appointments') return this._clientAppointments(d, s, cl, appts, subName, isAgency);
     if (s.route === 'stats') return this._clientStats(d, s, cl, isAgency);
     if (s.route === 'billing') return this._clientBilling(d, s, cl, isAgency);
+    if (s.route === 'resources') return this._clientResources(d, s, cl);
     if (s.route === 'legal') return this._clientLegal(d, s, cl);
     if (s.route === 'support') return this._clientSupport(d, s, cl);
     if (s.route === 'settings') return this._settings(d, s, cl);
@@ -600,6 +601,127 @@ const ScreenClient = {
                 e('div', { style: { display: 'flex', justifyContent: 'flex-end', padding: '10px 18px 4px', borderTop: '1px solid var(--border-soft)', marginTop: 4 } },
                   e('span', { style: { fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 18, color: 'var(--text-mute)' } }, 'Totaal: ' + this.euro(total)))) : null);
           }))) : null);
+  },
+
+  _clientResources(d, s, cl) {
+    const e = React.createElement;
+    const TABS = ['script', 'login', 'product', 'leads', 'canvas'];
+    const TAB_META = { script: { icon: '📋', label: 'Script' }, login: { icon: '🔐', label: 'Login & CRM' }, product: { icon: '📚', label: 'Productkennis' }, leads: { icon: '📂', label: 'Leadlijsten' }, canvas: { icon: '🎨', label: 'Canvas' } };
+    const DEFAULT_VIS = { script: { agent: true, client: true }, login: { agent: true, client: true }, product: { agent: true, client: true }, leads: { agent: true, client: true }, canvas: { agent: true, client: true } };
+
+    if (!s._resLoaded && !s._resLoading) {
+      this.setState({ _resLoading: true });
+      SB.get('client_resources', `?client_id=eq.${cl.id}`).then(rows => {
+        const m = {};
+        (rows || []).forEach(r => { m[r.client_id] = r; });
+        this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m });
+      }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {} }));
+    }
+
+    if (s._resLoading && !s._resLoaded) {
+      return e('div', { style: { color: 'var(--text-mute)', padding: 20 } }, 'Laden…');
+    }
+
+    const res = (s._resByClient || {})[cl.id] || {};
+    const vis = (() => { try { return { ...DEFAULT_VIS, ...(res.vis || {}) }; } catch(_) { return DEFAULT_VIS; } })();
+    const resTab = s.resTab || 'script';
+    const resDraft = s.resDraft;
+    const resEditTab = s.resEditTab;
+
+    const hasContent = tab => {
+      if (tab === 'script') return !!(res.script);
+      if (tab === 'login') return Array.isArray(res.logins) && res.logins.length > 0;
+      if (tab === 'product') return !!(res.productkennis);
+      if (tab === 'leads') return Array.isArray(res.leadlijsten) && res.leadlijsten.length > 0;
+      if (tab === 'canvas') return Array.isArray(res.canvases) && res.canvases.length > 0;
+      return false;
+    };
+
+    const visibleTabs = TABS.filter(tab => {
+      if (!vis[tab] || vis[tab].client === false) return false;
+      return hasContent(tab) || true; // client always sees tabs, but can see if empty
+    });
+    // client: show all tabs that are visible (admin can hide), but only if they have content (avoid empty tab confusion) — admin controls this
+    const shownTabs = TABS.filter(tab => vis[tab] && vis[tab].client !== false && (hasContent(tab) || resEditTab === tab));
+
+    const saveRes = async (fields) => {
+      const row = { client_id: cl.id, updated_at: new Date().toISOString(), updated_by: 'client', ...fields };
+      await SB.upsert('client_resources', 'client_id', row);
+      this.setState(st => ({
+        _resByClient: { ...(st._resByClient || {}), [cl.id]: { ...(st._resByClient || {})[cl.id], ...fields } },
+        resDraft: null, resEditTab: null,
+      }));
+      this.toast('Opgeslagen', 'Resources bijgewerkt', 'var(--up)');
+    };
+
+    const renderContent = (tab) => {
+      const draft = resDraft || {};
+      const isEditing = resEditTab === tab;
+
+      if (tab === 'script' || tab === 'product') {
+        const key = tab === 'script' ? 'script' : 'productkennis';
+        const val = res[key] || '';
+        if (isEditing) {
+          return UI.C({},
+            e('textarea', { value: draft[key] !== undefined ? draft[key] : val, onChange: ev => this.setState({ resDraft: { ...draft, [key]: ev.target.value } }), style: { width: '100%', minHeight: 240, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, lineHeight: 1.6, resize: 'vertical', outline: 'none' } }),
+            UI.Row({ gap: 8, marginTop: 12 },
+              UI.Btn('Opslaan', () => saveRes({ [key]: draft[key] !== undefined ? draft[key] : val }), 'primary'),
+              UI.Btn('Annuleren', () => this.setState({ resEditTab: null, resDraft: null }), 'soft')));
+        }
+        return UI.C({ position: 'relative' },
+          val ? e('div', { style: { whiteSpace: 'pre-line', fontSize: 13.5, lineHeight: 1.7, color: 'var(--text)' } }, val) : e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic', fontSize: 13 } }, 'Nog niet ingevuld.'),
+          e('div', { style: { position: 'absolute', top: 0, right: 0 } }, UI.Btn('✏️ Bewerken', () => this.setState({ resEditTab: tab, resDraft: { [key]: val } }), 'soft')));
+      }
+
+      if (tab === 'login') {
+        const logins = Array.isArray(res.logins) ? res.logins : [];
+        if (!logins.length) return UI.C({}, e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic', padding: 8 } }, 'Geen logins opgeslagen.'));
+        return UI.C({}, e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+          logins.map((l, i) => e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)', flexWrap: 'wrap' } },
+            e('span', { style: { width: 70, fontSize: 12, color: 'var(--text-mute)', flexShrink: 0 } }, l.key),
+            e('span', { style: { flex: 1, fontSize: 12, fontFamily: 'JetBrains Mono,monospace', color: 'var(--accent)', minWidth: 120 } }, l.url),
+            e('span', { style: { fontSize: 12, fontFamily: 'JetBrains Mono,monospace', color: 'var(--text-mute)', marginRight: 8 } }, l.user),
+            e('span', { style: { fontSize: 12, fontFamily: 'JetBrains Mono,monospace' } }, l.pass)))));
+      }
+
+      if (tab === 'leads') {
+        const leads = Array.isArray(res.leadlijsten) ? res.leadlijsten : [];
+        if (!leads.length) return UI.C({}, e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic', padding: 8 } }, 'Geen leadlijsten.'));
+        return UI.C({}, e('div', { style: { overflowX: 'auto' } },
+          UI.Table([{ label: 'Naam', render: x => x.name }, { label: '# Leads', align: 'right', render: x => e('span', { style: { fontFamily: 'JetBrains Mono,monospace', fontSize: 12 } }, String(x.leads || '')) }, { label: 'Datum', render: x => x.datum || '—' }, { label: 'Status', align: 'center', render: x => UI.statusPill(x.status === 'Actief' ? 'active' : 'inactive') }], leads, { min: 400, empty: '' })));
+      }
+
+      if (tab === 'canvas') {
+        const canvases = Array.isArray(res.canvases) ? res.canvases : [];
+        if (!canvases.length) return UI.C({}, e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic', padding: 8 } }, 'Geen canvases.'));
+        return UI.C({}, e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12 } },
+          canvases.map((c, i) => e('div', { key: i, style: { background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px', cursor: c.url ? 'pointer' : 'default' }, onClick: () => c.url && window.open(c.url, '_blank') },
+            e('div', { style: { fontSize: 22, marginBottom: 6 } }, c.icon || '📄'),
+            e('div', { style: { fontSize: 13, fontWeight: 600 } }, c.name),
+            e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, c.meta || '')))));
+      }
+
+      return null;
+    };
+
+    if (!shownTabs.length) {
+      return e('div', { style: { textAlign: 'center', padding: '60px 20px', color: 'var(--text-mute)' } },
+        e('div', { style: { fontSize: 32, marginBottom: 12, opacity: 0.4 } }, '📁'),
+        e('div', { style: { fontWeight: 600, fontSize: 15 } }, 'Geen resources beschikbaar'),
+        e('div', { style: { fontSize: 13, marginTop: 4 } }, 'Neem contact op met uw accountmanager.'));
+    }
+
+    const activeTab = shownTabs.includes(resTab) ? resTab : shownTabs[0];
+    const tabBar = e('div', { style: { display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', overflowX: 'auto', marginBottom: 0 } },
+      shownTabs.map(tab => {
+        const m = TAB_META[tab];
+        const active = resTab === tab || tab === activeTab;
+        return e('button', { key: tab, onClick: () => this.setState({ resTab: tab, resEditTab: null, resDraft: null }), style: { padding: '9px 16px', borderRadius: '8px 8px 0 0', border: '1px solid transparent', borderBottom: 'none', marginBottom: -1, background: active ? 'var(--surface)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-mute)', cursor: 'pointer', fontSize: 13, fontWeight: 500, borderColor: active ? 'var(--border)' : 'transparent', borderBottomColor: active ? 'var(--surface)' : 'transparent', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s' } }, m.icon, ' ', m.label);
+      }));
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+      tabBar,
+      e('div', { style: { paddingTop: 24 } }, renderContent(activeTab)));
   },
 
   _clientLegal(d, s, cl) {

@@ -163,6 +163,7 @@ const ScreenAdmin = {
     if (r === 'apptadmin') return this._admAppointments(d, s);
     if (r === 'followup') return this._admFollowup(d, s);
     if (r === 'clients') return this._admClients(d, s);
+    if (r === 'resources') return this._admResources(d, s);
     if (r === 'agents') return this._admAgents(d, s);
     if (r === 'eodadmin') return this._admEod(d, s);
     if (r === 'timeline') return this._admTimeline(d, s);
@@ -2478,6 +2479,215 @@ const ScreenAdmin = {
       }));
   },
 
+  _admResources(d, s) {
+    const e = React.createElement;
+    const TABS = ['script', 'login', 'product', 'leads', 'canvas'];
+    const TAB_META = { script: { icon: '📋', label: 'Script' }, login: { icon: '🔐', label: 'Login & CRM' }, product: { icon: '📚', label: 'Productkennis' }, leads: { icon: '📂', label: 'Leadlijsten' }, canvas: { icon: '🎨', label: 'Canvas' } };
+    const DEFAULT_VIS = { script: { agent: true, client: true }, login: { agent: true, client: true }, product: { agent: true, client: true }, leads: { agent: true, client: true }, canvas: { agent: true, client: true } };
+
+    // Lazy-load resources from Supabase
+    if (!s._resLoaded && !s._resLoading) {
+      this.setState({ _resLoading: true });
+      SB.get('client_resources', '').then(rows => {
+        const m = {};
+        (rows || []).forEach(r => { m[r.client_id] = r; });
+        this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m });
+      }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {} }));
+    }
+
+    const resByClient = s._resByClient || {};
+    const clientSort = (a, b) => { const aA = (a.status || 'inactive') === 'active'; const bA = (b.status || 'inactive') === 'active'; return aA !== bA ? (aA ? -1 : 1) : (a.name || '').localeCompare(b.name || ''); };
+    const allClients = d.clients.filter(c => c.name && c.name.toLowerCase() !== 'emploai').sort(clientSort);
+
+    const resClientId = s.resClientId;
+    const activeCl = resClientId ? allClients.find(c => c.id === resClientId) : null;
+
+    // ── Workspace view ──
+    if (activeCl) {
+      const res = resByClient[activeCl.id] || {};
+      const vis = (() => { try { return { ...DEFAULT_VIS, ...(res.vis || {}) }; } catch(_) { return DEFAULT_VIS; } })();
+      const resTab = s.resTab || 'script';
+      const resDraft = s.resDraft;
+      const resEditTab = s.resEditTab;
+
+      const getVal = tab => {
+        if (tab === 'script') return res.script || '';
+        if (tab === 'login') return Array.isArray(res.logins) ? res.logins : [];
+        if (tab === 'product') return res.productkennis || '';
+        if (tab === 'leads') return Array.isArray(res.leadlijsten) ? res.leadlijsten : [];
+        if (tab === 'canvas') return Array.isArray(res.canvases) ? res.canvases : [];
+        return '';
+      };
+
+      const saveRes = async (fields) => {
+        const row = { client_id: activeCl.id, updated_at: new Date().toISOString(), updated_by: 'admin', ...fields };
+        await SB.upsert('client_resources', 'client_id', row);
+        this.setState(st => ({
+          _resByClient: { ...(st._resByClient || {}), [activeCl.id]: { ...(st._resByClient || {})[activeCl.id], ...fields } },
+          resDraft: null, resEditTab: null,
+        }));
+        this.toast('Opgeslagen', 'Resources bijgewerkt', 'var(--up)');
+      };
+
+      const toggleVis = async (tab, audience) => {
+        const newVis = { ...vis, [tab]: { ...vis[tab], [audience]: !vis[tab][audience] } };
+        await saveRes({ vis: newVis });
+      };
+
+      // Render tab content
+      const renderContent = (tab) => {
+        const isEditing = resEditTab === tab;
+        const val = getVal(tab);
+        const draft = resDraft || {};
+
+        // Visibility bar
+        const visBar = e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', marginBottom: 14, background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)', fontSize: 12 } },
+          e('span', { style: { color: 'var(--text-mute)', fontWeight: 500, marginRight: 2 } }, '🔒 Zichtbaarheid:'),
+          ...['agent', 'client'].map(aud => {
+            const on = vis[tab] && vis[tab][aud] !== false;
+            return e('button', { key: aud, onClick: () => toggleVis(tab, aud), style: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'), background: on ? 'var(--accent-bg)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-mute)', cursor: 'pointer', fontSize: 11, fontWeight: 600 } },
+              e('span', { style: { width: 7, height: 7, borderRadius: '50%', background: on ? 'var(--accent)' : 'var(--text-dim)', display: 'inline-block' } }),
+              aud === 'agent' ? 'Call Agents' : 'Client');
+          })
+        );
+
+        if (tab === 'script' || tab === 'product') {
+          const key = tab === 'script' ? 'script' : 'productkennis';
+          if (isEditing) {
+            return e('div', null,
+              visBar,
+              UI.C({},
+                e('textarea', { value: draft[key] !== undefined ? draft[key] : val, onChange: ev => this.setState({ resDraft: { ...draft, [key]: ev.target.value } }), style: { width: '100%', minHeight: 280, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: tab === 'script' ? 'Manrope,sans-serif' : 'Manrope,sans-serif', lineHeight: 1.6, resize: 'vertical', outline: 'none' } }),
+                UI.Row({ gap: 8, marginTop: 12 },
+                  UI.Btn('Opslaan', () => saveRes({ [key]: draft[key] !== undefined ? draft[key] : val }), 'primary'),
+                  UI.Btn('Annuleren', () => this.setState({ resEditTab: null, resDraft: null }), 'soft'))));
+          }
+          return e('div', null, visBar,
+            UI.C({ position: 'relative' },
+              val ? e('div', { style: { whiteSpace: 'pre-line', fontSize: 13.5, lineHeight: 1.7, color: 'var(--text)' } }, val)
+                  : e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic', fontSize: 13 } }, tab === 'script' ? 'Nog geen belscript ingevuld.' : 'Nog geen productkennis ingevuld.'),
+              e('div', { style: { position: 'absolute', top: 0, right: 0 } }, UI.Btn('✏️ Bewerken', () => this.setState({ resEditTab: tab, resDraft: { [key]: val } }), 'soft'))));
+        }
+
+        if (tab === 'login') {
+          const logins = Array.isArray(val) ? val : [];
+          const newLogin = draft.newLogin || { key: '', url: '', user: '', pass: '' };
+          return e('div', null, visBar,
+            UI.C({},
+              logins.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 } },
+                logins.map((l, i) => e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)' } },
+                  e('span', { style: { width: 70, fontSize: 12, color: 'var(--text-mute)', flexShrink: 0 } }, l.key),
+                  e('span', { style: { flex: 1, fontSize: 12, fontFamily: 'JetBrains Mono,monospace', color: 'var(--accent)' } }, l.url),
+                  e('span', { style: { fontSize: 12, fontFamily: 'JetBrains Mono,monospace', color: 'var(--text-mute)', marginRight: 8 } }, l.user),
+                  UI.Btn('✕', async () => { const next = logins.filter((_, j) => j !== i); await saveRes({ logins: next }); }, 'soft', { padding: '2px 7px', fontSize: 11, color: 'var(--down)' })))) : null,
+              e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: 8, padding: '12px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)' } },
+                e('input', { placeholder: 'Label (bv. CRM)', value: newLogin.key, onChange: ev => this.setState({ resDraft: { ...draft, newLogin: { ...newLogin, key: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                e('input', { placeholder: 'URL', value: newLogin.url, onChange: ev => this.setState({ resDraft: { ...draft, newLogin: { ...newLogin, url: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                e('input', { placeholder: 'Gebruikersnaam', value: newLogin.user, onChange: ev => this.setState({ resDraft: { ...draft, newLogin: { ...newLogin, user: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                e('input', { placeholder: 'Wachtwoord', value: newLogin.pass, onChange: ev => this.setState({ resDraft: { ...draft, newLogin: { ...newLogin, pass: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } })),
+              UI.Btn('+ Login toevoegen', async () => {
+                if (!newLogin.key) return this.toast('Vereist', 'Vul een label in', 'var(--warn)');
+                const next = [...logins, { ...newLogin }];
+                this.setState({ resDraft: null });
+                await saveRes({ logins: next });
+              }, 'soft', { marginTop: 10 })));
+        }
+
+        if (tab === 'leads') {
+          const leads = Array.isArray(val) ? val : [];
+          const newLead = draft.newLead || { name: '', leads: '', datum: '', status: 'Actief' };
+          return e('div', null, visBar,
+            UI.C({},
+              leads.length ? e('div', { style: { overflowX: 'auto', marginBottom: 14 } },
+                UI.Table([
+                  { label: 'Naam', render: x => x.name },
+                  { label: '# Leads', align: 'right', render: x => e('span', { style: { fontFamily: 'JetBrains Mono,monospace', fontSize: 12 } }, String(x.leads || '')) },
+                  { label: 'Datum', render: x => x.datum || '—' },
+                  { label: 'Status', align: 'center', render: x => UI.statusPill(x.status === 'Actief' ? 'active' : 'inactive') },
+                  { label: '', render: (x, i) => UI.Btn('✕', async () => { const next = leads.filter((_, j) => j !== i); await saveRes({ leadlijsten: next }); }, 'soft', { padding: '2px 7px', fontSize: 11, color: 'var(--down)' }) },
+                ], leads.map((l, i) => ({ ...l, _i: i })), { min: 400, empty: '' })) : null,
+              e('div', { style: { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, padding: '12px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)', marginTop: 4 } },
+                e('input', { placeholder: 'Naam lijst', value: newLead.name, onChange: ev => this.setState({ resDraft: { ...draft, newLead: { ...newLead, name: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                e('input', { placeholder: '# Leads', type: 'number', value: newLead.leads, onChange: ev => this.setState({ resDraft: { ...draft, newLead: { ...newLead, leads: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                e('input', { placeholder: 'Datum', type: 'date', value: newLead.datum, onChange: ev => this.setState({ resDraft: { ...draft, newLead: { ...newLead, datum: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                UI.Btn('+ Toevoegen', async () => {
+                  if (!newLead.name) return this.toast('Vereist', 'Vul een naam in', 'var(--warn)');
+                  const next = [...leads, { name: newLead.name, leads: parseInt(newLead.leads) || 0, datum: newLead.datum || new Date().toISOString().slice(0, 10), status: 'Actief' }];
+                  this.setState({ resDraft: null });
+                  await saveRes({ leadlijsten: next });
+                }, 'primary', { alignSelf: 'center' }))));
+        }
+
+        if (tab === 'canvas') {
+          const canvases = Array.isArray(val) ? val : [];
+          const newCanvas = draft.newCanvas || { icon: '📄', name: '', meta: '', url: '' };
+          return e('div', null, visBar,
+            UI.C({},
+              canvases.length ? e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12, marginBottom: 16 } },
+                canvases.map((c, i) => e('div', { key: i, style: { background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px', position: 'relative' } },
+                  e('div', { style: { fontSize: 22, marginBottom: 6 } }, c.icon || '📄'),
+                  e('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)' } }, c.name),
+                  e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, c.meta || ''),
+                  e('button', { onClick: async () => { const next = canvases.filter((_, j) => j !== i); await saveRes({ canvases: next }); }, style: { position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', fontSize: 13, padding: '2px 4px' } }, '✕')))) : null,
+              e('div', { style: { display: 'grid', gridTemplateColumns: '60px 2fr 1fr 2fr', gap: 8, padding: '12px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)', alignItems: 'center' } },
+                e('input', { placeholder: '🎨', value: newCanvas.icon, onChange: ev => this.setState({ resDraft: { ...draft, newCanvas: { ...newCanvas, icon: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 18, textAlign: 'center', outline: 'none' } }),
+                e('input', { placeholder: 'Naam', value: newCanvas.name, onChange: ev => this.setState({ resDraft: { ...draft, newCanvas: { ...newCanvas, name: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                e('input', { placeholder: 'Label (bv. v3)', value: newCanvas.meta, onChange: ev => this.setState({ resDraft: { ...draft, newCanvas: { ...newCanvas, meta: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } }),
+                e('input', { placeholder: 'URL (optioneel)', value: newCanvas.url, onChange: ev => this.setState({ resDraft: { ...draft, newCanvas: { ...newCanvas, url: ev.target.value } } }), style: { padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, outline: 'none' } })),
+              UI.Btn('+ Canvas toevoegen', async () => {
+                if (!newCanvas.name) return this.toast('Vereist', 'Vul een naam in', 'var(--warn)');
+                const next = [...canvases, { icon: newCanvas.icon || '📄', name: newCanvas.name, meta: newCanvas.meta, url: newCanvas.url }];
+                this.setState({ resDraft: null });
+                await saveRes({ canvases: next });
+              }, 'soft', { marginTop: 10 })));
+        }
+
+        return null;
+      };
+
+      const tabBar = e('div', { style: { display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', overflowX: 'auto' } },
+        TABS.map(tab => {
+          const m = TAB_META[tab];
+          const active = resTab === tab;
+          return e('button', { key: tab, onClick: () => this.setState({ resTab: tab, resEditTab: null, resDraft: null }), style: { padding: '9px 16px', borderRadius: '8px 8px 0 0', border: '1px solid transparent', borderBottom: 'none', marginBottom: -1, background: active ? 'var(--surface)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-mute)', cursor: 'pointer', fontSize: 13, fontWeight: 500, borderColor: active ? 'var(--border)' : 'transparent', borderBottomColor: active ? 'var(--surface)' : 'transparent', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s' } },
+            m.icon, ' ', m.label);
+        }));
+
+      return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' } },
+          UI.Btn('← Terug naar Resources', () => this.setState({ resClientId: null, resTab: null, resDraft: null, resEditTab: null }), 'soft'),
+          UI.Hd(activeCl.name),
+          UI.statusPill(activeCl.status || 'inactive'),
+          activeCl.type === 'agency' ? UI.Pill('Agency', 'var(--info)', 'oklch(0.30 0.05 240)') : null),
+        tabBar,
+        e('div', { style: { paddingTop: 24 } }, renderContent(resTab)));
+    }
+
+    // ── Client list view ──
+    const activeClients = allClients.filter(c => (c.status || 'inactive') === 'active');
+    const inactiveClients = allClients.filter(c => (c.status || 'inactive') !== 'active');
+
+    const clientRow = (cl) => {
+      const cols = [
+        { label: 'Client', render: x => e('span', { style: { fontWeight: 700, color: 'var(--text)' } }, x.name) },
+        { label: 'Type', render: x => x.type === 'agency' ? UI.Pill('Agency', 'var(--info)', 'oklch(0.30 0.05 240)') : UI.Pill('Direct', 'var(--accent)', 'var(--accent-bg)') },
+        { label: 'Status', align: 'center', render: x => UI.statusPill(x.status || 'inactive') },
+        { label: '', align: 'right', render: x => UI.Btn('Resources →', () => this.setState({ resClientId: x.id, resTab: 'script', resDraft: null, resEditTab: null }), 'primary', { fontSize: 12, padding: '5px 12px' }) },
+      ];
+      return cols;
+    };
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+      UI.Hd('Resources'),
+      s._resLoading ? e('div', { style: { color: 'var(--text-mute)', padding: 20 } }, 'Laden…') : null,
+      activeClients.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        UI.SectionHd('Actieve clients'),
+        UI.C({ padding: 0, overflow: 'hidden' }, UI.Table(clientRow(), activeClients, { min: 400, empty: '' }))) : null,
+      inactiveClients.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+        UI.SectionHd('Inactieve clients'),
+        UI.C({ padding: 0, overflow: 'hidden', opacity: 0.6 }, UI.Table(clientRow(), inactiveClients, { min: 400, empty: '' }))) : null);
+  },
+
   _admClients(d, s) {
     const e = React.createElement;
     const clientSort = (a, b) => { const aAct = (a.status || 'inactive') === 'active'; const bAct = (b.status || 'inactive') === 'active'; if (aAct !== bAct) return aAct ? -1 : 1; return (a.name || '').localeCompare(b.name || ''); };
@@ -2488,7 +2698,6 @@ const ScreenAdmin = {
       { label: 'Status', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); this.cycleClientStatus(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.status || 'inactive')) },
       { label: 'Agents', render: x => d.agents.filter(a => (a.clients || []).includes(x.id)).map(a => this.agentName(a.id, d).split(' ')[0]).join(', ') || '—' },
       { label: 'Vergoeding', align: 'right', render: x => e('span', { style: { fontSize: 12, fontWeight: 600, color: UI.rateStr(x) === '—' ? 'var(--text-dim)' : 'var(--up)' } }, UI.rateStr(x)) },
-      { label: 'Month appts', align: 'right', render: x => String(d.appointments.filter(a => a.client === x.id && !a.invoiced).length) },
       { label: 'Billing', align: 'center', render: x => e('button', { onClick: ev => { ev.stopPropagation(); x.billStatus === 'paid' ? this.unmarkPaid(x.id) : this.markPaid(x.id); }, style: { background: 'none', border: 'none', cursor: 'pointer', padding: 0 } }, UI.statusPill(x.billStatus || 'pending')) },
     ];
     const agencyCols = [

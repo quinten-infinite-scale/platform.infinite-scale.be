@@ -943,6 +943,13 @@ const ScreenAgent = {
   _agentClients(d, s, me) {
     const e = React.createElement;
     const mine = d.clients.filter(c => (me.clients || []).includes(c.id)).sort((a, b) => { const aAct = (a.status || 'inactive') === 'active'; const bAct = (b.status || 'inactive') === 'active'; return aAct !== bAct ? (aAct ? -1 : 1) : (a.name || '').localeCompare(b.name || ''); });
+
+    // Resources workspace sub-view
+    if (s.resClientId) {
+      const cl = mine.find(c => c.id === s.resClientId);
+      if (cl) return this._agentResourcesWs(d, s, me, cl);
+    }
+
     return UI.Grid('repeat(auto-fit,minmax(260px,1fr))', 16,
       ...mine.map(c => UI.C({},
         UI.Row({ justifyContent: 'space-between', marginBottom: 10 }, UI.Hd(c.name, { fontSize: 16 }), UI.statusPill(c.status || 'inactive')),
@@ -957,7 +964,90 @@ const ScreenAgent = {
             return e('div', { key: sc.id, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
               e('span', { style: { fontSize: 12.5, color: 'var(--text-dim)' } }, sc.name),
               UI.Mono(scRate ? this.euro(scRate) + '/appt' : '—', { fontSize: 12, color: scRate ? 'var(--up)' : 'var(--text-mute)' }));
-          }))) : null)));
+          }))) : null,
+        e('div', { style: { marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-soft)' } },
+          UI.Btn('📁 Resources bekijken', () => this._agentLoadResources(me, d.clients, () => this.setState({ resClientId: c.id, resTab: 'script' })), 'soft', { width: '100%', justifyContent: 'center', fontSize: 12 })))));
+  },
+
+  _agentLoadResources(me, clients, cb) {
+    if (this.state._resLoaded) { cb(); return; }
+    if (this.state._resLoading) return;
+    this.setState({ _resLoading: true });
+    const ids = clients.filter(c => (me.clients || []).includes(c.id)).map(c => c.id).join(',');
+    const q = ids ? `?client_id=in.(${ids})` : '';
+    SB.get('client_resources', q).then(rows => {
+      const m = {};
+      (rows || []).forEach(r => { m[r.client_id] = r; });
+      this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m }, cb);
+    }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {} }, cb));
+  },
+
+  _agentResourcesWs(d, s, me, cl) {
+    const e = React.createElement;
+    const TABS = ['script', 'login', 'product', 'leads', 'canvas'];
+    const TAB_META = { script: { icon: '📋', label: 'Script' }, login: { icon: '🔐', label: 'Login & CRM' }, product: { icon: '📚', label: 'Productkennis' }, leads: { icon: '📂', label: 'Leadlijsten' }, canvas: { icon: '🎨', label: 'Canvas' } };
+    const DEFAULT_VIS = { script: { agent: true, client: true }, login: { agent: true, client: true }, product: { agent: true, client: true }, leads: { agent: true, client: true }, canvas: { agent: true, client: true } };
+
+    const res = (s._resByClient || {})[cl.id] || {};
+    const vis = (() => { try { return { ...DEFAULT_VIS, ...(res.vis || {}) }; } catch(_) { return DEFAULT_VIS; } })();
+    const resTab = s.resTab || 'script';
+
+    const hasContent = tab => {
+      if (tab === 'script') return !!(res.script);
+      if (tab === 'login') return Array.isArray(res.logins) && res.logins.length > 0;
+      if (tab === 'product') return !!(res.productkennis);
+      if (tab === 'leads') return Array.isArray(res.leadlijsten) && res.leadlijsten.length > 0;
+      if (tab === 'canvas') return Array.isArray(res.canvases) && res.canvases.length > 0;
+      return false;
+    };
+
+    const visibleTabs = TABS.filter(tab => hasContent(tab) && vis[tab] && vis[tab].agent !== false);
+
+    const renderContent = (tab) => {
+      if (tab === 'script') {
+        return UI.C({}, res.script ? e('div', { style: { whiteSpace: 'pre-line', fontSize: 13.5, lineHeight: 1.7, color: 'var(--text)' } }, res.script) : e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Geen script beschikbaar.'));
+      }
+      if (tab === 'login') {
+        const logins = Array.isArray(res.logins) ? res.logins : [];
+        return UI.C({}, logins.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } }, logins.map((l, i) => e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)' } }, e('span', { style: { width: 70, fontSize: 12, color: 'var(--text-mute)' } }, l.key), e('span', { style: { flex: 1, fontSize: 12, fontFamily: 'JetBrains Mono,monospace', color: 'var(--accent)' } }, l.url), e('span', { style: { fontSize: 12, fontFamily: 'JetBrains Mono,monospace' } }, l.user), e('span', { style: { fontSize: 12, fontFamily: 'JetBrains Mono,monospace', color: 'var(--text-mute)' } }, l.pass)))) : e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic' } }, '—'));
+      }
+      if (tab === 'product') {
+        return UI.C({}, res.productkennis ? e('div', { style: { whiteSpace: 'pre-line', fontSize: 13.5, lineHeight: 1.7, color: 'var(--text)' } }, res.productkennis) : e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic' } }, 'Geen productkennis beschikbaar.'));
+      }
+      if (tab === 'leads') {
+        const leads = Array.isArray(res.leadlijsten) ? res.leadlijsten : [];
+        return UI.C({}, e('div', { style: { overflowX: 'auto' } }, UI.Table([{ label: 'Naam', render: x => x.name }, { label: '# Leads', align: 'right', render: x => e('span', { style: { fontFamily: 'JetBrains Mono,monospace', fontSize: 12 } }, String(x.leads || '')) }, { label: 'Datum', render: x => x.datum || '—' }, { label: 'Status', align: 'center', render: x => UI.statusPill(x.status === 'Actief' ? 'active' : 'inactive') }], leads, { min: 400, empty: 'Geen leadlijsten.' })));
+      }
+      if (tab === 'canvas') {
+        const canvases = Array.isArray(res.canvases) ? res.canvases : [];
+        return UI.C({}, e('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12 } }, canvases.map((c, i) => e('div', { key: i, style: { background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px', cursor: c.url ? 'pointer' : 'default' }, onClick: () => c.url && window.open(c.url, '_blank') }, e('div', { style: { fontSize: 22, marginBottom: 6 } }, c.icon || '📄'), e('div', { style: { fontSize: 13, fontWeight: 600 } }, c.name), e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, c.meta || '')))));
+      }
+      return null;
+    };
+
+    if (!visibleTabs.length) {
+      return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+        UI.Row({ gap: 12, marginBottom: 4 }, UI.Btn('← Terug naar My Clients', () => this.setState({ resClientId: null }), 'soft'), UI.Hd(cl.name)),
+        UI.C({}, e('div', { style: { textAlign: 'center', padding: '40px 20px', color: 'var(--text-mute)' } }, 'Geen resources beschikbaar voor deze client.')));
+    }
+
+    const tabBar = e('div', { style: { display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', overflowX: 'auto' } },
+      visibleTabs.map(tab => {
+        const m = TAB_META[tab];
+        const active = resTab === tab || (!visibleTabs.includes(resTab) && tab === visibleTabs[0]);
+        return e('button', { key: tab, onClick: () => this.setState({ resTab: tab }), style: { padding: '9px 16px', borderRadius: '8px 8px 0 0', border: '1px solid transparent', borderBottom: 'none', marginBottom: -1, background: active ? 'var(--surface)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-mute)', cursor: 'pointer', fontSize: 13, fontWeight: 500, borderColor: active ? 'var(--border)' : 'transparent', borderBottomColor: active ? 'var(--surface)' : 'transparent', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s' } }, m.icon, ' ', m.label);
+      }));
+
+    const activeTab = visibleTabs.includes(resTab) ? resTab : visibleTabs[0];
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
+      e('div', { style: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' } },
+        UI.Btn('← Terug naar My Clients', () => this.setState({ resClientId: null, resTab: null }), 'soft'),
+        UI.Hd(cl.name),
+        UI.statusPill(cl.status || 'inactive'),
+        UI.Pill('Alleen lezen', 'var(--text-mute)', 'rgba(255,255,255,.06)')),
+      tabBar,
+      e('div', { style: { paddingTop: 24 } }, renderContent(activeTab)));
   },
 
   _agentStats(d, s, me) {
