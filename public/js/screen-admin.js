@@ -2146,6 +2146,7 @@ const ScreenAdmin = {
             })(),
             e('button', {
               onClick: () => {
+                const parseNotes = (an) => { try { return an ? JSON.parse(an) : {}; } catch(_) { return an ? { nt: an } : {}; } };
                 const rows = [['Appt Date', 'Logged', 'Lead', 'Phone', 'Agent', 'Client', 'Subclient', 'Status', 'Client Rate', 'Agent Rate', 'Agent Notes', 'Client Notes']];
                 list.forEach(r => {
                   const cl = d.clients.find(c => c.id === r.client);
