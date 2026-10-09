@@ -1334,9 +1334,37 @@ const Modals = {
               e('div', { style: { display: 'flex', flexDirection: 'column', gap: 5 } },
                 sec.items.map(it => {
                   const checked = !!(tlChecklist[it.id]);
-                  return e('label', { key: it.id, style: { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '7px 10px', borderRadius: 8, background: checked ? 'oklch(0.18 0.05 145 / .15)' : 'transparent', cursor: 'pointer', border: '1px solid ' + (checked ? 'var(--up)' : 'var(--border-soft)') } },
-                    e('input', { type: 'checkbox', checked, onChange: ev => { const next = { ...tlChecklist, [it.id]: ev.target.checked }; this.setForm('tlChecklist', next); const j = JSON.stringify(next); API.updateClient(c.id, { timeline_checklist: j }); this.mutLocal(d2 => { const cl = d2.clients.find(x => x.id === c.id); if (cl) cl.timelineChecklist = j; }); }, style: { width: 15, height: 15, accentColor: 'var(--up)', cursor: 'pointer', flexShrink: 0, marginTop: 1 } }),
-                    e('span', { style: { fontSize: 12.5, color: checked ? 'var(--up)' : 'var(--text-dim)', fontWeight: checked ? 600 : 400, lineHeight: 1.4, textDecoration: checked ? 'line-through' : 'none', textDecorationColor: 'var(--up)' } }, it.label));
+                  const noteKey = it.id + '_note';
+                  const noteVal = tlChecklist[noteKey] || '';
+                  const hasItemNote = !!noteVal.trim();
+                  const itemNoteOpen = !!(f['tlNoteOpen_' + it.id]);
+                  const saveItemNote = (val) => {
+                    const next = { ...tlChecklist };
+                    if (val.trim()) next[noteKey] = val; else delete next[noteKey];
+                    this.setForm('tlChecklist', next);
+                    const j = JSON.stringify(next);
+                    API.updateClient(c.id, { timeline_checklist: j });
+                    this.mutLocal(d2 => { const cl = d2.clients.find(x => x.id === c.id); if (cl) cl.timelineChecklist = j; });
+                  };
+                  return e('div', { key: it.id, style: { borderRadius: 8, border: '1px solid ' + (checked ? 'var(--up)' : 'var(--border-soft)'), overflow: 'hidden' } },
+                    e('label', { style: { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '7px 10px', background: checked ? 'oklch(0.18 0.05 145 / .15)' : 'transparent', cursor: 'pointer' } },
+                      e('input', { type: 'checkbox', checked, onChange: ev => { const next = { ...tlChecklist, [it.id]: ev.target.checked }; this.setForm('tlChecklist', next); const j = JSON.stringify(next); API.updateClient(c.id, { timeline_checklist: j }); this.mutLocal(d2 => { const cl = d2.clients.find(x => x.id === c.id); if (cl) cl.timelineChecklist = j; }); }, style: { width: 15, height: 15, accentColor: 'var(--up)', cursor: 'pointer', flexShrink: 0, marginTop: 1 } }),
+                      e('span', { style: { fontSize: 12.5, color: checked ? 'var(--up)' : 'var(--text-dim)', fontWeight: checked ? 600 : 400, lineHeight: 1.4, textDecoration: checked ? 'line-through' : 'none', textDecorationColor: 'var(--up)', flex: 1 } }, it.label),
+                      e('button', {
+                        onClick: ev => { ev.preventDefault(); ev.stopPropagation(); this.setForm('tlNoteOpen_' + it.id, !itemNoteOpen); },
+                        style: { position: 'relative', marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '0 3px', lineHeight: 1, flexShrink: 0, color: hasItemNote ? 'var(--accent)' : 'var(--text-mute)', opacity: hasItemNote ? 1 : 0.45, display: 'flex', alignItems: 'center' }
+                      },
+                        e('svg', { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+                          e('path', { d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' })),
+                        hasItemNote ? e('span', { style: { position: 'absolute', top: -1, right: -1, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', border: '1.5px solid var(--bg)' } }) : null
+                      )),
+                    itemNoteOpen ? e('div', { style: { padding: '4px 10px 8px', borderTop: '1px solid ' + (checked ? 'oklch(0.18 0.05 145 / .3)' : 'var(--border-soft)'), background: checked ? 'oklch(0.18 0.05 145 / .08)' : 'var(--bg)' } },
+                      e('textarea', {
+                        placeholder: 'Notitie bij dit item…',
+                        defaultValue: noteVal,
+                        onBlur: ev => saveItemNote(ev.target.value),
+                        style: { marginTop: 2, width: '100%', boxSizing: 'border-box', fontSize: 11.5, color: 'var(--text)', background: 'transparent', border: 'none', outline: 'none', resize: 'vertical', minHeight: 44, fontFamily: 'inherit', padding: 0, lineHeight: 1.5 }
+                      })) : null);
                 }))))
         ) : null);
 

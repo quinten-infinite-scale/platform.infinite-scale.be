@@ -743,22 +743,23 @@ const ScreenAdmin = {
   _admInvoices(d, s) {
     const e = React.createElement;
     const now = new Date();
+    const toggleSfInvoiced = async (ct, newVal) => {
+      this.mutLocal(dd => { const c = dd.contracts.find(x => x.id === ct.id); if (c) c.setup_fee_invoiced = newVal; });
+      const ok = await API.updateContract(ct.id, { setup_fee_invoiced: newVal });
+      if (ok) this.toast(newVal ? 'Gefactureerd' : 'Teruggedraaid', (newVal ? 'Opstartkost ' + ct.party + ' gefactureerd' : ct.party + ' teruggedraaid'), newVal ? 'var(--up)' : 'var(--warn)');
+      else { this.mutLocal(dd => { const c = dd.contracts.find(x => x.id === ct.id); if (c) c.setup_fee_invoiced = !newVal; }); this.toast('Fout', 'Opslaan mislukt', 'var(--down)'); }
+    };
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
       (() => {
-        // Opstartkosten: contracts with setup_fee > 0
-        const sfContracts = (d.contracts || []).filter(c => c.setup_fee > 0);
+        // Opstartkosten: only signed contracts with setup_fee > 0
+        const sfContracts = (d.contracts || []).filter(c => c.setup_fee > 0 && c.status === 'signed');
         if (!sfContracts.length) return null;
         const sfOpen = s.sfInvOpen !== false;
         const pending = sfContracts.filter(c => !c.setup_fee_invoiced);
         const invoiced = sfContracts.filter(c => c.setup_fee_invoiced);
         const pendingTotal = pending.reduce((s2, c) => s2 + (c.setup_fee || 0), 0);
-        const markSfInvoiced = async (ct) => {
-          this.mutLocal(dd => { const c = dd.contracts.find(x => x.id === ct.id); if (c) c.setup_fee_invoiced = true; });
-          const ok = await API.updateContract(ct.id, { setup_fee_invoiced: true });
-          if (ok) this.toast('Gefactureerd', 'Opstartkost ' + ct.party + ' gemarkeerd als gefactureerd', 'var(--up)');
-          else { this.mutLocal(dd => { const c = dd.contracts.find(x => x.id === ct.id); if (c) c.setup_fee_invoiced = false; }); this.toast('Fout', 'Opslaan mislukt', 'var(--down)'); }
-        };
-        const sfRow = (ct, i, arr) => {
+        // uses shared toggleSfInvoiced from outer scope
+        const sfRow = (ct, i) => {
           const linkedCl = ct.linked_client_id ? d.clients.find(c => c.id === ct.linked_client_id) : d.clients.find(c => c.email && c.email.toLowerCase() === (ct.email || '').toLowerCase());
           const dateStr = ct.signed_at ? new Date(ct.signed_at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : ct.sent ? new Date(ct.sent).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
           return e('div', { key: ct.id, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderTop: i > 0 ? '1px solid var(--border-soft)' : 'none', gap: 12, flexWrap: 'wrap' } },
@@ -767,12 +768,12 @@ const ScreenAdmin = {
                 e('span', { style: { fontWeight: 700, fontSize: 13.5, color: ct.setup_fee_invoiced ? 'var(--text-mute)' : 'var(--text)' } }, ct.party),
                 linkedCl ? e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'oklch(0.20 0.10 194 / .3)', padding: '1px 7px', borderRadius: 12 } }, linkedCl.name) : null,
                 e('span', { style: { fontSize: 11, color: 'var(--text-mute)', fontFamily: "'JetBrains Mono'" } }, ct.type || 'Contract')),
-              e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, dateStr + (ct.status === 'signed' ? ' · Getekend' : ' · ' + ct.status))),
+              e('div', { style: { fontSize: 11.5, color: 'var(--text-mute)' } }, dateStr + ' · Getekend')),
             e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 } },
               e('span', { style: { fontWeight: 800, fontSize: 14, fontFamily: "'JetBrains Mono'", color: ct.setup_fee_invoiced ? 'var(--text-mute)' : 'var(--info)' } }, '€' + ct.setup_fee),
               ct.setup_fee_invoiced
-                ? UI.Pill('Gefactureerd', 'var(--up)', 'oklch(0.28 0.06 152 / .4)')
-                : UI.Btn('Markeer als gefactureerd', () => markSfInvoiced(ct), 'primary', { padding: '5px 12px', fontSize: 12 })));
+                ? UI.Btn('✓ Gefactureerd', () => toggleSfInvoiced(ct, false), 'ghost', { padding: '5px 12px', fontSize: 12, color: 'var(--up)', border: '1px solid var(--up)', opacity: 0.8 })
+                : UI.Btn('Markeer als gefactureerd', () => toggleSfInvoiced(ct, true), 'primary', { padding: '5px 12px', fontSize: 12 })));
         };
         return UI.C({ border: pending.length > 0 ? '1px solid var(--warn)' : undefined },
           e('div', { onClick: () => this.setState(st => ({ sfInvOpen: !sfOpen })), style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: sfOpen ? 12 : 0, cursor: 'pointer', userSelect: 'none' } },
@@ -843,7 +844,7 @@ const ScreenAdmin = {
                   const mOpen = !!clInvMonthExp[ym];
                   const toggleM = () => this.setState(st => ({ clInvMonthExp: { ...(st.clInvMonthExp || {}), [ym]: !mOpen } }));
                   const clientIds = [...new Set(monthAppts.map(a => a.client))];
-                  const _apptRateAdm = (r) => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(_) {} if (r.amount === 0) return 0; if (r.client === 'c15') return rnAgentPay(r) ?? 0; const cl3 = d.clients.find(c => c.id === r.client); if (!cl3) return 0; if (r.sub && cl3.subclients) { const sc3 = cl3.subclients.find(sc => sc.id === r.sub || sc.name === r.sub); if (sc3 && sc3.rate != null) return sc3.rate; } return cl3.rate || 0; };
+                  const _apptRateAdm = (r) => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; } } catch(_) {} if (r.amount === 0 && r.status === 'show') return 0; if (r.client === 'c1788184924450' && (r.dateAppt || r.dateLog || '') < '2026-10') return 0; if (r.client === 'c15') return rnAgentPay(r) ?? 0; const cl3 = d.clients.find(c => c.id === r.client); if (!cl3) return 0; const cfgRate3 = (() => { if (r.sub && cl3.subclients) { const sc3 = cl3.subclients.find(sc => sc.id === r.sub || sc.name === r.sub); if (sc3 && sc3.rate != null) return sc3.rate; } return cl3.rate || 0; })(); if (r.amount > 0 && r.amount !== cfgRate3) return r.amount; return cfgRate3; };
                   const monthShowsTotal = monthAppts.filter(a => a.status === 'show').reduce((s3, r) => s3 + _apptRateAdm(r), 0);
                   const openPending = pending.filter(a => a.status !== 'show');
                   const pendingOmzet = openPending.reduce((s3, r) => s3 + _apptRateAdm(r), 0);
@@ -861,6 +862,33 @@ const ScreenAdmin = {
                           : null),
                       e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: mOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›')),
                     mOpen ? e('div', { style: { background: 'var(--bg-2)', borderTop: '1px solid var(--border-soft)' } },
+                      (() => {
+                        const monthSfContracts = (d.contracts || []).filter(ct => ct.setup_fee > 0 && ct.status === 'signed' && ct.signed_at && ct.signed_at.startsWith(ym));
+                        if (!monthSfContracts.length) return null;
+                        const sfExpKey = 'sf-' + ym;
+                        const sfSectionOpen = s.clInvMonthExp && s.clInvMonthExp[sfExpKey] !== false;
+                        return e('div', { style: { borderBottom: '1px solid var(--border-soft)' } },
+                          e('div', { onClick: () => this.setState(st => ({ clInvMonthExp: { ...(st.clInvMonthExp || {}), [sfExpKey]: !(sfSectionOpen) } })), style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', cursor: 'pointer', background: 'oklch(0.18 0.07 60 / .2)' } },
+                            e('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+                              e('span', { style: { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--warn)', fontFamily: "'JetBrains Mono'" } }, 'Opstartkosten'),
+                              e('span', { style: { fontSize: 11.5, fontWeight: 700, color: monthSfContracts.some(c => !c.setup_fee_invoiced) ? 'var(--warn)' : 'var(--up)', background: monthSfContracts.some(c => !c.setup_fee_invoiced) ? 'oklch(0.22 0.05 85 / .35)' : 'oklch(0.22 0.08 152 / .35)', padding: '1px 8px', borderRadius: 20 } },
+                                monthSfContracts.some(c => !c.setup_fee_invoiced) ? monthSfContracts.filter(c => !c.setup_fee_invoiced).length + ' openstaand · €' + monthSfContracts.filter(c => !c.setup_fee_invoiced).reduce((s2, c) => s2 + c.setup_fee, 0) : '✓ Alles gefactureerd')),
+                            e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: sfSectionOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›')),
+                          sfSectionOpen ? e('div', null,
+                            ...monthSfContracts.map((ct, ci) => {
+                              const linkedCl = ct.linked_client_id ? d.clients.find(c => c.id === ct.linked_client_id) : d.clients.find(c => c.email && c.email.toLowerCase() === (ct.email || '').toLowerCase());
+                              return e('div', { key: ct.id, style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 20px 9px 28px', borderTop: '1px solid var(--border-soft)', gap: 10, flexWrap: 'wrap' } },
+                                e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 } },
+                                  e('span', { style: { fontSize: 12, fontWeight: 700, color: ct.setup_fee_invoiced ? 'var(--text-mute)' : 'var(--text)' } }, ct.party),
+                                  linkedCl ? e('span', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--accent)', background: 'oklch(0.20 0.10 194 / .3)', padding: '1px 7px', borderRadius: 12 } }, linkedCl.name) : null,
+                                  e('span', { style: { fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'oklch(0.20 0.08 60 / .3)', padding: '1px 7px', borderRadius: 12, border: '1px solid oklch(0.35 0.10 60 / .5)' } }, 'Opstartkost')),
+                                e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 } },
+                                  e('span', { style: { fontWeight: 800, fontSize: 13, fontFamily: "'JetBrains Mono'", color: ct.setup_fee_invoiced ? 'var(--text-mute)' : 'var(--info)' } }, '€' + ct.setup_fee),
+                                  ct.setup_fee_invoiced
+                                    ? UI.Btn('✓ Gefactureerd', () => toggleSfInvoiced(ct, false), 'ghost', { padding: '4px 10px', fontSize: 11, color: 'var(--up)', border: '1px solid var(--up)', opacity: 0.8 })
+                                    : UI.Btn('Markeer als gefactureerd', () => toggleSfInvoiced(ct, true), 'primary', { padding: '4px 10px', fontSize: 11 })));
+                            })) : null);
+                      })(),
                       ...clientIds.map((clientId, ci) => {
                         const cl = d.clients.find(c => c.id === clientId);
                         if (!cl) return null;
@@ -868,7 +896,7 @@ const ScreenAdmin = {
                         const clBillable = clAppts.filter(a => a.status !== 'cancel' && a.status !== 'no_show');
                         const clPending = clBillable.filter(a => !a.invoiced);
                         const clIsInvoiced = clPending.length === 0 && clBillable.length > 0;
-                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch {} if (r.amount === 0) return 0; if (r.client === 'c15') return rnAgentPay(r) ?? 0; if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; };
+                        const apptRate = r => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch {} if (r.amount === 0 && r.status === 'show') return 0; if (r.client === 'c1788184924450' && (r.dateAppt || r.dateLog || '') < '2026-10') return 0; if (r.client === 'c15') return rnAgentPay(r) ?? 0; const cfgRate = (() => { if (r.sub && cl.subclients) { const sc = cl.subclients.find(s => s.id === r.sub || s.name === r.sub); if (sc && sc.rate != null) return sc.rate; } return cl.rate || 0; })(); if (r.amount > 0 && r.amount !== cfgRate) return r.amount; return cfgRate; };
                         const clTotal = clBillable.reduce((s2, r) => s2 + apptRate(r), 0);
                         const clPendingTotal = clPending.reduce((s2, r) => s2 + apptRate(r), 0);
                         const openCount = clPending.filter(a => a.status === 'open').length;
@@ -881,7 +909,7 @@ const ScreenAdmin = {
                             e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
                               e('span', { style: { fontWeight: 600, fontSize: 13.5, color: clIsInvoiced ? 'var(--text-mute)' : 'var(--text)' } }, cl.name),
                               e('span', { style: { fontSize: 12, color: 'var(--text-mute)' } }, clBillable.length + ' afspraken · ' + this.euro(clIsInvoiced ? clTotal : clPendingTotal)),
-                              (() => { try { const refs = JSON.parse(localStorage.getItem('inv_refs_' + cl.id) || '{}'); return refs[ym] ? e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'oklch(0.20 0.10 194 / .3)', padding: '2px 8px', borderRadius: 20, fontFamily: "'JetBrains Mono'" } }, refs[ym]) : null; } catch(ex) { return null; } })(),
+                              (cl.inv_refs && cl.inv_refs[ym]) ? e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'oklch(0.20 0.10 194 / .3)', padding: '2px 8px', borderRadius: 20, fontFamily: "'JetBrains Mono'" } }, cl.inv_refs[ym]) : null,
                               (cl.billing_confirmed || {})[ym] ? e('span', { title: 'Overzicht verstuurd op ' + new Date((cl.billing_confirmed || {})[ym]).toLocaleString('nl-BE'), style: { fontSize: 11, fontWeight: 700, color: 'var(--up)', background: 'oklch(0.22 0.08 152 / .35)', padding: '2px 8px', borderRadius: 20, cursor: 'default' } }, '✓ Overzicht verstuurd') : null),
                             e('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                               clBillable.length === 0
@@ -892,12 +920,11 @@ const ScreenAdmin = {
                               e('span', { style: { fontSize: 18, color: 'var(--text-mute)', transform: cExp ? 'rotate(90deg)' : 'none', transition: 'transform .2s', display: 'inline-block' } }, '›'))),
                           cExp ? e('div', { style: { paddingBottom: 12 } },
                             (() => {
-                              const _invKey = 'inv_refs_' + cl.id;
-                              const _invRefs = (() => { try { const v = localStorage.getItem(_invKey); return v ? JSON.parse(v) : {}; } catch(ex) { return {}; } })();
-                              const _saveInvRef = (val) => { try { const upd = { ..._invRefs, [ym]: val }; localStorage.setItem(_invKey, JSON.stringify(upd)); this.forceUpdate && this.forceUpdate(); } catch(ex) {} };
+                              const _curInvRef = (cl.inv_refs && cl.inv_refs[ym]) || '';
+                              const _saveInvRef = async (val) => { try { await API.setClientInvRef(cl.id, ym, val); await this.reload(); } catch(ex) {} };
                               return e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 20px 6px' } },
                                 e('span', { style: { fontSize: 12, color: 'var(--text-mute)', fontWeight: 600, minWidth: 110 } }, 'Factuurnummer:'),
-                                e('input', { type: 'text', placeholder: 'bv. 2024-001', defaultValue: _invRefs[ym] || '', onBlur: ev => _saveInvRef(ev.target.value), onClick: ev => ev.stopPropagation(), style: { padding: '5px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 12.5, outline: 'none', width: 170 } }));
+                                e('input', { type: 'text', placeholder: 'bv. 2024-001', defaultValue: _curInvRef, onBlur: ev => { if (ev.target.value !== _curInvRef) _saveInvRef(ev.target.value); }, onClick: ev => ev.stopPropagation(), style: { padding: '5px 10px', borderRadius: 8, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 12.5, outline: 'none', width: 170 } }));
                             })(),
                             UI.Table([
                               { label: 'Afspraak', render: r => UI.Mono(this.fmtDate(r.dateAppt), { fontSize: 12 }) },
@@ -2119,14 +2146,16 @@ const ScreenAdmin = {
             })(),
             e('button', {
               onClick: () => {
-                const rows = [['Appt Date', 'Logged', 'Lead', 'Phone', 'Agent', 'Client', 'Subclient', 'Status', 'Client Rate', 'Agent Rate']];
+                const rows = [['Appt Date', 'Logged', 'Lead', 'Phone', 'Agent', 'Client', 'Subclient', 'Status', 'Client Rate', 'Agent Rate', 'Agent Notes', 'Client Notes']];
                 list.forEach(r => {
                   const cl = d.clients.find(c => c.id === r.client);
                   const sub = r.sub ? (cl?.subclients || []).find(s => s.id === r.sub || s.name === r.sub) : null;
                   const ag = d.agents.find(a => a.id === r.agent);
                   const clientRate = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (fb && fb._rn) { if (fb.category && RN_CAT_CLIENT_RATE[fb.category] != null) return RN_CAT_CLIENT_RATE[fb.category]; if (fb.revenue != null) return fb.revenue; const cp = rnAgentPay(r); if (cp != null) return cp; return 0; } } catch {} if (r.client === 'c15') return rnAgentPay(r) ?? 0; return (sub ? sub.rate : 0) || (cl ? cl.rate : 0) || 0; })();
                   const agentRate = r.agentRate != null ? r.agentRate : (r.client === 'c15' ? (rnAgentPay(r) ?? 0) : (ag && ag.rates ? ((ag.rates[r.sub] || ag.rates[r.client]) || 0) : 0));
-                  rows.push([r.dateAppt || '', r.dateLog || '', r.lead || '', r.phone || '', ag ? ag.name : '', cl ? cl.name : '', sub ? sub.name : '', r.status || '', clientRate, agentRate]);
+                  const agentNotes = parseNotes(r.adminNotes).cf || '';
+                  const clientNotes = (() => { try { const fb = r.clientFeedback ? JSON.parse(r.clientFeedback) : null; if (!fb) return r.clientFeedback || ''; if (fb._rn) return ''; return typeof fb === 'object' ? (fb.note || fb.notes || fb.comment || '') : String(fb); } catch { return r.clientFeedback || ''; } })();
+                  rows.push([r.dateAppt || '', r.dateLog || '', r.lead || '', r.phone || '', ag ? ag.name : '', cl ? cl.name : '', sub ? sub.name : '', r.status || '', clientRate, agentRate, agentNotes, clientNotes]);
                 });
                 const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
                 const a = document.createElement('a');
@@ -3069,6 +3098,18 @@ const ScreenAdmin = {
             const needsAgent = !hasAgent && sg.id === 'agent_matching';
             const cardBorder = hasAgent ? '1.5px solid var(--up)' : needsAgent ? '1.5px solid var(--down)' : '1px solid var(--border-soft)';
             const timelineSubclient = (c.subclients || []).find(sc => sc.timeline_selected);
+            const TL_ITEMS = ['lead_bron','power_dialer','belscript','productkennis','agenda','agent_gematcht','briefing_gedaan','klant_toegewezen','manager_luistert','whatsapp_groep'];
+            const chkRaw = c.timelineChecklist; const chk = chkRaw && typeof chkRaw === 'string' ? (()=>{try{return JSON.parse(chkRaw);}catch{return{};}})() : (chkRaw || {});
+            const doneCount = TL_ITEMS.filter(k => chk[k]).length;
+            const totalCount = TL_ITEMS.length;
+            const pct = Math.round((doneCount / totalCount) * 100);
+            const progressColor = pct >= 80 ? 'var(--up)' : pct >= 40 ? 'var(--warn)' : 'var(--info)';
+            const hasNote = !!(c.timelineNotes && c.timelineNotes.trim());
+            const noteOpen = !!(s['tlNoteOpen_' + c.id]);
+            const saveNote = async (val) => {
+              this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) cl.timelineNotes = val; });
+              await API.updateClient(c.id, { timeline_notes: val });
+            };
             return e('div', {
               key: c.id,
               draggable: true,
@@ -3080,12 +3121,34 @@ const ScreenAdmin = {
                 e('div', null,
                   e('div', { style: { fontWeight: 700, fontSize: 13, color: 'var(--text)' } }, c.name),
                   timelineSubclient ? e('div', { style: { fontSize: 11, color: 'var(--accent)', fontWeight: 600, marginTop: 1 } }, '↳ ' + timelineSubclient.name) : null),
-                e('button', { onClick: ev => { ev.stopPropagation(); if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timeline_stage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); } }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, padding: '0 0 0 4px', lineHeight: 1 } }, '×')),
+                e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                  e('span', { title: `${doneCount}/${totalCount} checklist items gedaan`, style: { fontSize: 10.5, fontWeight: 700, color: progressColor, background: `oklch(from ${progressColor === 'var(--up)' ? '#22c55e' : progressColor === 'var(--warn)' ? '#f59e0b' : '#38bdf8'} l c h / .15)`, borderRadius: 5, padding: '1px 5px', cursor: 'default' } }, `${doneCount}/${totalCount} ✓`),
+                  e('button', { onClick: ev => { ev.stopPropagation(); if (confirm('Project van timeline verwijderen?')) { API.updateClient(c.id, { kickoff: null, timeline_stage: null }); this.mutLocal(dd => { const cl = dd.clients.find(x => x.id === c.id); if (cl) { cl.kickoff = null; cl.timelineStage = null; } }); } }, style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mute)', fontSize: 14, padding: '0 0 0 4px', lineHeight: 1 } }, '×'))),
               koDate ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginBottom: 3 } }, '📅 Kickoff: ' + this.fmtFull(koDate)) : null,
               c.agentStartDate ? e('div', { style: { fontSize: 11, color: 'var(--up)', marginBottom: 3, fontWeight: 600 } }, '🚀 Start agent: ' + this.fmtFull(c.agentStartDate)) : null,
               linkedName ? e('div', { style: { fontSize: 11.5, color: isLinkedToAgent ? 'var(--up)' : 'var(--accent)', fontWeight: 600, marginBottom: 3 } }, '→ ' + linkedName + (isLinkedToAgent ? '' : ' (recruit)')) : e('div', { style: { fontSize: 11, color: 'var(--warn)', marginBottom: 3 } }, '⚠ Geen agent'),
               daysSinceKo !== null ? e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, `Dag ${daysSinceKo}`) : null,
-              c.needsLeadlist ? e('div', { style: { marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'oklch(0.20 0.06 60 / .25)', border: '1px solid var(--warn)', borderRadius: 5, padding: '2px 6px' } }, '📋 Leadlist') : null);
+              c.needsLeadlist ? e('div', { style: { marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'oklch(0.20 0.06 60 / .25)', border: '1px solid var(--warn)', borderRadius: 5, padding: '2px 6px' } }, '📋 Leadlist') : null,
+              e('div', { style: { marginTop: 6 } },
+                e('button', {
+                  onClick: ev => { ev.stopPropagation(); this.setState({ ['tlNoteOpen_' + c.id]: !noteOpen }); },
+                  onDragStart: ev => ev.stopPropagation(),
+                  style: { display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', fontSize: 10.5, color: hasNote ? 'var(--accent)' : 'var(--text-mute)', position: 'relative' }
+                },
+                  e('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flexShrink: 0 } },
+                    e('path', { d: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' }),
+                    e('path', { d: 'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' })),
+                  hasNote ? e('span', { style: { width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' } }) : null,
+                  e('span', null, noteOpen ? '▲' : '▼'),
+                  e('span', null, ' Notitie')),
+                noteOpen ? e('textarea', {
+                  placeholder: 'Notities…',
+                  defaultValue: c.timelineNotes || '',
+                  onClick: ev => ev.stopPropagation(),
+                  onDragStart: ev => ev.stopPropagation(),
+                  onBlur: ev => { const val = ev.target.value; if (val !== (c.timelineNotes || '')) saveNote(val); },
+                  style: { marginTop: 4, width: '100%', boxSizing: 'border-box', fontSize: 11, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--border-soft)', borderRadius: 5, padding: '4px 6px', resize: 'vertical', minHeight: 48, fontFamily: 'inherit', cursor: 'text' }
+                }) : null));
           })
         );
       }));
