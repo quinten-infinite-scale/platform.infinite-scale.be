@@ -433,7 +433,9 @@ class Component extends DCLogic {
       // Update presence data
       if (rawPresence) this.mutLocal(dd => { dd.presence = rawPresence; });
 
-      // Detect agent working-status changes
+      // Detect agent working-status changes (debounced: 1 notif per agent+state per 60s)
+      if (!this._lastStatusNotif) this._lastStatusNotif = {};
+      const _sNow = Date.now();
       for (const rec of (rawAgents || [])) {
         const cur = d.agents.find(a => a.id === rec.id);
         if (cur && cur.working !== rec.working) {
@@ -441,8 +443,12 @@ class Component extends DCLogic {
             const a = dd.agents.find(x => x.id === rec.id);
             if (a) { a.working = rec.working; a.workSince = rec.work_since || null; }
           });
-          this._pushAdminNotif(`${cur.name} is now ${rec.working ? 'online' : 'offline'}`);
-          this.toast(cur.name, rec.working ? 'Now online' : 'Now offline', rec.working ? 'var(--up)' : 'var(--text-mute)');
+          const _sKey = `${rec.id}_${rec.working}`;
+          if ((_sNow - (this._lastStatusNotif[_sKey] || 0)) > 60000) {
+            this._lastStatusNotif[_sKey] = _sNow;
+            this._pushAdminNotif(`${cur.name} is now ${rec.working ? 'online' : 'offline'}`);
+            this.toast(cur.name, rec.working ? 'Now online' : 'Now offline', rec.working ? 'var(--up)' : 'var(--text-mute)');
+          }
         }
       }
 
