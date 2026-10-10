@@ -82,10 +82,10 @@ class Component extends DCLogic {
       try {
         const cached = JSON.parse(localStorage.getItem('is_cache_' + uid) || 'null');
         _dbg('cached=' + (cached ? 'HIT role=' + cached.role : 'MISS'));
-        if (cached && cached.data && cached.role) {
+        if (cached && cached.data && cached.role && !(cached.role === 'subclient' && !cached.subClientId)) {
           this.myAgentId = cached.agentId;
           this.myClientId = cached.clientId;
-          if (cached.role === 'subclient') { this.scClientId = cached.clientId; this.scSubId = cached.subClientId || null; }
+          if (cached.role === 'subclient') { this.scClientId = cached.clientId; this.scSubId = cached.subClientId; }
           const { invApproved, invoiceStatus } = this._deriveInvState(cached.data);
           this.setState({ role: cached.role, loading: false, data: cached.data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved, invoiceStatus, clientAccounts: cached.clientAccounts || [] });
           this._updatePresence('dashboard');
