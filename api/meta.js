@@ -229,7 +229,7 @@ async function processLead(entry) {
     headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: 'Infinite Scale Platform <noreply@infinite-scale.be>',
-      to: ['quinten@infinite-scale.be'],
+      to: ['quinten@infinite-scale.be', 'senne.db@infinite-scale.be'],
       subject: `🎯 Nieuwe Meta Ads lead: ${leadName}${leadCo}`,
       html: `<p><strong>Nieuwe lead via Meta Ads</strong></p>
 <p>👤 ${leadName}${leadCo}${phone}${email}</p>
