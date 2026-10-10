@@ -2540,6 +2540,82 @@ const ScreenAdmin = {
       };
 
       // Render tab content
+      // File upload section (shared across all tabs)
+      const renderFileSection = (tab) => {
+        const files = Array.isArray((res.files || {})[tab]) ? res.files[tab] : [];
+        const uploadKey = '_resUpload_' + tab;
+        const isUploading = s[uploadKey];
+
+        const handleUpload = async (ev) => {
+          const file = ev.target.files && ev.target.files[0];
+          if (!file) return;
+          ev.target.value = '';
+          this.setState({ [uploadKey]: true });
+          try {
+            const path = `${activeCl.id}/${tab}/${Date.now()}_${file.name}`;
+            const result = await SB.uploadFile('client-resources', path, file);
+            if (!result) { this.toast('Fout', 'Upload mislukt', 'var(--down)'); return; }
+            const publicUrl = SB.getPublicUrl('client-resources', path);
+            const existing = (s._resByClient || {})[activeCl.id] || {};
+            const existingFiles = (existing.files || {});
+            const tabFiles = Array.isArray(existingFiles[tab]) ? existingFiles[tab] : [];
+            const newEntry = { name: file.name, url: publicUrl, path, size: file.size, type: file.type, uploaded: new Date().toISOString().slice(0, 10) };
+            const merged = { ...existing, files: { ...existingFiles, [tab]: [...tabFiles, newEntry] } };
+            const row = { key: 'client_res_' + activeCl.id, value: JSON.stringify(merged) };
+            await SB.upsert('platform_settings', 'key', row);
+            this.setState(st => ({ _resByClient: { ...(st._resByClient || {}), [activeCl.id]: merged } }));
+            this.toast('Geüpload', file.name, 'var(--up)');
+          } finally { this.setState({ [uploadKey]: false }); }
+        };
+
+        const removeFile = async (idx) => {
+          const existing = (s._resByClient || {})[activeCl.id] || {};
+          const existingFiles = existing.files || {};
+          const tabFiles = Array.isArray(existingFiles[tab]) ? existingFiles[tab] : [];
+          const merged = { ...existing, files: { ...existingFiles, [tab]: tabFiles.filter((_, i) => i !== idx) } };
+          const row = { key: 'client_res_' + activeCl.id, value: JSON.stringify(merged) };
+          await SB.upsert('platform_settings', 'key', row);
+          this.setState(st => ({ _resByClient: { ...(st._resByClient || {}), [activeCl.id]: merged } }));
+          this.toast('Verwijderd', 'Bestand verwijderd', 'var(--up)');
+        };
+
+        const getFileIcon = (type) => {
+          if (!type) return '📄';
+          if (type.includes('pdf')) return '📕';
+          if (type.includes('word') || type.includes('docx') || type.includes('document')) return '📝';
+          if (type.includes('pptx') || type.includes('presentation') || type.includes('powerpoint')) return '📊';
+          if (type.includes('excel') || type.includes('spreadsheet') || type.includes('xlsx')) return '📗';
+          if (type.includes('image')) return '🖼️';
+          return '📄';
+        };
+
+        const formatSize = (bytes) => {
+          if (!bytes) return '';
+          if (bytes < 1024) return bytes + ' B';
+          if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+          return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        };
+
+        return e('div', { style: { marginTop: 20, borderTop: '1px solid var(--border-soft)', paddingTop: 16 } },
+          e('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 } },
+            e('span', { style: { fontSize: 12, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.06em' } }, '📎 Bestanden'),
+            e('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', cursor: isUploading ? 'wait' : 'pointer', fontSize: 12, fontWeight: 600 } },
+              e('input', { type: 'file', accept: '.pdf,.pptx,.ppt,.docx,.doc,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.gif,.zip', style: { display: 'none' }, onChange: handleUpload, disabled: isUploading }),
+              isUploading ? '⏳ Uploaden...' : '+ Bestand uploaden'
+            )
+          ),
+          files.length ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+            files.map((f, i) => e('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 8, border: '1px solid var(--border-soft)' } },
+              e('span', { style: { fontSize: 18, flexShrink: 0 } }, getFileIcon(f.type)),
+              e('a', { href: f.url, target: '_blank', rel: 'noopener', style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, f.name),
+              e('span', { style: { fontSize: 11, color: 'var(--text-mute)', flexShrink: 0 } }, formatSize(f.size)),
+              e('span', { style: { fontSize: 11, color: 'var(--text-mute)', flexShrink: 0 } }, f.uploaded || ''),
+              e('button', { onClick: () => removeFile(i), style: { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', fontSize: 13, padding: '2px 4px', flexShrink: 0 } }, '✕')
+            ))
+          ) : e('div', { style: { color: 'var(--text-mute)', fontSize: 12, fontStyle: 'italic' } }, 'Geen bestanden geüpload.')
+        );
+      };
+
       const renderContent = (tab) => {
         const isEditing = resEditTab === tab;
         const val = getVal(tab);
@@ -2562,16 +2638,18 @@ const ScreenAdmin = {
             return e('div', null,
               visBar,
               UI.C({},
-                e('textarea', { value: draft[key] !== undefined ? draft[key] : val, onChange: ev => this.setState({ resDraft: { ...draft, [key]: ev.target.value } }), style: { width: '100%', minHeight: 280, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: tab === 'script' ? 'Manrope,sans-serif' : 'Manrope,sans-serif', lineHeight: 1.6, resize: 'vertical', outline: 'none' } }),
+                e('textarea', { value: draft[key] !== undefined ? draft[key] : val, onChange: ev => this.setState({ resDraft: { ...draft, [key]: ev.target.value } }), style: { width: '100%', minHeight: 280, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, fontFamily: 'Manrope,sans-serif', lineHeight: 1.6, resize: 'vertical', outline: 'none' } }),
                 UI.Row({ gap: 8, marginTop: 12 },
                   UI.Btn('Opslaan', () => saveRes({ [key]: draft[key] !== undefined ? draft[key] : val }), 'primary'),
-                  UI.Btn('Annuleren', () => this.setState({ resEditTab: null, resDraft: null }), 'soft'))));
+                  UI.Btn('Annuleren', () => this.setState({ resEditTab: null, resDraft: null }), 'soft'))),
+              renderFileSection(tab));
           }
           return e('div', null, visBar,
             UI.C({ position: 'relative' },
               val ? e('div', { style: { whiteSpace: 'pre-line', fontSize: 13.5, lineHeight: 1.7, color: 'var(--text)' } }, val)
                   : e('div', { style: { color: 'var(--text-mute)', fontStyle: 'italic', fontSize: 13 } }, tab === 'script' ? 'Nog geen belscript ingevuld.' : 'Nog geen productkennis ingevuld.'),
-              e('div', { style: { position: 'absolute', top: 0, right: 0 } }, UI.Btn('✏️ Bewerken', () => this.setState({ resEditTab: tab, resDraft: { [key]: val } }), 'soft'))));
+              e('div', { style: { position: 'absolute', top: 0, right: 0 } }, UI.Btn('✏️ Bewerken', () => this.setState({ resEditTab: tab, resDraft: { [key]: val } }), 'soft')),
+              renderFileSection(tab)));
         }
 
         if (tab === 'login') {
@@ -2595,7 +2673,8 @@ const ScreenAdmin = {
                 const next = [...logins, { ...newLogin }];
                 this.setState({ resDraft: null });
                 await saveRes({ logins: next });
-              }, 'soft', { marginTop: 10 })));
+              }, 'soft', { marginTop: 10 }),
+              renderFileSection(tab)));
         }
 
         if (tab === 'leads') {
@@ -2620,7 +2699,8 @@ const ScreenAdmin = {
                   const next = [...leads, { name: newLead.name, leads: parseInt(newLead.leads) || 0, datum: newLead.datum || new Date().toISOString().slice(0, 10), status: 'Actief' }];
                   this.setState({ resDraft: null });
                   await saveRes({ leadlijsten: next });
-                }, 'primary', { alignSelf: 'center' }))));
+                }, 'primary', { alignSelf: 'center' })),
+              renderFileSection(tab)));
         }
 
         if (tab === 'canvas') {
@@ -2644,7 +2724,8 @@ const ScreenAdmin = {
                 const next = [...canvases, { icon: newCanvas.icon || '📄', name: newCanvas.name, meta: newCanvas.meta, url: newCanvas.url }];
                 this.setState({ resDraft: null });
                 await saveRes({ canvases: next });
-              }, 'soft', { marginTop: 10 })));
+              }, 'soft', { marginTop: 10 }),
+              renderFileSection(tab)));
         }
 
         return null;

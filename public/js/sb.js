@@ -169,5 +169,21 @@ const SB = (() => {
 
   async function ensureSession() { await _refreshIfNeeded(); return _session; }
 
-  return { signIn, signOut, loadSession, getSession, ensureSession, get, post, patch, del, rpc, upsert, updateAuth };
+  async function uploadFile(bucket, path, file) {
+    await _refreshIfNeeded();
+    const tok = _session?.access_token || key;
+    const r = await fetch(`${url}/storage/v1/object/${bucket}/${path}`, {
+      method: 'POST',
+      headers: { 'apikey': key, 'Authorization': `Bearer ${tok}`, 'x-upsert': 'true' },
+      body: file,
+    });
+    if (!r.ok) { const t = await r.text().catch(() => ''); console.error('uploadFile error:', r.status, t); return null; }
+    return r.json();
+  }
+
+  function getPublicUrl(bucket, path) {
+    return `${url}/storage/v1/object/public/${bucket}/${path}`;
+  }
+
+  return { signIn, signOut, loadSession, getSession, ensureSession, get, post, patch, del, rpc, upsert, updateAuth, uploadFile, getPublicUrl };
 })();

@@ -100,9 +100,15 @@ const UI = {
       soft: { background: 'transparent', color: 'var(--text-dim)', border: '1px solid var(--border)' },
       danger: { background: 'transparent', color: 'var(--down)', border: '1px solid oklch(0.45 0.12 25)' },
     };
+    const [pressed, setPressed] = React.useState(false);
     return React.createElement('button', {
       onClick,
-      style: Object.assign({ padding: '9px 16px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Manrope'" }, styles[kind || 'primary'], extra || {})
+      onMouseDown: () => setPressed(true),
+      onMouseUp: () => setPressed(false),
+      onMouseLeave: () => setPressed(false),
+      onTouchStart: () => setPressed(true),
+      onTouchEnd: () => setPressed(false),
+      style: Object.assign({ padding: '9px 16px', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Manrope'", transition: 'transform .08s, opacity .08s', transform: pressed ? 'scale(0.94)' : 'scale(1)', opacity: pressed ? 0.82 : 1 }, styles[kind || 'primary'], extra || {})
     }, label);
   },
   Field(label, child) {

@@ -357,12 +357,12 @@ class Component extends DCLogic {
         SB.get('presence', '').catch(() => []),
         SB.get('recruits', `?created_at=gt.${since}&order=created_at.desc`),
         doFullRefresh
-          ? SB.get('appointments', `?date_logged=like.${ym2}%&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`)
+          ? SB.get('appointments', `?date_logged=gte.${ym2}-01&date_logged=lt.${(() => { const d = new Date(ym2 + '-01'); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 7); })()}-01&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`)
           : Promise.resolve(null),
       ]);
 
-      if (doFullRefresh && rawMtdAppts) {
-        this._lastFullApptRefresh = now2;
+      if (doFullRefresh) this._lastFullApptRefresh = now2;
+      if (doFullRefresh && Array.isArray(rawMtdAppts) && rawMtdAppts.length > 0) {
         // Merge: replace any MTD appointment that changed, keep history outside MTD untouched
         this.mutLocal(dd => {
           const incoming = (rawMtdAppts || []).map(rec => ({
