@@ -5710,7 +5710,7 @@ const ScreenAdmin = {
             e('button', { onClick: () => addTodoFor(col), style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: isMe ? 'var(--accent)' : 'var(--info)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Add'),
             otherUser ? e('button', { onClick: () => addTodoFor(col, otherUser.id), title: 'Voeg toe voor ' + user.label + ' én ' + otherUser.label, style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: 'linear-gradient(90deg, ' + (isMe ? 'var(--accent)' : 'var(--info)') + ', var(--warn))', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Beiden') : null,
             e('button', { onClick: () => this.setState({ [addOpenKey]: false, ['todosAddTitle_' + col]: '', ['todosAddFiles_' + col]: [] }), style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Cancel'));
-        })())) : null;
+        })()) : null;
 
       const accentColor = isMe ? 'var(--accent)' : 'var(--info)';
       return e('div', { key: col, style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 } },

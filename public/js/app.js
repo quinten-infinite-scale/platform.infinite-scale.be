@@ -353,12 +353,12 @@ class Component extends DCLogic {
 
       const since = new Date(now2 - 15 * 60 * 1000).toISOString();
       const [rawAppts, rawAgents, rawPresence, rawRecruits, rawMtdAppts] = await Promise.all([
-        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`),
+        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,logged_at,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`),
         SB.get('agents', '?order=name&select=id,name,working,work_since'),
         SB.get('presence', '').catch(() => []),
         SB.get('recruits', `?created_at=gt.${since}&order=created_at.desc`),
         doFullRefresh
-          ? SB.get('appointments', `?date_logged=gte.${ym2}-01&date_logged=lt.${(() => { const d = new Date(ym2 + '-01'); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 7); })()}-01&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`)
+          ? SB.get('appointments', `?date_logged=gte.${ym2}-01&date_logged=lt.${(() => { const d = new Date(ym2 + '-01'); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 7); })()}-01&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,logged_at,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`)
           : Promise.resolve(null),
       ]);
 
@@ -370,6 +370,7 @@ class Component extends DCLogic {
             id: rec.id, agent: rec.agent_id, client: rec.client_id,
             sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
             dateLog: rec.date_logged, dateAppt: rec.date_appt,
+            loggedAt: rec.logged_at || null,
             status: rec.status, amount: rec.amount ?? null, agentRate: rec.agent_rate ?? null,
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
@@ -392,6 +393,7 @@ class Component extends DCLogic {
             id: rec.id, agent: rec.agent_id, client: rec.client_id,
             sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
             dateLog: rec.date_logged, dateAppt: rec.date_appt,
+            loggedAt: rec.logged_at || null,
             status: rec.status, amount: rec.amount ?? null, agentRate: rec.agent_rate ?? null,
             invoiced: rec.invoiced || false, paid: rec.paid || false,
             clientFeedback: rec.client_feedback || '',
