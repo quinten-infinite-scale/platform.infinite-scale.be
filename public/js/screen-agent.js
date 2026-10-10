@@ -973,11 +973,15 @@ const ScreenAgent = {
     if (this.state._resLoaded) { cb(); return; }
     if (this.state._resLoading) return;
     this.setState({ _resLoading: true });
-    const ids = clients.filter(c => (me.clients || []).includes(c.id)).map(c => c.id).join(',');
-    const q = ids ? `?client_id=in.(${ids})` : '';
-    SB.get('client_resources', q).then(rows => {
+    const ids = clients.filter(c => (me.clients || []).includes(c.id)).map(c => c.id);
+    const keys = ids.map(id => 'client_res_' + id).join(',');
+    const q = keys ? `?key=in.(${keys})` : '?key=like.client_res_%25';
+    SB.get('platform_settings', q).then(rows => {
       const m = {};
-      (rows || []).forEach(r => { m[r.client_id] = r; });
+      (rows || []).forEach(r => {
+        const id = r.key.replace('client_res_', '');
+        try { m[id] = JSON.parse(r.value); } catch(_) { m[id] = {}; }
+      });
       this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m }, cb);
     }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {} }, cb));
   },

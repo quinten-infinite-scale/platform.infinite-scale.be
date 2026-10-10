@@ -2488,9 +2488,12 @@ const ScreenAdmin = {
     // Lazy-load resources from Supabase
     if (!s._resLoaded && !s._resLoading) {
       this.setState({ _resLoading: true });
-      SB.get('client_resources', '').then(rows => {
+      SB.get('platform_settings', '?key=like.client_res_%25').then(rows => {
         const m = {};
-        (rows || []).forEach(r => { m[r.client_id] = r; });
+        (rows || []).forEach(r => {
+          const id = r.key.replace('client_res_', '');
+          try { m[id] = JSON.parse(r.value); } catch(_) { m[id] = {}; }
+        });
         this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m });
       }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {} }));
     }
@@ -2520,10 +2523,12 @@ const ScreenAdmin = {
       };
 
       const saveRes = async (fields) => {
-        const row = { client_id: activeCl.id, updated_at: new Date().toISOString(), updated_by: 'admin', ...fields };
-        await SB.upsert('client_resources', 'client_id', row);
+        const existing = (s._resByClient || {})[activeCl.id] || {};
+        const merged = { ...existing, ...fields };
+        const row = { key: 'client_res_' + activeCl.id, value: JSON.stringify(merged) };
+        await SB.upsert('platform_settings', 'key', row);
         this.setState(st => ({
-          _resByClient: { ...(st._resByClient || {}), [activeCl.id]: { ...(st._resByClient || {})[activeCl.id], ...fields } },
+          _resByClient: { ...(st._resByClient || {}), [activeCl.id]: merged },
           resDraft: null, resEditTab: null,
         }));
         this.toast('Opgeslagen', 'Resources bijgewerkt', 'var(--up)');

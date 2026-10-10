@@ -611,9 +611,12 @@ const ScreenClient = {
 
     if (!s._resLoaded && !s._resLoading) {
       this.setState({ _resLoading: true });
-      SB.get('client_resources', `?client_id=eq.${cl.id}`).then(rows => {
+      SB.get('platform_settings', `?key=eq.client_res_${cl.id}`).then(rows => {
         const m = {};
-        (rows || []).forEach(r => { m[r.client_id] = r; });
+        (rows || []).forEach(r => {
+          const id = r.key.replace('client_res_', '');
+          try { m[id] = JSON.parse(r.value); } catch(_) { m[id] = {}; }
+        });
         this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m });
       }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {} }));
     }
@@ -645,10 +648,12 @@ const ScreenClient = {
     const shownTabs = TABS.filter(tab => vis[tab] && vis[tab].client !== false && (hasContent(tab) || resEditTab === tab));
 
     const saveRes = async (fields) => {
-      const row = { client_id: cl.id, updated_at: new Date().toISOString(), updated_by: 'client', ...fields };
-      await SB.upsert('client_resources', 'client_id', row);
+      const existing = (s._resByClient || {})[cl.id] || {};
+      const merged = { ...existing, ...fields };
+      const row = { key: 'client_res_' + cl.id, value: JSON.stringify(merged) };
+      await SB.upsert('platform_settings', 'key', row);
       this.setState(st => ({
-        _resByClient: { ...(st._resByClient || {}), [cl.id]: { ...(st._resByClient || {})[cl.id], ...fields } },
+        _resByClient: { ...(st._resByClient || {}), [cl.id]: merged },
         resDraft: null, resEditTab: null,
       }));
       this.toast('Opgeslagen', 'Resources bijgewerkt', 'var(--up)');
