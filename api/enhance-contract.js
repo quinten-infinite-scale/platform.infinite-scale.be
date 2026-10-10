@@ -12,7 +12,7 @@ async function handleSaveContract(req, res) {
     if (!sign_token || !email) return res.status(400).json({ error: 'sign_token and email required' });
     const sbH = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
 
-    const contractR = await fetch(`${SB_URL_SC}/rest/v1/contracts?sign_token=eq.${encodeURIComponent(sign_token)}&select=id,party,party_type,email,type,value,contract_html&limit=1`, { headers: sbH });
+    const contractR = await fetch(`${SB_URL_SC}/rest/v1/contracts?id=eq.${encodeURIComponent(sign_token)}&select=id,party,party_type,email,type,value,contract_html&limit=1`, { headers: sbH });
     const contracts = await contractR.json();
     const contract = contracts?.[0];
     if (!contract) return res.status(403).json({ error: 'Invalid sign token' });
