@@ -1837,6 +1837,8 @@ class Component extends DCLogic {
   _agentCoaching(...a) { return ScreenAgent._agentCoaching.call(this, ...a); }
   _admTickets(...a) { return ScreenAdmin._admTickets.call(this, ...a); }
   _agentTickets(...a) { return ScreenAgent._agentTickets.call(this, ...a); }
+  _agentLoadResources(...a) { return ScreenAgent._agentLoadResources.call(this, ...a); }
+  _agentResourcesWs(...a) { return ScreenAgent._agentResourcesWs.call(this, ...a); }
   get _M() { return ScreenRoadmap._M; }
   _defaultTargets(...a) { return ScreenRoadmap._defaultTargets.call(this, ...a); }
   _getTargets(...a) { return ScreenRoadmap._getTargets.call(this, ...a); }
@@ -1863,10 +1865,12 @@ class Component extends DCLogic {
   }
   _scrSubclient(...a) { return ScreenSubclient.scrSubclient.call(this, ...a); }
   _clientDash(...a) { return ScreenClient._clientDash.call(this, ...a); }
+  _clientStats(...a) { return ScreenClient._clientStats.call(this, ...a); }
   _clientAppointments(...a) { return ScreenClient._clientAppointments.call(this, ...a); }
   _clientBilling(...a) { return ScreenClient._clientBilling.call(this, ...a); }
   _clientLegal(...a) { return ScreenClient._clientLegal.call(this, ...a); }
   _clientSupport(...a) { return ScreenClient._clientSupport.call(this, ...a); }
+  _clientResources(...a) { return ScreenClient._clientResources.call(this, ...a); }
   _adminModals(...a) { return Modals._adminModals.call(this, ...a); }
   _admUploadContract(...a) { return Modals._admUploadContract.call(this, ...a); }
   _admUploadClientContract(...a) { return Modals._admUploadClientContract.call(this, ...a); }
