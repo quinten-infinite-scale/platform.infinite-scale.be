@@ -219,6 +219,24 @@ async function processLead(entry) {
     time: new Date().toISOString().slice(0, 16).replace('T', ' '),
     meta: JSON.stringify({ route: 'prospect_crm', pipeline: pipelineId }),
   }).catch(() => {});
+
+  // Email notification to admin
+  const resendKey = process.env.RESEND_API_KEY || 're_UoW1atGD_56JJUPBHaP8dYjmbbzB28JZw';
+  const phone = prospectFields.phone ? `<br>📞 ${prospectFields.phone}` : '';
+  const email = prospectFields.email ? `<br>📧 ${prospectFields.email}` : '';
+  fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'Infinite Scale Platform <noreply@infinite-scale.be>',
+      to: ['quinten@infinite-scale.be'],
+      subject: `🎯 Nieuwe Meta Ads lead: ${leadName}${leadCo}`,
+      html: `<p><strong>Nieuwe lead via Meta Ads</strong></p>
+<p>👤 ${leadName}${leadCo}${phone}${email}</p>
+<p>Pipeline: ${pipelineId} | Stage: ${stageId}</p>
+<p><a href="https://platform.infinite-scale.be">Open Prospect CRM →</a></p>`,
+    }),
+  }).catch(() => {});
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -327,6 +345,21 @@ export default async function handler(req, res) {
       console.error('[meta] callback error:', err);
       return res.redirect(302, `${PLATFORM_URL}/?route=settings&meta_error=${encodeURIComponent(err.message)}`);
     }
+  }
+
+  // ── Cron action — re-subscribe all known pages (called by Vercel cron) ───────
+  if (action === 'resubscribe') {
+    const cronSecret = req.headers['authorization']?.replace('Bearer ', '') || req.query.secret;
+    if (cronSecret !== process.env.CRON_SECRET) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    const tokenMap = await getSetting('meta_page_tokens');
+    if (!tokenMap) return res.status(200).json({ ok: true, message: 'no pages configured' });
+    const results = await Promise.all(
+      Object.entries(tokenMap).map(([pid, tok]) =>
+        subscribePageToLeadgen(pid, tok).then(r => ({ page_id: pid, ...r })).catch(e => ({ page_id: pid, ok: false, error: e.message }))
+      )
+    );
+    console.log('[meta] resubscribe cron:', results);
+    return res.status(200).json({ ok: true, results });
   }
 
   // ── Admin actions — require JWT ─────────────────────────────────────────────
