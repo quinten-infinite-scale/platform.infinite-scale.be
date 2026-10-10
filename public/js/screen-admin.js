@@ -3573,23 +3573,27 @@ const ScreenAdmin = {
         ],
       },
       { id: 'meta_ads', name: 'Meta Ads b2b acquisition', stages: [
-          { id: 'new_lead',              label: 'New Lead',               color: '#38bdf8' },
+          { id: 'new_lead',              label: 'Nieuwe leads',            color: '#38bdf8' },
           { id: 'call_1',               label: 'Call 1',                  color: '#60a5fa' },
           { id: 'call_2',               label: 'Call 2',                  color: '#818cf8' },
           { id: 'call_3',               label: 'Call 3',                  color: '#a78bfa' },
           { id: 'call_4',               label: 'Call 4',                  color: '#c084fc' },
-          { id: 'send_info',            label: 'Send info',               color: '#38bdf8' },
+          { id: 'send_info',            label: 'Send info',               color: '#22d3ee' },
+          { id: 'first_call',           label: 'First call',              color: '#fb923c' },
+          { id: 'second_call',          label: 'Second call',             color: '#f97316' },
+          { id: 'follow_up_call',       label: 'Follow-up na call',       color: '#facc15' },
+          { id: 'herplan_call',         label: 'Herplan call',            color: '#f472b6' },
+          { id: 'no_show',              label: 'No-show',                 color: '#f87171' },
+          { id: 'gewonnen',             label: 'Gewonnen',                color: '#4ade80' },
+          { id: 'niet_gekwalificeerd',  label: 'Niet gekwalificeerd',     color: '#fbbf24' },
+          { id: 'niet_gewonnen',        label: 'Niet gewonnen na call',   color: '#ef4444' },
+          { id: 'long_term_follow_up',  label: 'Follow-ups alle leads',   color: '#94a3b8' },
+          // Legacy stages — kept so existing data stays visible
           { id: 'interested_follow_up', label: 'Interested - follow-up',  color: '#fb923c' },
           { id: 'appointment_booked',   label: 'Appointment booked',      color: '#4ade80' },
-          { id: 'long_term_follow_up',  label: 'Long term follow-up',     color: '#a78bfa' },
           { id: 'not_qualified',        label: 'Not qualified',           color: '#f87171' },
-          { id: 'afgevallen',           label: 'AFGEVALLEN',              color: '#f472b6' },
-        ], statuses: [
-          { id: 'new', label: 'Nieuw', color: '#38bdf8' },
-          { id: 'contacted', label: 'Gecontacteerd', color: '#fb923c' },
-          { id: 'interested', label: 'Geinteresseerd', color: '#4ade80' },
-          { id: 'not_interested', label: 'Niet geinteresseerd', color: '#f87171' },
-        ],
+          { id: 'afgevallen',           label: 'Afgevallen',              color: '#6b7280' },
+        ], statuses: [],
       },
     ];
 
@@ -3707,7 +3711,7 @@ const ScreenAdmin = {
       { label: 'Dealwaarde', key: 'form_deal_waarde', w: 120 },
       { label: 'Afspraken/week', key: 'form_afspraken_pw', w: 110 },
     ] : [];
-    const cols = [...baseCols, ...metaCols];
+    const cols = [...baseCols.filter(c => !(activePipelineId === 'meta_ads' && c.statusCol)), ...metaCols];
 
     const totalW = 28 + 36 + cols.reduce((acc, c) => acc + c.w, 0);
     const cellSt = c => ({ width: c.w + 'px', minWidth: c.w + 'px', maxWidth: c.w + 'px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11.5, padding: '0 8px', boxSizing: 'border-box', flexShrink: 0 });
@@ -3787,8 +3791,9 @@ const ScreenAdmin = {
                 onChange: ev => {
                   ev.stopPropagation();
                   const v = ev.target.value;
-                  this.mutLocal(dd => { const p = dd.prospects.find(x=>x.id===it.id); if(p) p.meeting_outcome=v; });
-                  API.updateProspect(it.id, { meeting_outcome: v });
+                  const stageUpdate = (v === 'no_show' && it.pipeline_id === 'meta_ads') ? { meeting_outcome: v, stage: 'no_show' } : { meeting_outcome: v };
+                  this.mutLocal(dd => { const p = dd.prospects.find(x=>x.id===it.id); if(p) { p.meeting_outcome=v; if(stageUpdate.stage) p.stage=stageUpdate.stage; } });
+                  API.updateProspect(it.id, stageUpdate);
                 },
                 style: { fontSize: 10.5, fontWeight: 600, padding: '2px 6px', borderRadius: 4, background: bg, color: fg, border: '1px solid ' + border, cursor: 'pointer', width: '100%', outline: 'none', appearance: 'none', WebkitAppearance: 'none' },
               },
