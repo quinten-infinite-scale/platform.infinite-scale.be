@@ -85,12 +85,13 @@ class Component extends DCLogic {
         if (cached && cached.data && cached.role) {
           this.myAgentId = cached.agentId;
           this.myClientId = cached.clientId;
+          if (cached.role === 'subclient') { this.scClientId = cached.clientId; this.scSubId = cached.subClientId || null; }
           const { invApproved, invoiceStatus } = this._deriveInvState(cached.data);
           this.setState({ role: cached.role, loading: false, data: cached.data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved, invoiceStatus, clientAccounts: cached.clientAccounts || [] });
           this._updatePresence('dashboard');
           this._startPolling();
           // Refresh data in the background without blocking the UI
-          this._refreshCache(uid, cached.role, cached.agentId, cached.clientId);
+          this._refreshCache(uid, cached.role, cached.agentId, cached.clientId, cached.subClientId);
           return;
         }
       } catch(e) {}
@@ -181,19 +182,19 @@ class Component extends DCLogic {
     this._startPolling();
     // Persist to cache for instant loads next time (exclude heavy/transient fields)
     try {
-      localStorage.setItem('is_profile_' + uid, JSON.stringify({ role, agentId, clientId }));
+      localStorage.setItem('is_profile_' + uid, JSON.stringify({ role, agentId, clientId, subClientId: subClientId || null }));
       const cacheData = { ...data, activityLog: [], presence: [] };
-      const serialized = JSON.stringify({ data: cacheData, role, agentId, clientId, clientAccounts });
+      const serialized = JSON.stringify({ data: cacheData, role, agentId, clientId, subClientId: subClientId || null, clientAccounts });
       localStorage.setItem('is_cache_' + uid, serialized);
       _dbg('cache written size=' + serialized.length);
     } catch(e) { _dbg('cache FAILED: ' + e.message); }
   }
 
-  async _refreshCache(uid, role, agentId, clientId) {
+  async _refreshCache(uid, role, agentId, clientId, subClientId) {
     try {
-      const data = await API.loadAll(role, agentId, clientId);
+      const data = await API.loadAll(role, agentId, clientId, subClientId);
       const cacheData = { ...data, activityLog: [], presence: [] };
-      localStorage.setItem('is_cache_' + uid, JSON.stringify({ data: cacheData, role, agentId, clientId }));
+      localStorage.setItem('is_cache_' + uid, JSON.stringify({ data: cacheData, role, agentId, clientId, subClientId: subClientId || null }));
       const { invApproved, invoiceStatus } = this._deriveInvState(data);
       this.setState({ data, invApproved, invoiceStatus });
     } catch(e) { console.error('Cache refresh failed:', e.message); }
