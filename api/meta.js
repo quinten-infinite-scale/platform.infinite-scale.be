@@ -64,6 +64,13 @@ async function getSetting(key) {
   try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(_) { return raw; }
 }
 
+async function getConnection() {
+  const acc = await getSetting('meta_account');
+  if (!acc) return null;
+  // stored as `token`, expose as `access_token` for consistency
+  return { ...acc, access_token: acc.access_token || acc.token || null };
+}
+
 async function saveSetting(key, value) {
   const r = await fetch(`${SB_URL}/rest/v1/platform_settings?on_conflict=key`, {
     method: 'POST',
