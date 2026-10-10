@@ -2481,8 +2481,8 @@ const ScreenAdmin = {
 
   _admResources(d, s) {
     const e = React.createElement;
-    const TABS = ['script', 'login', 'product', 'leads', 'canvas', 'slack'];
-    const TAB_META = { script: { icon: '📋', label: 'Script' }, login: { icon: '🔐', label: 'Login & CRM' }, product: { icon: '📚', label: 'Productkennis' }, leads: { icon: '📂', label: 'Leadlijsten' }, canvas: { icon: '🎨', label: 'Canvas' }, slack: { icon: '💬', label: 'Slack' } };
+    const TABS = ['script', 'login', 'product', 'leads', 'canvas'];
+    const TAB_META = { script: { icon: '📋', label: 'Script' }, login: { icon: '🔐', label: 'Login & CRM' }, product: { icon: '📚', label: 'Productkennis' }, leads: { icon: '📂', label: 'Leadlijsten' }, canvas: { icon: '🎨', label: 'Canvas' } };
     const DEFAULT_VIS = { script: { agent: true, client: true }, login: { agent: true, client: true }, product: { agent: true, client: true }, leads: { agent: true, client: true }, canvas: { agent: true, client: true } };
 
     // Lazy-load resources + Slack channel map from Supabase
@@ -2511,6 +2511,22 @@ const ScreenAdmin = {
     const resClientId = s.resClientId;
     const activeCl = resClientId ? allClients.find(c => c.id === resClientId) : null;
 
+    // Notification helpers — per-tab tracking
+    const _TAB_FIELDS = { script: ['script'], product: ['productkennis'], leads: ['leadlijsten'], login: ['logins'], canvas: ['canvases'], files: ['files'] };
+    const getTabSeen = () => { try { return JSON.parse(localStorage.getItem('_res_tab_seen') || '{}'); } catch(_) { return {}; } };
+    const markTabSeen = (clientId, tab) => {
+      try { const m = getTabSeen(); if (!m[clientId]) m[clientId] = {}; m[clientId][tab] = new Date().toISOString(); localStorage.setItem('_res_tab_seen', JSON.stringify(m)); } catch(_) {}
+    };
+    const hasTabUnread = (clientId, tab) => {
+      const res = resByClient[clientId] || {};
+      if (!res._updated_at) return false;
+      const fields = _TAB_FIELDS[tab] || [tab];
+      if (!(res._updated_tabs || []).some(t => fields.includes(t))) return false;
+      const seen = getTabSeen();
+      return !(seen[clientId] || {})[tab] || (seen[clientId] || {})[tab] < res._updated_at;
+    };
+    const hasUnread = (clientId) => TABS.some(t => hasTabUnread(clientId, t));
+
     // ── Workspace view ──
     if (activeCl) {
       const res = resByClient[activeCl.id] || {};
@@ -2530,9 +2546,12 @@ const ScreenAdmin = {
 
       const saveRes = async (fields) => {
         const existing = (s._resByClient || {})[activeCl.id] || {};
-        const merged = { ...existing, ...fields };
+        const updatedTabs = Object.keys(fields).filter(k => k !== 'vis' && k !== 'files');
+        const merged = { ...existing, ...fields, _updated_at: new Date().toISOString(), _updated_tabs: [...new Set([...(existing._updated_tabs || []), ...updatedTabs])] };
         const row = { key: 'client_res_' + activeCl.id, value: JSON.stringify(merged) };
         await SB.upsert('platform_settings', 'key', row);
+        // Mark as seen immediately after saving (the person who saved it has seen it)
+        try { const seen = JSON.parse(localStorage.getItem('_res_seen') || '{}'); seen[activeCl.id] = merged._updated_at; localStorage.setItem('_res_seen', JSON.stringify(seen)); } catch(_) {}
         this.setState(st => ({
           _resByClient: { ...(st._resByClient || {}), [activeCl.id]: merged },
           resDraft: null, resEditTab: null,
@@ -2566,7 +2585,8 @@ const ScreenAdmin = {
             const existingFiles = (existing.files || {});
             const tabFiles = Array.isArray(existingFiles[tab]) ? existingFiles[tab] : [];
             const newEntry = { name: file.name, url: publicUrl, path, size: file.size, type: file.type, uploaded: new Date().toISOString().slice(0, 10) };
-            const merged = { ...existing, files: { ...existingFiles, [tab]: [...tabFiles, newEntry] } };
+            const now = new Date().toISOString();
+            const merged = { ...existing, files: { ...existingFiles, [tab]: [...tabFiles, newEntry] }, _updated_at: now, _updated_tabs: [...new Set([...(existing._updated_tabs || []), 'files'])] };
             const row = { key: 'client_res_' + activeCl.id, value: JSON.stringify(merged) };
             await SB.upsert('platform_settings', 'key', row);
             this.setState(st => ({ _resByClient: { ...(st._resByClient || {}), [activeCl.id]: merged } }));
@@ -2734,25 +2754,6 @@ const ScreenAdmin = {
               renderFileSection(tab)));
         }
 
-        if (tab === 'slack') {
-          const slackInfo = slackChannels[activeCl.id];
-          const slackUrl = slackInfo ? `https://infinite-scale.slack.com/archives/${slackInfo.id}` : null;
-          return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 8 } },
-            slackInfo
-              ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
-                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--border)' } },
-                    e('div', { style: { width: 48, height: 48, borderRadius: 12, background: 'oklch(0.55 0.18 260)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 } }, '💬'),
-                    e('div', { style: { flex: 1, minWidth: 0 } },
-                      e('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text)' } }, '#' + slackInfo.name),
-                      e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" } }, slackInfo.id)),
-                    e('a', { href: slackUrl, target: '_blank', rel: 'noopener', style: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, background: 'oklch(0.55 0.18 260)', color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 } },
-                      '↗ Open in Slack')))
-              : e('div', { style: { padding: '32px 0', textAlign: 'center', color: 'var(--text-mute)', fontSize: 14 } },
-                  e('div', { style: { fontSize: 32, marginBottom: 12 } }, '💬'),
-                  e('div', { style: { fontWeight: 600, marginBottom: 6 } }, 'Geen Slack-kanaal gekoppeld'),
-                  e('div', { style: { fontSize: 12 } }, 'Er is nog geen Slack-kanaal gevonden voor deze client.')));
-        }
-
         return null;
       };
 
@@ -2760,8 +2761,10 @@ const ScreenAdmin = {
         TABS.map(tab => {
           const m = TAB_META[tab];
           const active = resTab === tab;
-          return e('button', { key: tab, onClick: () => this.setState({ resTab: tab, resEditTab: null, resDraft: null }), style: { padding: '9px 16px', borderRadius: '8px 8px 0 0', border: '1px solid transparent', borderBottom: 'none', marginBottom: -1, background: active ? 'var(--surface)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-mute)', cursor: 'pointer', fontSize: 13, fontWeight: 500, borderColor: active ? 'var(--border)' : 'transparent', borderBottomColor: active ? 'var(--surface)' : 'transparent', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s' } },
-            m.icon, ' ', m.label);
+          const unread = hasTabUnread(activeCl.id, tab);
+          return e('button', { key: tab, onClick: () => { markTabSeen(activeCl.id, tab); this.setState({ resTab: tab, resEditTab: null, resDraft: null }); }, style: { position: 'relative', padding: '9px 16px', borderRadius: '8px 8px 0 0', border: '1px solid transparent', borderBottom: 'none', marginBottom: -1, background: active ? 'var(--surface)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-mute)', cursor: 'pointer', fontSize: 13, fontWeight: unread ? 700 : 500, borderColor: active ? 'var(--border)' : 'transparent', borderBottomColor: active ? 'var(--surface)' : 'transparent', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s' } },
+            m.icon, ' ', m.label,
+            unread ? e('span', { style: { width: 7, height: 7, borderRadius: '50%', background: 'var(--down)', display: 'inline-block', flexShrink: 0, marginLeft: 2 } }) : null);
         }));
 
       return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 0 } },
@@ -2783,7 +2786,9 @@ const ScreenAdmin = {
         { label: 'Client', render: x => e('span', { style: { fontWeight: 700, color: 'var(--text)' } }, x.name) },
         { label: 'Type', render: x => x.type === 'agency' ? UI.Pill('Agency', 'var(--info)', 'oklch(0.30 0.05 240)') : UI.Pill('Direct', 'var(--accent)', 'var(--accent-bg)') },
         { label: 'Status', align: 'center', render: x => UI.statusPill(x.status || 'inactive') },
-        { label: '', align: 'right', render: x => UI.Btn('Resources →', () => this.setState({ resClientId: x.id, resTab: 'script', resDraft: null, resEditTab: null }), 'primary', { fontSize: 12, padding: '5px 12px' }) },
+        { label: '', align: 'right', render: x => e('div', { style: { position: 'relative', display: 'inline-flex' } },
+          UI.Btn('Resources →', () => this.setState({ resClientId: x.id, resTab: 'script', resDraft: null, resEditTab: null }), 'primary', { fontSize: 12, padding: '5px 12px' }),
+          hasUnread(x.id) ? e('span', { style: { position: 'absolute', top: -4, right: -4, width: 10, height: 10, borderRadius: '50%', background: 'var(--down)', border: '2px solid var(--surface)', pointerEvents: 'none' } }) : null) },
       ];
       return cols;
     };
