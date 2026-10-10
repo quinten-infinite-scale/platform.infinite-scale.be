@@ -7496,13 +7496,16 @@ const ScreenAdmin = {
       const lastDay = new Date(vmY, vmM, 0).getDate();
       const until = viewMonth === today.slice(0, 7) ? today : `${viewMonth}-${String(lastDay).padStart(2,'0')}`;
       this.setState({ _mktInsightsLoading: true, _mktInsightsError: null });
-      fetch(`/api/meta?action=insights&since=${since}&until=${until}`, { headers: authHdr() })
+      const ctrl = new AbortController();
+      const tmo = setTimeout(() => ctrl.abort(), 15000);
+      fetch(`/api/meta?action=insights&since=${since}&until=${until}`, { headers: authHdr(), signal: ctrl.signal })
         .then(r => r.json())
         .then(data => {
+          clearTimeout(tmo);
           if (data.error) this.setState({ _mktInsightsLoading: false, _mktInsightsError: data.error, _mktInsights: null });
           else this.setState({ _mktInsightsLoading: false, _mktInsights: data, _mktInsightsError: null });
         })
-        .catch(err => this.setState({ _mktInsightsLoading: false, _mktInsightsError: err.message, _mktInsights: null }));
+        .catch(err => { clearTimeout(tmo); this.setState({ _mktInsightsLoading: false, _mktInsightsError: err.name === 'AbortError' ? 'Timeout: ads data kon niet geladen worden' : err.message, _mktInsights: null }); });
     };
 
     if (insights === undefined && !insightsLoading) loadInsights();
