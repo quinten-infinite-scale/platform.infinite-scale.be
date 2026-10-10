@@ -349,8 +349,11 @@ export default async function handler(req, res) {
 
   // ── Cron action — re-subscribe all known pages (called by Vercel cron) ───────
   if (action === 'resubscribe') {
-    const cronSecret = req.headers['authorization']?.replace('Bearer ', '') || req.query.secret;
-    if (cronSecret !== process.env.CRON_SECRET) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    const auth = req.headers['authorization'] || '';
+    const cronSecret = process.env.CRON_SECRET;
+    const isValidCron = cronSecret && auth === `Bearer ${cronSecret}`;
+    const isValidQuery = req.query.secret && req.query.secret === cronSecret;
+    if (!isValidCron && !isValidQuery) return res.status(401).json({ ok: false, error: 'Unauthorized' });
     const tokenMap = await getSetting('meta_page_tokens');
     if (!tokenMap) return res.status(200).json({ ok: true, message: 'no pages configured' });
     const results = await Promise.all(
