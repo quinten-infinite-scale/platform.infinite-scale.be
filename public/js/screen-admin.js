@@ -2481,24 +2481,30 @@ const ScreenAdmin = {
 
   _admResources(d, s) {
     const e = React.createElement;
-    const TABS = ['script', 'login', 'product', 'leads', 'canvas'];
-    const TAB_META = { script: { icon: '📋', label: 'Script' }, login: { icon: '🔐', label: 'Login & CRM' }, product: { icon: '📚', label: 'Productkennis' }, leads: { icon: '📂', label: 'Leadlijsten' }, canvas: { icon: '🎨', label: 'Canvas' } };
+    const TABS = ['script', 'login', 'product', 'leads', 'canvas', 'slack'];
+    const TAB_META = { script: { icon: '📋', label: 'Script' }, login: { icon: '🔐', label: 'Login & CRM' }, product: { icon: '📚', label: 'Productkennis' }, leads: { icon: '📂', label: 'Leadlijsten' }, canvas: { icon: '🎨', label: 'Canvas' }, slack: { icon: '💬', label: 'Slack' } };
     const DEFAULT_VIS = { script: { agent: true, client: true }, login: { agent: true, client: true }, product: { agent: true, client: true }, leads: { agent: true, client: true }, canvas: { agent: true, client: true } };
 
-    // Lazy-load resources from Supabase
+    // Lazy-load resources + Slack channel map from Supabase
     if (!s._resLoaded && !s._resLoading) {
       this.setState({ _resLoading: true });
-      SB.get('platform_settings', '?key=like.client_res_%25').then(rows => {
+      Promise.all([
+        SB.get('platform_settings', '?key=like.client_res_%25'),
+        SB.get('platform_settings', '?key=eq.slack_channels'),
+      ]).then(([rows, slackRows]) => {
         const m = {};
         (rows || []).forEach(r => {
           const id = r.key.replace('client_res_', '');
           try { m[id] = JSON.parse(r.value); } catch(_) { m[id] = {}; }
         });
-        this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m });
-      }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {} }));
+        let slackChannels = {};
+        if (slackRows && slackRows[0]) { try { slackChannels = JSON.parse(slackRows[0].value); } catch(_) {} }
+        this.setState({ _resLoaded: true, _resLoading: false, _resByClient: m, _slackChannels: slackChannels });
+      }).catch(() => this.setState({ _resLoaded: true, _resLoading: false, _resByClient: {}, _slackChannels: {} }));
     }
 
     const resByClient = s._resByClient || {};
+    const slackChannels = s._slackChannels || {};
     const clientSort = (a, b) => { const aA = (a.status || 'inactive') === 'active'; const bA = (b.status || 'inactive') === 'active'; return aA !== bA ? (aA ? -1 : 1) : (a.name || '').localeCompare(b.name || ''); };
     const allClients = d.clients.filter(c => c.name && c.name.toLowerCase() !== 'emploai').sort(clientSort);
 
@@ -2726,6 +2732,25 @@ const ScreenAdmin = {
                 await saveRes({ canvases: next });
               }, 'soft', { marginTop: 10 }),
               renderFileSection(tab)));
+        }
+
+        if (tab === 'slack') {
+          const slackInfo = slackChannels[activeCl.id];
+          const slackUrl = slackInfo ? `https://infinite-scale.slack.com/archives/${slackInfo.id}` : null;
+          return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 8 } },
+            slackInfo
+              ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+                  e('div', { style: { display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--border)' } },
+                    e('div', { style: { width: 48, height: 48, borderRadius: 12, background: 'oklch(0.55 0.18 260)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 } }, '💬'),
+                    e('div', { style: { flex: 1, minWidth: 0 } },
+                      e('div', { style: { fontSize: 16, fontWeight: 700, color: 'var(--text)' } }, '#' + slackInfo.name),
+                      e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" } }, slackInfo.id)),
+                    e('a', { href: slackUrl, target: '_blank', rel: 'noopener', style: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, background: 'oklch(0.55 0.18 260)', color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 } },
+                      '↗ Open in Slack')))
+              : e('div', { style: { padding: '32px 0', textAlign: 'center', color: 'var(--text-mute)', fontSize: 14 } },
+                  e('div', { style: { fontSize: 32, marginBottom: 12 } }, '💬'),
+                  e('div', { style: { fontWeight: 600, marginBottom: 6 } }, 'Geen Slack-kanaal gekoppeld'),
+                  e('div', { style: { fontSize: 12 } }, 'Er is nog geen Slack-kanaal gevonden voor deze client.')));
         }
 
         return null;
