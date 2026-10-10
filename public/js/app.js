@@ -30,11 +30,10 @@ class Component extends DCLogic {
       lang: savedLang,
       data: this._emptyData(),
     };
-    if (session) this._loadData(false);
     this._onKeyDown = e => { if (e.key === 'Escape' && this.state.modal) this.closeModal(); };
   }
 
-  componentDidMount() { document.addEventListener('keydown', this._onKeyDown); }
+  componentDidMount() { document.addEventListener('keydown', this._onKeyDown); if (SB.getSession()) this._loadData(false); }
   componentWillUnmount() { document.removeEventListener('keydown', this._onKeyDown); }
 
   _emptyData() {
@@ -1833,6 +1832,8 @@ class Component extends DCLogic {
   _admClientSuccess(...a) { return ScreenAdmin._admClientSuccess.call(this, ...a); }
   _admCoaching(...a) { return ScreenAdmin._admCoaching.call(this, ...a); }
   _admOpa(...a) { return ScreenAdmin._admOpa.call(this, ...a); }
+  _admFollowup(...a) { return ScreenAdmin._admFollowup.call(this, ...a); }
+  _admResources(...a) { return ScreenAdmin._admResources.call(this, ...a); }
   _agentCoaching(...a) { return ScreenAgent._agentCoaching.call(this, ...a); }
   _admTickets(...a) { return ScreenAdmin._admTickets.call(this, ...a); }
   _agentTickets(...a) { return ScreenAgent._agentTickets.call(this, ...a); }

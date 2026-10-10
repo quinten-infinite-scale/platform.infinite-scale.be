@@ -3,7 +3,7 @@
 <head>
 <script>!function(){var MOON='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/><\/svg>';var SUN='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"\/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"\/><\/svg>';window.ispApplyTheme=function(theme){document.documentElement.setAttribute('data-theme',theme);localStorage.setItem('isp-theme',theme);var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=theme==='light'?SUN:MOON;};var t=localStorage.getItem('isp-theme');if(t)document.documentElement.setAttribute('data-theme',t);document.addEventListener('click',function(e){if(e.target.closest('#isp-theme-btn')){var next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';window.ispApplyTheme(next);}});document.addEventListener('DOMContentLoaded',function(){var cur=document.documentElement.getAttribute('data-theme')||'dark';var ico=document.getElementById('isp-theme-icon');if(ico)ico.innerHTML=cur==='light'?SUN:MOON;});}();</script>
 <script>!function(){try{var h=new URLSearchParams(location.hash.slice(1));var at=h.get('access_token'),rt=h.get('refresh_token'),ei=parseInt(h.get('expires_in')||'3600'),ea=h.get('expires_at');if(at){var payload=JSON.parse(atob(at.split('.')[1]));var user={id:payload.sub,email:payload.email,role:payload.role,app_metadata:payload.app_metadata||{},user_metadata:payload.user_metadata||{}};localStorage.setItem('is_session',JSON.stringify({access_token:at,refresh_token:rt,expires_in:ei,expires_at:ea?parseInt(ea):Math.floor(Date.now()/1000)+ei,user:user}));history.replaceState(null,'',location.pathname+location.search);}}catch(e){}}();</script>
-<script>!function(){var V="20261010b";var SS=sessionStorage;var RC=parseInt(SS.getItem('_ispv_rc')||'0');if(RC>3){SS.removeItem('_ispv_rc');return;}if(localStorage.getItem('_ispv')!==V){SS.setItem('_ispv_rc',RC+1);localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}SS.removeItem('_ispv_rc');fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
+<script>!function(){var V="20261010e";var SS=sessionStorage;var RC=parseInt(SS.getItem('_ispv_rc')||'0');if(RC>3){SS.removeItem('_ispv_rc');return;}if(localStorage.getItem('_ispv')!==V){SS.setItem('_ispv_rc',RC+1);localStorage.setItem('_ispv',V);window.location.replace(location.pathname);return;}SS.removeItem('_ispv_rc');fetch('/version.json?_='+Date.now()).then(function(r){return r.json();}).then(function(d){if(d&&d.v&&d.v!==V){localStorage.removeItem('_ispv');window.location.replace(location.pathname);}}).catch(function(){});}();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Infinite Scale</title>
@@ -27,14 +27,14 @@
 <script src="./js/ui.js?v=20260922d"></script>
 <script src="./js/contract-templates.js?v=20261007j"></script>
 <script src="./js/screen-shared.js?v=20260928d"></script>
-<script src="./js/screen-agent.js?v=20261010b"></script>
-<script src="./js/screen-client.js?v=20261010b"></script>
+<script src="./js/screen-agent.js?v=20261010e"></script>
+<script src="./js/screen-client.js?v=20261010e"></script>
 <script src="./js/screen-subclient.js?v=20261001r"></script>
 <script src="./js/screen-roadmap.js?v=20261008g"></script>
-<script src="./js/screen-admin.js?v=20261010b"></script>
+<script src="./js/screen-admin.js?v=20261010e"></script>
 <script src="./js/pdf-ttf.js?v=20260922d"></script>
 <script src="./js/modals.js?v=20261009d"></script>
-<script src="./js/app.js?v=20261010b"></script>
+<script src="./js/app.js?v=20261010e"></script>
 <script src="./js/api.js?v=20261009d"></script>
 </head>
 <body>
@@ -355,42 +355,62 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;}}">
+// Version tag (for reference only — cache busting handled by ?v= query params on JS files)
+// const CURRENT_V = '20260921g';
+
+// Renocheck client billing rates — must match RN_CAT_CLIENT_RATE in screen-agent.js
+const _RN_CLIENT_RATE = {'Airco':25,'Thuisbatt':40,'Zonnepanelen':50,'Keukens':55,'Badkamers':55,'Ramen en deuren':70,'Crepi':70,'Dak':80,'Chapewerken':25};
+
 // Main application controller — thin delegation layer over modules
 class Component extends DCLogic {
   constructor(props) {
     super(props);
+    try { localStorage.setItem('is_dbg', 'constructor ran'); } catch(e) {}
+    // Handle magic link tokens in URL hash
+    (() => { try { const h = new URLSearchParams(location.hash.slice(1)); const at = h.get('access_token'), rt = h.get('refresh_token'), ei = parseInt(h.get('expires_in')||'3600'); if (at) { const ea = Math.floor(Date.now()/1000)+ei; localStorage.setItem('is_session', JSON.stringify({access_token:at,refresh_token:rt,expires_in:ei,expires_at:ea})); history.replaceState(null,'',location.pathname+location.search); } } catch(e) {} })();
+    // Try to restore session from localStorage
     const session = SB.loadSession();
+    try { localStorage.setItem('is_dbg', localStorage.getItem('is_dbg') + ' session=' + (session ? 'ok' : 'null')); } catch(e) {}
     this.myAgentId = null;
     this.myClientId = null;
+    const savedLang = (() => { try { return localStorage.getItem('is_lang') || 'nl'; } catch(e) { return 'nl'; } })();
     this.state = {
       role: null,
       route: 'dashboard',
       modal: null, modalKind: null,
       toasts: [], notifOpen: false, sidebarOpen: false,
-      showSwitcher: false, switcherSearch: '', switcherExpanded: {},
-      _impersonate: null, clientAccounts: [],
       tourStep: null, agencyView: 'all', form: {},
+      clientAccounts: [],
       loading: !!session,
       loginError: null,
       loginEmail: '', loginPassword: '',
+      lang: savedLang,
       data: this._emptyData(),
     };
-    this._escHandler = e => { if (e.key === 'Escape' && this.state.modal && this.state.modalKind !== 'wizard') this.closeModal(); };
+    this._onKeyDown = e => { if (e.key === 'Escape' && this.state.modal) this.closeModal(); };
   }
 
-  componentDidMount() {
-    document.addEventListener('keydown', this._escHandler);
-    // Load data here (not constructor) so this.__host is set and setState works
-    if (SB.getSession()) this._loadData(false).catch(() => this.setState({ loading: false }));
-  }
-  componentWillUnmount() { document.removeEventListener('keydown', this._escHandler); }
+  componentDidMount() { document.addEventListener('keydown', this._onKeyDown); if (SB.getSession()) this._loadData(false); }
+  componentWillUnmount() { document.removeEventListener('keydown', this._onKeyDown); }
 
   _emptyData() {
-    return { agents: [], clients: [], appointments: [], dials: {}, tickets: [], recruits: [], prospects: [], contracts: [], events: [], notifs: {}, eods: [], leaderPeriod: 'daily' };
+    return { agents: [], clients: [], appointments: [], dials: {}, tickets: [], recruits: [], prospects: [], contracts: [], events: [], notifs: {}, eods: [], activityLog: [], contractEvents: [], leaderPeriod: 'daily' };
   }
 
   _tourSeenKey(uid) { return 'is_tour_seen_' + uid; }
   _markTourSeen(uid) { try { localStorage.setItem(this._tourSeenKey(uid), '1'); } catch (e) { } }
+
+  _saveInvState(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
+  _loadInvState(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : {}; } catch(e) { return {}; } }
+  _deriveInvState(data) {
+    const invApproved = {};
+    const invoiceStatus = {};
+    for (const [key, is] of Object.entries((data && data.invoiceStates) || {})) {
+      if (is.approved) invApproved[key] = true;
+      if (is.payStatus && is.payStatus !== 'open') invoiceStatus[key] = is.payStatus;
+    }
+    return { invApproved, invoiceStatus };
+  }
 
   // ---- Auth ----
   async _doLogin(email, password) {
@@ -406,95 +426,76 @@ class Component extends DCLogic {
   // freshLogin: true only right after the user submits the login form — the tour
   // should never reappear on a page reload/session restore.
   async _loadData(freshLogin) {
+    const _dbg = (msg) => { try { localStorage.setItem('is_dbg', (localStorage.getItem('is_dbg')||'') + '\n' + Date.now() + ' ' + msg); } catch(e) {} };
+    _dbg('_loadData freshLogin=' + freshLogin);
     const session = SB.getSession();
+    _dbg('session=' + (session ? 'ok uid=' + session.user?.id : 'NULL'));
     if (!session) { this.setState({ loading: false }); return; }
     const uid = session.user?.id;
 
-    // Stale-while-revalidate: show cached data instantly, then refresh in background.
-    // Skip cache on fresh login so the user always gets live data after signing in.
+    // Stale-while-revalidate: if we have any cached data, render it immediately
+    // then refresh in the background. Only skip cache on fresh login (just signed in).
     if (!freshLogin) {
       try {
         const cached = JSON.parse(localStorage.getItem('is_cache_' + uid) || 'null');
+        _dbg('cached=' + (cached ? 'HIT role=' + cached.role : 'MISS'));
         if (cached && cached.data && cached.role) {
           this.myAgentId = cached.agentId;
           this.myClientId = cached.clientId;
-          if (cached.role === 'subclient') { this.scClientId = cached.clientId; this.scSubId = cached.subClientId; this.scClientName = cached.scClientName || ''; this.scSubName = cached.scSubName || ''; }
-          this._sessionId = 'ses_' + Date.now() + Math.random().toString(36).slice(2, 6);
-          const { invApproved: cachedApproved, invoiceStatus: cachedStatus } = this._deriveInvState(cached.data);
-          const _savedRoute = (() => { try { return localStorage.getItem('_isroute') || 'dashboard'; } catch(e) { return 'dashboard'; } })();
-          this.setState({ role: cached.role, loading: false, data: cached.data, route: cached.role === 'admin' ? _savedRoute : 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved: cachedApproved, invoiceStatus: cachedStatus, clientAccounts: cached.clientAccounts || [] });
+          const { invApproved, invoiceStatus } = this._deriveInvState(cached.data);
+          this.setState({ role: cached.role, loading: false, data: cached.data, route: 'dashboard', notifOpen: false, sidebarOpen: false, tourStep: null, invApproved, invoiceStatus, clientAccounts: cached.clientAccounts || [] });
           this._updatePresence('dashboard');
-          if (cached.role === 'admin') this._startPolling();
-          if (cached.role === 'client' || cached.role === 'agency' || cached.role === 'agent') this._startClickTracking();
-          this._refreshCache(uid, cached.role, cached.agentId, cached.clientId, cached.subClientId);
+          this._startPolling();
+          // Refresh data in the background without blocking the UI
+          this._refreshCache(uid, cached.role, cached.agentId, cached.clientId);
           return;
         }
       } catch(e) {}
     }
 
+    // No cache or fresh login — full blocking load
+    // On fresh login, try to reuse cached role/agentId to skip sequential RPCs
     await this._doFullLoad(uid, freshLogin);
   }
 
   async _doFullLoad(uid, freshLogin) {
-    const role = await SB.rpc('get_user_role', { uid });
+    const _dbg = (msg) => { try { localStorage.setItem('is_dbg', (localStorage.getItem('is_dbg')||'') + '\n' + Date.now() + ' ' + msg); } catch(e) {} };
+    _dbg('_doFullLoad start uid=' + uid);
+    // Try cached profile first to skip sequential RPCs (safe: stale profile triggers re-login anyway)
+    let role, agentId = null, clientId = null;
+    try {
+      const prof = JSON.parse(localStorage.getItem('is_profile_' + uid) || 'null');
+      if (prof) { role = prof.role; agentId = prof.agentId || null; clientId = prof.clientId || null; }
+    } catch(e) {}
+    if (!role) {
+      role = await SB.rpc('get_user_role', { uid });
+      _dbg('role rpc=' + role);
+    } else { _dbg('role cached=' + role); }
     if (!role) {
       await SB.signOut();
-      this.setState({ loading: false, loginError: 'Je account heeft geen toegangsrol. Contacteer de admin.' });
+      this.setState({ loading: false, loginError: 'Geen account gevonden. Neem contact op met Infinite Scale.' });
       return;
     }
-    let agentId = null, clientId = null, subClientId = null;
-    if (role === 'agent') {
-      agentId = await SB.rpc('get_agent_id', { uid });
-      if (!agentId) {
-        await SB.signOut();
-        this.setState({ loading: false, loginError: 'Geen agent-profiel gevonden voor dit account. Contacteer de admin.' });
-        return;
-      }
-    }
-    if (role === 'client' || role === 'agency') {
-      clientId = await SB.rpc('get_client_id', { uid });
-      if (!clientId) {
-        // Auto-heal: client row exists but profile_id was never linked (created internally before account signup).
-        // Try linking by email, then retry.
-        try {
-          const email = SB.getSession()?.user?.email;
-          if (email) {
-            await fetch('/api/create-account', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, link_only: true, party_type: 'client' }),
-            });
-            clientId = await SB.rpc('get_client_id', { uid });
-          }
-        } catch(e2) {}
-      }
-      if (!clientId) {
-        await SB.signOut();
-        this.setState({ loading: false, loginError: 'Geen klantprofiel gevonden voor dit account. Contacteer de admin.' });
-        return;
-      }
-    }
+    let subClientId = null;
+    if (!agentId && role === 'agent') agentId = await SB.rpc('get_agent_id', { uid });
+    if (!clientId && (role === 'client' || role === 'agency')) clientId = await SB.rpc('get_client_id', { uid });
     if (role === 'subclient') {
-      const allClients = await SB.get('clients', '?select=id,name,subclients');
-      for (const cl of allClients) {
+      // Find which subclient this user is by scanning client.subclients for user_id match
+      const allClients = await SB.get('clients', '?select=id,subclients');
+      for (const cl of (allClients || [])) {
         const sc = (cl.subclients || []).find(x => x.user_id === uid);
         if (sc) { clientId = cl.id; subClientId = sc.id; break; }
       }
       if (!subClientId) {
         await SB.signOut();
-        this.setState({ loading: false, loginError: 'Geen subclient-profiel gevonden voor dit account. Contacteer de admin.' });
+        this.setState({ loading: false, loginError: 'Subclient account niet gevonden. Neem contact op met Infinite Scale.' });
         return;
       }
-      this.scClientId = clientId;
-      this.scSubId = subClientId;
-      // Cache resolved names so scrSubclient doesn't need d.clients (blocked by RLS)
-      const scClientRow = allClients.find(c => c.id === clientId);
-      const scSubRow = scClientRow && (scClientRow.subclients || []).find(x => x.id === subClientId);
-      this.scClientName = scClientRow?.name || '';
-      this.scSubName = scSubRow?.name || '';
     }
     this.myAgentId = agentId;
     this.myClientId = clientId;
+    this.scClientId = clientId;
+    this.scSubId = subClientId;
     // Detect multiple client accounts sharing the same email (multi-account clients)
     let clientAccounts = [];
     if ((role === 'client' || role === 'agency') && clientId) {
@@ -506,23 +507,53 @@ class Component extends DCLogic {
         }
       } catch(e) {}
     }
-    let data;
-    try { data = await API.loadAll(role, agentId, clientId, subClientId); }
-    catch(e) { this.setState({ loading: false, loginError: 'Verbindingsfout. Vernieuw de pagina.' }); return; }
+    _dbg('calling loadAll');
+    const data = await API.loadAll(role, agentId, clientId, subClientId);
+    _dbg('loadAll done appts=' + data?.appointments?.length);
     let tourSeen = true;
-    try { tourSeen = !!localStorage.getItem(this._tourSeenKey(uid)); } catch (e) { }
+    try { tourSeen = !!localStorage.getItem(this._tourSeenKey(uid)); } catch(e) {}
     const tourStep = (freshLogin && !tourSeen && (role === 'agent' || role === 'client' || role === 'agency')) ? 0 : null;
-    this._sessionId = 'ses_' + Date.now() + Math.random().toString(36).slice(2, 6);
     const { invApproved, invoiceStatus } = this._deriveInvState(data);
-    const _savedRoute2 = (() => { try { return localStorage.getItem('_isroute') || 'dashboard'; } catch(e) { return 'dashboard'; } })();
-    this.setState({ role, loading: false, data, route: role === 'admin' ? _savedRoute2 : 'dashboard', notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus, clientAccounts });
+    // Handle OAuth callback params (e.g. Meta OAuth redirect)
+    const _qs = new URLSearchParams(location.search);
+    const _initRoute = (_qs.get('route') && role === 'admin') ? _qs.get('route') : 'dashboard';
+    const _metaConnected = _qs.get('meta_connected');
+    const _metaError = _qs.get('meta_error');
+    if (_qs.get('route') || _metaConnected || _metaError) history.replaceState(null, '', location.pathname);
+    this.setState({ role, loading: false, data, route: _initRoute, notifOpen: false, sidebarOpen: false, tourStep, invApproved, invoiceStatus, clientAccounts });
+    if (_metaConnected) setTimeout(() => this.toast('Meta', 'Account succesvol verbonden!', 'var(--up)'), 400);
+    if (_metaError) setTimeout(() => this.toast('Meta fout', decodeURIComponent(_metaError), 'var(--down)'), 400);
+    if (freshLogin) {
+      let loginDetails = 'Logged in to platform';
+      if (role === 'subclient' && subClientId) {
+        const allCl = await SB.get('clients', '?select=id,name,subclients').catch(() => []) || [];
+        for (const cl of allCl) {
+          const sc = (cl.subclients || []).find(x => x.id === subClientId);
+          if (sc) { loginDetails = 'Logged in as subclient: ' + sc.name + ' (' + cl.name + ')'; break; }
+        }
+      }
+      setTimeout(() => this._logActivity('login', loginDetails), 200);
+    }
     this._updatePresence('dashboard');
-    if (freshLogin) this._logActivity('login', 'Logged in as ' + role);
-    if (role === 'admin') this._startPolling();
-    if (role === 'client' || role === 'agency' || role === 'agent') this._startClickTracking();
+    this._startPolling();
+    // Persist to cache for instant loads next time (exclude heavy/transient fields)
     try {
-      localStorage.setItem('is_cache_' + uid, JSON.stringify({ data, role, agentId, clientId, subClientId, scClientName: this.scClientName || '', scSubName: this.scSubName || '', clientAccounts }));
-    } catch(e) {}
+      localStorage.setItem('is_profile_' + uid, JSON.stringify({ role, agentId, clientId }));
+      const cacheData = { ...data, activityLog: [], presence: [] };
+      const serialized = JSON.stringify({ data: cacheData, role, agentId, clientId, clientAccounts });
+      localStorage.setItem('is_cache_' + uid, serialized);
+      _dbg('cache written size=' + serialized.length);
+    } catch(e) { _dbg('cache FAILED: ' + e.message); }
+  }
+
+  async _refreshCache(uid, role, agentId, clientId) {
+    try {
+      const data = await API.loadAll(role, agentId, clientId);
+      const cacheData = { ...data, activityLog: [], presence: [] };
+      localStorage.setItem('is_cache_' + uid, JSON.stringify({ data: cacheData, role, agentId, clientId }));
+      const { invApproved, invoiceStatus } = this._deriveInvState(data);
+      this.setState({ data, invApproved, invoiceStatus });
+    } catch(e) { console.error('Cache refresh failed:', e.message); }
   }
 
   async _switchClientAccount(newClientId, newClientName, newClientType) {
@@ -537,7 +568,9 @@ class Component extends DCLogic {
       this.setState({ role: newRole, data, loading: false, invApproved, invoiceStatus, route: 'dashboard' });
       if (uid) {
         try {
-          localStorage.setItem('is_cache_' + uid, JSON.stringify({ data, role: newRole, agentId: null, clientId: newClientId, subClientId: null, scClientName: '', scSubName: '', clientAccounts: s.clientAccounts }));
+          const cacheData = { ...data, activityLog: [], presence: [] };
+          localStorage.setItem('is_cache_' + uid, JSON.stringify({ data: cacheData, role: newRole, agentId: null, clientId: newClientId, clientAccounts: s.clientAccounts }));
+          localStorage.setItem('is_profile_' + uid, JSON.stringify({ role: newRole, agentId: null, clientId: newClientId }));
         } catch(e) {}
       }
     } catch(e) {
@@ -545,83 +578,267 @@ class Component extends DCLogic {
     }
   }
 
-  async _refreshCache(uid, role, agentId, clientId, subClientId) {
-    try {
-      const data = await API.loadAll(role, agentId, clientId, subClientId);
-      localStorage.setItem('is_cache_' + uid, JSON.stringify({ data, role, agentId, clientId, subClientId, scClientName: this.scClientName || '', scSubName: this.scSubName || '' }));
-      const { invApproved: refreshedApproved, invoiceStatus: refreshedStatus } = this._deriveInvState(data);
-      this.setState({ data, invApproved: refreshedApproved, invoiceStatus: refreshedStatus });
-    } catch(e) {}
-  }
-
-  async _doLogout() {
-    API.clearPresence(this._getPresenceId());
-    if (this._heartbeatTimer) { clearInterval(this._heartbeatTimer); this._heartbeatTimer = null; }
-    try { const uid = SB.getSession()?.user?.id; if (uid) localStorage.removeItem('is_cache_' + uid); } catch(e) {}
-    await SB.signOut();
-    this.myAgentId = null;
-    this.myClientId = null;
-    this.setState({ role: null, modal: null, notifOpen: false, tourStep: null, data: this._emptyData(), loginEmail: '', loginPassword: '' });
-  }
-
-  // ---- Account Switcher (admin impersonation) ----
-  _switchToAccount(role, agentId, clientId, subClientId, displayName) {
-    // Always save the original admin state so nested switches restore correctly
-    const existing = this.state._impersonate;
-    const prev = existing ? existing.prev : { role: this.state.role, agentId: this.myAgentId, clientId: this.myClientId, scClientId: this.scClientId, scSubId: this.scSubId };
-    this.myAgentId = agentId || null;
-    this.myClientId = clientId || null;
-    this.scClientId = clientId || null;
-    this.scSubId = subClientId || null;
-    this.setState({ role, route: 'dashboard', showSwitcher: false, switcherSearch: '', _impersonate: { prev, displayName } });
-  }
-  _switchBackToAdmin() {
-    const imp = this.state._impersonate;
-    if (!imp) return;
-    this.myAgentId = imp.prev.agentId;
-    this.myClientId = imp.prev.clientId;
-    this.scClientId = imp.prev.scClientId;
-    this.scSubId = imp.prev.scSubId;
-    this.setState({ role: imp.prev.role, route: 'dashboard', _impersonate: null, showSwitcher: false });
-  }
-
-  // ---- Navigation ----
-  go(route) {
-    this._updatePresence(route);
-    try { localStorage.setItem('_isroute', route); } catch(e) {}
-    this.setState({ route, notifOpen: false, sidebarOpen: false });
+  _getPresenceId() {
     const s = this.state;
-    if (s.role === 'client' || s.role === 'agency') {
-      const labels = { appointments: 'Appointments', billing: 'Billing', contracts: 'Contracts', support: 'Support', legal: 'Legal', dashboard: 'Dashboard' };
-      if (labels[route]) this._logActivity('navigate', 'Viewed ' + labels[route] + ' page');
-    }
+    const session = SB.getSession();
+    return session?.user?.id || null;
   }
 
-  _getPresenceId() { const session = SB.getSession(); return session?.user?.id || null; }
   _getPresenceName() {
     const s = this.state;
-    if (s.role === 'agent' && this.myAgentId) return (s.data.agents || []).find(a => a.id === this.myAgentId)?.name || '';
-    if ((s.role === 'client' || s.role === 'agency') && this.myClientId) return (s.data.clients || []).find(c => c.id === this.myClientId)?.name || '';
-    if (s.role === 'admin') return SB.getSession()?.user?.email?.split('@')[0] || 'Admin';
+    if (s.role === 'agent' && this.myAgentId) {
+      return (s.data.agents || []).find(a => a.id === this.myAgentId)?.name || '';
+    } else if ((s.role === 'client' || s.role === 'agency') && this.myClientId) {
+      return (s.data.clients || []).find(c => c.id === this.myClientId)?.name || '';
+    } else if (s.role === 'admin') {
+      return SB.getSession()?.user?.email?.split('@')[0] || 'Admin';
+    }
     return '';
   }
+
   _updatePresence(route) {
-    const uid = this._getPresenceId(); if (!uid) return;
-    const labels = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support' };
-    API.updatePresence(uid, this._getPresenceName(), this.state.role, route, labels[route] || route);
+    const uid = this._getPresenceId();
+    if (!uid) return;
+    const name = this._getPresenceName();
+    const role = this.state.role;
+    const routeLabels = { roadmap: '€100K Roadmap', dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', followup: 'Opvolging', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do', whatsapp: 'WhatsApp', targets: 'Targets', clientsuccess: 'Client Success', coaching: 'Coaching', salespeople: 'Salespeople', managers: 'Managers', opa: 'OPA' };
+    API.updatePresence(uid, name, role, route, routeLabels[route] || route);
   }
-  openModal(kind, form) { this.setState({ modal: true, modalKind: kind, form: form || {}, notifOpen: false }); }
-  closeModal() { this.setState({ modal: null, modalKind: null, form: {} }); }
-  setForm(k, v) { this.setState(s => ({ form: { ...s.form, [k]: v, apptError: null } })); }
-  _saveInvState(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
-  _loadInvState(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : {}; } catch(e) { return {}; } }
-  _deriveInvState(data) {
-    const invApproved = {}, invoiceStatus = {};
-    for (const [key, is] of Object.entries((data && data.invoiceStates) || {})) {
-      if (is.approved) invApproved[key] = true;
-      if (is.payStatus && is.payStatus !== 'open') invoiceStatus[key] = is.payStatus;
-    }
-    return { invApproved, invoiceStatus };
+
+  _startPolling() {
+    if (this._pollTimer) clearInterval(this._pollTimer);
+    if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
+    if (this._syncDialsTimer) clearInterval(this._syncDialsTimer);
+    this._pollTimer = setInterval(() => this._poll(), 5000);
+    this._heartbeatTimer = setInterval(() => this._updatePresence(this.state.route), 30000);
+    // Trigger CloudTalk → Supabase dials sync every 60 seconds (admin only)
+    this._syncDialsTimer = setInterval(() => this._triggerDialsSync(), 60000);
+  }
+
+  async _triggerDialsSync() {
+    if (this.state.role !== 'admin') return;
+    const session = SB.loadSession();
+    if (!session || !session.access_token) return;
+    try {
+      await fetch('/api/sync-dials?no_hourly=true', {
+        headers: { 'Authorization': 'Bearer ' + session.access_token },
+      });
+    } catch (e) { /* silent */ }
+  }
+
+  async _fetchHourlyForDate(date) {
+    if (!this._fetchedHourlyDates) this._fetchedHourlyDates = new Set();
+    if (this._fetchedHourlyDates.has(date)) return;
+    this._fetchedHourlyDates.add(date);
+    try {
+      const rows = await SB.get('dials_hourly', `?dial_date=eq.${date}&select=agent_id,hour,count`).catch(() => null);
+      if (!rows || !rows.length) return;
+      this.mutLocal(dd => {
+        if (!dd.dialsHourly) dd.dialsHourly = {};
+        rows.forEach(r => {
+          if (!dd.dialsHourly[r.agent_id]) dd.dialsHourly[r.agent_id] = {};
+          if (!dd.dialsHourly[r.agent_id][date]) dd.dialsHourly[r.agent_id][date] = {};
+          dd.dialsHourly[r.agent_id][date][r.hour] = r.count;
+        });
+      });
+    } catch (e) { /* silent */ }
+  }
+
+  async _poll() {
+    const role = this.state.role;
+    if (!role) return;
+    try {
+      // All roles: poll for new notifications
+      const rawNotifs = await SB.get('notifications', `?target_role=eq.${role}&order=created_at.desc&limit=20`);
+      const d = this.state.data;
+      const existing = d.notifs[role] || [];
+      const kindAction = k => ({ appt: { route: 'apptadmin' }, pay: { route: 'payments' }, todo: { route: 'dashboard' }, bill: { route: 'finances' }, eod: { route: 'eodadmin' }, ticket: { route: 'support' }, contract: { route: 'contracts' } }[k] || null);
+      for (const rec of (rawNotifs || [])) {
+        if (!existing.find(n => n.id === rec.id)) {
+          let action = null;
+          if (rec.meta) { try { action = typeof rec.meta === 'string' ? JSON.parse(rec.meta) : rec.meta; } catch(e) {} }
+          if (!action) action = kindAction(rec.kind);
+          const notifAge = Date.now() - new Date(rec.created_at || rec.time || 0).getTime();
+          // Auto-suppress unread state for notifications older than 2 hours — prevents stale
+          // backlog from showing as unread on every fresh login (DB read stays as-is, only local).
+          const locallyRead = rec.read || notifAge > 2 * 60 * 60 * 1000;
+          const n = { id: rec.id, text: rec.text, time: rec.time, read: locallyRead, kind: rec.kind, action };
+          this.mutLocal(dd => { if (!dd.notifs[role]) dd.notifs[role] = []; dd.notifs[role].unshift(n); });
+          // Only toast for notifications created within the last 5 minutes
+          if (!rec.read && notifAge < 5 * 60 * 1000) this.toast(rec.text, '', kindAction(rec.kind) ? 'var(--accent)' : 'var(--info)');
+        }
+      }
+
+      // Real-time dials: refresh today's dials for all agents every poll cycle
+      const todayDialsDate = new Date().toISOString().slice(0, 10);
+      const rawDialsToday = await SB.get('dials', `?dial_date=eq.${todayDialsDate}&select=agent_id,count`).catch(() => null);
+      if (rawDialsToday && rawDialsToday.length >= 0) {
+        this.mutLocal(dd => {
+          for (const row of rawDialsToday) {
+            if (!dd.dials[row.agent_id]) dd.dials[row.agent_id] = {};
+            dd.dials[row.agent_id][todayDialsDate] = row.count;
+          }
+        });
+      }
+
+      if (role !== 'admin') return;
+
+      // Refresh admin targets dials_hourly cache for today
+      const dialsHourlyToday = await SB.get('dials_hourly', `?dial_date=eq.${todayDialsDate}&select=agent_id,hour,count`).catch(() => null);
+      if (dialsHourlyToday) {
+        // Build per-day totals for targets screen: { agent_id: total }
+        const hMap = {};
+        (dialsHourlyToday || []).forEach(r => { hMap[r.agent_id] = (hMap[r.agent_id] || 0) + (r.count || 0); });
+        this.setState(prev => ({ _dialsByDay: { ...(prev._dialsByDay || {}), [todayDialsDate]: hMap } }));
+        // Build per-hour structure for stats hourly chart: { agent_id: { date: { hour: count } } }
+        this.mutLocal(dd => {
+          if (!dd.dialsHourly) dd.dialsHourly = {};
+          (dialsHourlyToday || []).forEach(r => {
+            if (!dd.dialsHourly[r.agent_id]) dd.dialsHourly[r.agent_id] = {};
+            if (!dd.dialsHourly[r.agent_id][todayDialsDate]) dd.dialsHourly[r.agent_id][todayDialsDate] = {};
+            dd.dialsHourly[r.agent_id][todayDialsDate][r.hour] = r.count;
+          });
+        });
+      }
+
+      // Every 2 minutes: full refresh of current-month appointments so status/rate changes
+      // (cancel → held, amount corrections, etc.) are reflected in Command Center & Finance in real-time.
+      const now2 = Date.now();
+      const ym2 = new Date().toISOString().slice(0, 7);
+      const doFullRefresh = !this._lastFullApptRefresh || (now2 - this._lastFullApptRefresh) > 120000;
+
+      const since = new Date(now2 - 15 * 60 * 1000).toISOString();
+      const [rawAppts, rawAgents, rawPresence, rawRecruits, rawMtdAppts] = await Promise.all([
+        SB.get('appointments', `?created_at=gt.${since}&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`),
+        SB.get('agents', '?order=name&select=id,name,working,work_since'),
+        SB.get('presence', '').catch(() => []),
+        SB.get('recruits', `?created_at=gt.${since}&order=created_at.desc`),
+        doFullRefresh
+          ? SB.get('appointments', `?date_logged=like.${ym2}%&order=date_logged.desc&select=id,agent_id,client_id,sub_client_id,lead_name,phone,date_logged,date_appt,status,amount,agent_rate,invoiced,paid,client_feedback,rescheduled,admin_notes`)
+          : Promise.resolve(null),
+      ]);
+
+      if (doFullRefresh && rawMtdAppts) {
+        this._lastFullApptRefresh = now2;
+        // Merge: replace any MTD appointment that changed, keep history outside MTD untouched
+        this.mutLocal(dd => {
+          const incoming = (rawMtdAppts || []).map(rec => ({
+            id: rec.id, agent: rec.agent_id, client: rec.client_id,
+            sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
+            dateLog: rec.date_logged, dateAppt: rec.date_appt,
+            status: rec.status, amount: rec.amount ?? null, agentRate: rec.agent_rate ?? null,
+            invoiced: rec.invoiced || false, paid: rec.paid || false,
+            clientFeedback: rec.client_feedback || '',
+            rescheduled: rec.rescheduled || false,
+            adminNotes: rec.admin_notes || '',
+          }));
+          const incomingIds = new Set(incoming.map(a => a.id));
+          // Drop stale MTD records, keep non-MTD history, prepend fresh MTD
+          dd.appointments = [
+            ...incoming,
+            ...dd.appointments.filter(a => !incomingIds.has(a.id) && !(a.dateLog||'').startsWith(ym2)),
+          ];
+        });
+      }
+
+      // Detect new appointments (within last 15 min window) — for real-time toast/notification
+      for (const rec of (rawAppts || [])) {
+        if (!d.appointments.find(a => a.id === rec.id)) {
+          const appt = {
+            id: rec.id, agent: rec.agent_id, client: rec.client_id,
+            sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '',
+            dateLog: rec.date_logged, dateAppt: rec.date_appt,
+            status: rec.status, amount: rec.amount ?? null, agentRate: rec.agent_rate ?? null,
+            invoiced: rec.invoiced || false, paid: rec.paid || false,
+            clientFeedback: rec.client_feedback || '',
+            rescheduled: rec.rescheduled || false,
+            adminNotes: rec.admin_notes || '',
+          };
+          const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
+          const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
+          // Add to local state unless MTD full refresh already covered this appointment's month.
+          // Also suppress toast/notification for pre-existing appointments surfaced by full refresh
+          // (they are not "new" — they were already in the DB when the page loaded).
+          const coveredByMtd = doFullRefresh && (appt.dateLog || '').startsWith(ym2);
+          if (!coveredByMtd) {
+            this.mutLocal(dd => { if (!dd.appointments.find(a => a.id === appt.id)) dd.appointments.unshift(appt); });
+            this._pushAdminNotif(`${agentName} booked ${appt.lead} for ${clientName}`, 'appt', { route: 'apptadmin', modal: 'appointmentDetail', modalForm: { id: appt.id } });
+            this.toast('New appointment', `${agentName} · ${appt.lead} · ${clientName}`, 'var(--info)');
+          }
+        }
+      }
+
+      // Kickoff notifications (1 day and 3 days before)
+      const todayMs = new Date(this.iso(this.today())).getTime();
+      const sentKo = this.state.sentKickoffNotifs || {};
+      for (const c of d.clients) {
+        if (!c.kickoff) continue;
+        const koMs = new Date(c.kickoff.slice(0, 10)).getTime();
+        const daysLeft = Math.round((koMs - todayMs) / 86400000);
+        if (daysLeft === 3 && !sentKo[c.id + '-3']) {
+          this.setState(st => ({ sentKickoffNotifs: { ...(st.sentKickoffNotifs || {}), [c.id + '-3']: true } }));
+          this._pushAdminNotif('Kickoff in 3 days: ' + c.name, 'info', { route: 'timeline' });
+          this.toast('Kickoff soon', c.name + ' kicks off in 3 days', 'var(--warn)');
+        }
+        if (daysLeft === 1 && !sentKo[c.id + '-1']) {
+          this.setState(st => ({ sentKickoffNotifs: { ...(st.sentKickoffNotifs || {}), [c.id + '-1']: true } }));
+          this._pushAdminNotif('Kickoff tomorrow: ' + c.name + '!', 'info', { route: 'timeline' });
+          this.toast('Kickoff tomorrow', c.name + ' kicks off tomorrow!', 'var(--down)');
+        }
+      }
+
+      // Update presence data
+      if (rawPresence) this.mutLocal(dd => { dd.presence = rawPresence; });
+
+      // Detect agent working-status changes
+      for (const rec of (rawAgents || [])) {
+        const cur = d.agents.find(a => a.id === rec.id);
+        if (cur && cur.working !== rec.working) {
+          this.mutLocal(dd => {
+            const a = dd.agents.find(x => x.id === rec.id);
+            if (a) { a.working = rec.working; a.workSince = rec.work_since || null; }
+          });
+          this._pushAdminNotif(`${cur.name} is now ${rec.working ? 'online' : 'offline'}`);
+          this.toast(cur.name, rec.working ? 'Now online' : 'Now offline', rec.working ? 'var(--up)' : 'var(--text-mute)');
+        }
+      }
+
+      // Detect new recruits only (recent window)
+      if (rawRecruits) {
+        for (const r of rawRecruits) {
+          if (!d.recruits.find(x => x.id === r.id)) {
+            const rec = { id: r.id, name: r.name, email: r.email || '', phone: r.phone || '', position: r.position || '', country: r.country || '', lang: r.lang || '', source: r.source || '', stage: r.stage || 'new', notes: r.notes || '', created_at: r.created_at };
+            this.mutLocal(dd => dd.recruits.unshift(rec));
+            this._pushAdminNotif('New recruit application: ' + rec.name, 'recruit', { route: 'recruitment' });
+          }
+        }
+      }
+
+      // Refresh prospects periodically so changes from other sessions are visible
+      const nowMs = Date.now();
+      const onProspects = this.state.route === 'prospects';
+      const prospectInterval = onProspects ? 30000 : 120000;
+      if (!this._lastProspectRefresh || (nowMs - this._lastProspectRefresh) > prospectInterval) {
+        this._lastProspectRefresh = nowMs;
+        const rawProspects = await SB.get('prospects', '?order=created_at.desc').catch(() => null);
+        if (rawProspects) {
+          this.mutLocal(dd => { dd.prospects = rawProspects; });
+        }
+      }
+
+      // Refresh todos for current day if on todos screen
+      if (this.state.route === 'todos') {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const day = this.state.todosDay || todayStr;
+        const rawTodos = await SB.get('todos', `?day=eq.${day}&order=order_idx.asc,created_at.asc`).catch(() => null);
+        if (rawTodos) {
+          const curList = this.state.todosList;
+          const filtered = rawTodos.filter(t => t.completed_by !== '__deleted__');
+          const hasChanges = !curList || filtered.some(t => { const c = curList.find(x => x.id === t.id); return !c || c.completed_at !== t.completed_at || c.order_idx !== t.order_idx || c.title !== t.title; }) || curList.some(t => !filtered.find(x => x.id === t.id));
+          if (hasChanges) this.setState({ todosList: filtered, _todosLoaded: true });
+        }
+      }
+    } catch (e) {}
   }
 
   _pushNotif(role, text, kind, action) {
@@ -629,6 +846,7 @@ class Component extends DCLogic {
     this.mutLocal(d => { if (!d.notifs[role]) d.notifs[role] = []; d.notifs[role].unshift(n); });
     API.pushNotif(role, text, kind, action);
   }
+  _pushAdminNotif(text, kind, action) { this._pushNotif('admin', text, kind || 'info', action); }
 
   handleNotifClick(n) {
     if (!n || !n.action) return;
@@ -639,20 +857,191 @@ class Component extends DCLogic {
     if (a.modal) setTimeout(() => this.openModal(a.modal, a.modalForm || {}), 40);
   }
 
+  async _doLogout() {
+    if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
+    if (this._heartbeatTimer) { clearInterval(this._heartbeatTimer); this._heartbeatTimer = null; }
+    API.clearPresence(this._getPresenceId());
+    try { const uid = SB.getSession()?.user?.id; if (uid) { localStorage.removeItem('is_cache_' + uid); localStorage.removeItem('is_profile_' + uid); } } catch(e) {}
+    await SB.signOut();
+    this.myAgentId = null;
+    this.myClientId = null;
+    this.setState({ role: null, modal: null, notifOpen: false, tourStep: null, data: this._emptyData(), loginEmail: '', loginPassword: '' });
+  }
+
+  // ---- Navigation ----
+  _logActivity(action, details) {
+    const s = this.state;
+    if (!s.role || s.loading) return;
+    let userName = '';
+    if (s.role === 'agent' && this.myAgentId) {
+      const me = (s.data.agents || []).find(a => a.id === this.myAgentId);
+      userName = me?.name || '';
+    } else if ((s.role === 'client' || s.role === 'agency') && this.myClientId) {
+      const me = (s.data.clients || []).find(c => c.id === this.myClientId);
+      userName = me?.name || '';
+    } else if (s.role === 'subclient' && this.myClientId) {
+      const cl = (s.data.clients || []).find(c => c.id === this.myClientId);
+      const sc = cl && this.scSubId ? (cl.subclients || []).find(x => x.id === this.scSubId) : null;
+      userName = sc ? sc.name : (cl?.name || 'Subclient');
+    } else if (s.role === 'admin') {
+      const sess = SB.getSession();
+      userName = sess?.user?.email?.split('@')[0] || 'Admin';
+    }
+    API.logActivity(userName, s.role, action, details);
+  }
+
+  go(route) {
+    const labels = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', eod: 'End of Day', payments: 'Payments', clients: 'Clients', agents: 'Call Agents', rooster: 'Rooster / Schedule', stats: 'Statistics', settings: 'Settings', contracts: 'Contracts', finances: 'Finances', eodadmin: 'EOD Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', apptadmin: 'Appointments', activity: 'Activity Feed', legal: 'Legal', billing: 'Billing', support: 'Support', todos: 'To-Do', whatsapp: 'WhatsApp' };
+    this._logActivity('navigate', 'Opened ' + (labels[route] || route));
+    this._updatePresence(route);
+    this.setState({ route, notifOpen: false, sidebarOpen: false });
+  }
+  openModal(kind, form) { this.setState({ modal: true, modalKind: kind, form: form || {}, notifOpen: false }); }
+  closeModal() { this.setState({ modal: null, modalKind: null, form: {} }); }
+  setForm(k, v) { this.setState(s => ({ form: { ...s.form, [k]: v, apptError: null } })); }
+
   // ---- Mutations (update local state + persist to Supabase) ----
   mutLocal(fn) {
     this.setState(s => { const d = JSON.parse(JSON.stringify(s.data)); fn(d, s); return { data: d }; });
   }
 
+  async saveApptEdits(id) {
+    console.log('[SAE] called with id:', id);
+    const f = this.state.form;
+    const d = this.state.data;
+    const ap = d.appointments.find(x => x.id === id);
+    console.log('[SAE] ap found:', !!ap, 'apIds:', d.appointments.slice(0,3).map(x=>x.id));
+    if (!ap) return;
+    const rawAgentRate = f.eApptAgentRate !== undefined ? f.eApptAgentRate : (ap.agentRate != null ? String(ap.agentRate) : '');
+    const rawCommission = f.eApptCommission !== undefined ? f.eApptCommission : (ap.dealCommission != null ? String(ap.dealCommission) : '');
+    const rawDealAmount = f.eApptDealAmount !== undefined ? f.eApptDealAmount : (ap.dealAmount != null ? String(ap.dealAmount) : '');
+    const fields = {
+      lead_name: f.eApptLead !== undefined ? f.eApptLead.trim() : ap.lead,
+      phone: f.eApptPhone !== undefined ? f.eApptPhone : (ap.phone || ''),
+      client_id: f.eApptClient !== undefined ? f.eApptClient : ap.client,
+      sub_client_id: f.eApptSub !== undefined ? (f.eApptSub || null) : (ap.sub || null),
+      agent_id: f.eApptAgent !== undefined ? f.eApptAgent : ap.agent,
+      amount: f.eApptAmount !== undefined ? (parseFloat(f.eApptAmount) || 0) : (ap.amount || 0),
+      date_appt: (() => { const d = f.eApptDate !== undefined ? f.eApptDate : (ap.dateAppt || '').slice(0, 10); const t = f.eApptTime !== undefined ? f.eApptTime : (ap.dateAppt?.includes('T') ? ap.dateAppt.slice(11, 16) : ''); const v = d + (t ? 'T' + t : ''); return v || null; })(),
+      date_logged: (f.eApptDateLog !== undefined ? f.eApptDateLog : ap.dateLog) || null,
+      agent_rate: rawAgentRate !== '' ? (parseFloat(rawAgentRate) ?? null) : null,
+      deal_commission: rawCommission !== '' ? (parseFloat(rawCommission) || null) : null,
+      deal_amount: rawDealAmount !== '' ? (parseFloat(rawDealAmount) || null) : null,
+    };
+    this.mutLocal(dd => {
+      const a = dd.appointments.find(x => x.id === id); if (!a) return;
+      a.lead = fields.lead_name; a.phone = fields.phone;
+      a.client = fields.client_id; a.sub = fields.sub_client_id || '';
+      a.agent = fields.agent_id; a.amount = fields.amount;
+      a.dateAppt = fields.date_appt; a.dateLog = fields.date_logged;
+      a.agentRate = fields.agent_rate;
+      a.dealCommission = fields.deal_commission;
+      a.dealAmount = fields.deal_amount;
+    });
+    const ok = await API.patchAppointment(id, fields);
+    if (ok) {
+      // Re-apply local update: doFullRefresh may have run during the PATCH and overwritten optimistic state
+      this.mutLocal(dd => {
+        const a = dd.appointments.find(x => x.id === id); if (!a) return;
+        a.lead = fields.lead_name; a.phone = fields.phone;
+        a.client = fields.client_id; a.sub = fields.sub_client_id || '';
+        a.agent = fields.agent_id; a.amount = fields.amount;
+        a.dateAppt = fields.date_appt; a.dateLog = fields.date_logged;
+        a.agentRate = fields.agent_rate;
+        a.dealCommission = fields.deal_commission;
+        a.dealAmount = fields.deal_amount;
+      });
+      this._lastFullApptRefresh = Date.now(); // delay next full refresh so this update isn't immediately overwritten
+    }
+    this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptTime: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
+    if (ok && ok.ok !== false) this.toast('Saved ✓', 'Appointment updated', 'var(--up)');
+    else this.toast('Fout', 'Opslaan mislukt', 'var(--down)');
+  }
+
   async setApptStatus(id, status) {
     const d = this.state.data;
     const ap = d.appointments.find(x => x.id === id);
-    const clientRate = ap ? (d.clients.find(c => c.id === ap.client) || {}).rate || 0 : 0;
-    const amount = status === 'show' ? clientRate : 0;
+    const cl = ap ? d.clients.find(c => c.id === ap.client) : null;
+    const amount = (() => {
+      if (status !== 'show') return 0;
+      // Renocheck: rate comes from clientFeedback category
+      try {
+        const fb = ap?.clientFeedback ? JSON.parse(ap.clientFeedback) : null;
+        if (fb && fb._rn) {
+          if (fb.category && _RN_CLIENT_RATE[fb.category] != null) return _RN_CLIENT_RATE[fb.category];
+          if (fb.revenue != null) return fb.revenue;
+          return 0;
+        }
+      } catch {}
+      // closeFee clients (deal-based)
+      if (cl && cl.closeFee) return ap?.quoteApproved ? cl.closeFee : (cl.rate || 0);
+      // Subclient rate, else client rate
+      if (ap?.sub && cl?.subclients) {
+        const sc = cl.subclients.find(s => s.id === ap.sub || s.name === ap.sub);
+        if (sc && sc.rate != null) return sc.rate;
+      }
+      return (cl && cl.rate) || 0;
+    })();
+    const prevStatus = ap?.status || status;
+    const prevAmount = ap?.amount ?? amount;
     this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
-    await API.setApptStatus(id, status, amount);
+    const result = await API.setApptStatus(id, status, amount);
+    if (result === null) {
+      this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = prevStatus; a.amount = prevAmount; } });
+      this.toast('Fout', 'Status kon niet worden opgeslagen. Herlaad de pagina en probeer opnieuw.', 'var(--down)');
+      return;
+    }
+    // Re-apply after API call: doFullRefresh may have run during the await and overwritten optimistic state
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) { a.status = status; a.amount = amount; } });
+    this._lastFullApptRefresh = Date.now();
     const m = { show: 'Marked as Show', no_show: 'Marked as No-show', cancel: 'Marked as Cancelled' };
+    this._logActivity('appointment_updated', 'Set appointment status → ' + status + (ap ? ' — Lead: ' + ap.lead : ''));
     this.toast('Updated', m[status] || 'Status updated', status === 'show' ? 'var(--up)' : 'var(--down)');
+  }
+
+  async saveApptFeedback(id, feedback) {
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.clientFeedback = feedback; });
+    await API.saveApptFeedback(id, feedback);
+    // Re-apply: clientFeedback is in the poll select, doFullRefresh can overwrite it during the await
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.clientFeedback = feedback; });
+    this._lastFullApptRefresh = Date.now();
+    this.toast('Saved', 'Feedback saved', 'var(--accent)');
+  }
+
+  async mergeAdminNotes(id, updates) {
+    const appt = this.state.data.appointments.find(x => x.id === id);
+    const existing = appt ? (appt.adminNotes || '') : '';
+    let obj = {};
+    try { obj = existing ? JSON.parse(existing) : {}; } catch(_) { if (existing) obj.nt = existing; }
+    Object.assign(obj, updates);
+    const newNotes = JSON.stringify(obj);
+    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = newNotes; });
+    await API.saveAdminNotes(id, newNotes);
+  }
+
+  async saveAdminNotes(id, notes) {
+    await this.mergeAdminNotes(id, { nt: notes });
+    this.toast('Saved', 'Notes saved', 'var(--accent)');
+  }
+
+  async rescheduleAppointment(id, newDate) {
+    const appt = this.state.data.appointments.find(x => x.id === id);
+    const prevDate = appt ? (appt.dateAppt || null) : null;
+    const prevStatus = appt ? (appt.status || null) : null;
+    const existing = appt ? (appt.adminNotes || '') : '';
+    let notesObj = {};
+    try { notesObj = existing ? JSON.parse(existing) : {}; } catch(_) { if (existing) notesObj.nt = existing; }
+    if (prevDate) notesObj.pd = prevDate;
+    if (prevStatus) notesObj.ps = prevStatus;
+    const newNotes = JSON.stringify(notesObj);
+    await SB.patch('appointments', `?id=eq.${id}`, { date_appt: newDate, rescheduled: true, admin_notes: newNotes });
+    this.mutLocal(dd => {
+      const a = dd.appointments.find(x => x.id === id);
+      if (a) { a.dateAppt = newDate; a.rescheduled = true; a.adminNotes = newNotes; }
+    });
+    this.setForm('reschedulingAppt', false);
+    this.setForm('rescheduleDate', '');
+    this.toast('Herpland', 'Afspraak succesvol herpland', 'var(--accent)');
   }
 
   async toggleWorking() {
@@ -668,7 +1057,12 @@ class Component extends DCLogic {
   async toggleTodo(id, me) {
     const agent = me || this.state.data.agents.find(a => a.id === this.myAgentId);
     if (!agent) return;
-    const todos = (agent.todos || []).map(t => t.id === id ? { ...t, done: !t.done } : t);
+    const today = this.iso(this.today());
+    const todos = (agent.todos || []).map(t => {
+      if (t.id !== id) return t;
+      const isDone = !(t.done && t.doneDate === today);
+      return isDone ? { ...t, done: true, doneDate: today } : { ...t, done: false, doneDate: null };
+    });
     this.mutLocal(d => { const a = d.agents.find(x => x.id === agent.id); if (a) a.todos = todos; });
     await API.saveTodos(agent.id, todos);
   }
@@ -681,6 +1075,14 @@ class Component extends DCLogic {
     this.mutLocal(d => { const a = d.agents.find(x => x.id === this.myAgentId); if (a) a.todos = todos; });
     await API.saveTodos(this.myAgentId, todos);
     this.toast('Added', 'To-do created', 'var(--accent)');
+  }
+
+  async deleteTodo(id, me) {
+    const agent = me || this.state.data.agents.find(a => a.id === this.myAgentId);
+    if (!agent) return;
+    const todos = (agent.todos || []).filter(t => t.id !== id);
+    this.mutLocal(d => { const a = d.agents.find(x => x.id === agent.id); if (a) a.todos = todos; });
+    await API.saveTodos(agent.id, todos);
   }
 
   async markAllRead() {
@@ -715,41 +1117,80 @@ class Component extends DCLogic {
   }
 
   async moveProspect(id, stage) {
+    const prev = (this.state.data.prospects.find(x => x.id === id) || {}).stage;
     this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p) p.stage = stage; });
-    await API.updateProspectStage(id, stage);
+    const ok = await API.updateProspectStage(id, stage);
+    if (!ok) {
+      this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p && prev) p.stage = prev; });
+      this.toast('Fout', 'Stage kon niet worden opgeslagen', 'var(--down)');
+    } else {
+      this._lastProspectRefresh = Date.now();
+    }
   }
 
   async addProspect(f) {
     if (!f.company) { this.toast('Error', 'Add a company', 'var(--down)'); return; }
-    const row = { company: f.company, contact: f.contact || '', phone: f.phone || '', assigned: f.assigned || 'Quinten', source: f.source || 'LinkedIn', stage: 'new', next_action: 'Qualify', next_date: this.iso(this.today()), notes: f.notes || '' };
-    this.mutLocal(d => d.prospects.unshift({ id: 'p' + Date.now(), ...row, next: row.next_action, nextDate: row.next_date }));
-    await API.addProspect(row);
+    const row = {
+      company: f.company, contact: f.contact || '', phone: f.phone || '', email: f.email || '',
+      assigned: f.assigned || '', source: f.source || 'LinkedIn',
+      stage: f.stage || 'nieuwe_leads', pipeline_id: f.pipelineId || 'manuele',
+      status: f.status || '', notes: f.notes || '', caller_note: f.caller_note || '',
+      call_on: f.call_on || null, revenue: f.revenue || '',
+      next_action: 'Qualify', next_date: this.iso(this.today()),
+    };
+    const tempId = 'p' + Date.now();
+    this.mutLocal(d => d.prospects.unshift({ id: tempId, ...row }));
+    const res = await API.addProspect({ id: tempId, ...row });
+    // Replace the temp prospect with the real DB row (same ID, but ensures consistency)
+    if (res && res.id && res.id !== tempId) {
+      this.mutLocal(d => { const idx = d.prospects.findIndex(x => x.id === tempId); if (idx >= 0) d.prospects[idx].id = res.id; });
+    }
     this.closeModal();
     this.toast('Prospect', 'Added to pipeline', 'var(--accent)');
   }
 
   async advanceRecruit(id, stage) {
-    const defaultStages = ['new', 'qualified', 'interview', 'hired', 'not_qualified'];
-    this.mutLocal(d => {
-      const r = d.recruits.find(x => x.id === id);
-      if (r) r.stage = stage;
-      d.settings = d.settings || {};
-      const raw = d.settings.recruit_stage_overrides;
-      let map = {};
-      try { map = raw ? JSON.parse(raw) : {}; } catch(_) {}
-      if (defaultStages.includes(stage)) delete map[id]; else map[id] = stage;
-      d.settings.recruit_stage_overrides = JSON.stringify(map);
-    });
+    if (!this._pendingRecruitStages) this._pendingRecruitStages = {};
+    this._pendingRecruitStages[id] = stage;
+    this.mutLocal(d => { const r = d.recruits.find(x => x.id === id); if (r) r.stage = stage; });
     await API.advanceRecruit(id, stage);
+    delete this._pendingRecruitStages[id];
     this.toast('Recruitment', 'Candidate moved to ' + stage.replace('_', ' '), 'var(--accent)');
   }
 
   async createClient(f) {
-    const row = { name: f.name, type: 'direct', status: 'starting', crm: f.crm || 'none', crm_on: f.crm && f.crm !== 'none', kickoff: this.iso(this.today()), rate: +(String(f.rate || '45').replace(/\D/g, '')) || 45, contact_person: f.name, email: f.email || '', company: f.name, bill_status: 'pending', subclients: [] };
+    const type = f.newType || 'direct';
+    // If rate was explicitly typed in the form, use it. Otherwise check for a signed contract by email.
+    let rate = f.rate ? (+(String(f.rate).replace(/\D/g, '')) || 0) : 0;
+    if (!rate && f.email) {
+      const d = this.state.data;
+      const signedContract = (d.contracts || []).find(c => c.party_type !== 'agent' && c.status === 'signed' && c.email === f.email);
+      if (signedContract) {
+        const parsed = +(String(signedContract.value || '').replace(/[^\d]/g, '')) || 0;
+        if (parsed) rate = parsed;
+      }
+    }
+    if (!rate) rate = 45;
+    const row = { name: f.name, type, status: 'starting', crm: f.crm || 'none', crm_on: f.crm && f.crm !== 'none', kickoff: this.iso(this.today()), rate, contact_person: f.name, email: f.email || '', company: f.name, bill_status: 'pending', subclients: [] };
     const res = await API.createClient(row);
-    if (res) { const norm = { ...row, id: res[0]?.id || 'c' + Date.now(), agents: [], clients: [], crmOn: row.crm_on, contactPerson: row.contact_person, billStatus: row.bill_status }; this.mutLocal(d => d.clients.push(norm)); }
+    if (res) {
+      const clientId = res[0]?.id || 'c' + Date.now();
+      const norm = { ...row, id: clientId, agents: [], clients: [], crmOn: row.crm_on, contactPerson: row.contact_person, billStatus: row.bill_status };
+      this.mutLocal(d => d.clients.push(norm));
+      // If linking this new client to an existing agency, add it to that agency's subclients
+      if (type === 'direct' && f.linkAgency) {
+        const agency = this.state.data.clients.find(x => x.id === f.linkAgency);
+        if (agency) {
+          const newSubs = [...(agency.subclients || []), { name: f.name, rate }];
+          this.mutLocal(d => { const ag = d.clients.find(x => x.id === f.linkAgency); if (ag) ag.subclients = newSubs; });
+          await API.updateClient(f.linkAgency, { subclients: newSubs });
+        }
+      }
+      // Auto-invite: create auth account and send password setup email
+      if (row.email) this._inviteClient(row.email, row.name, clientId);
+    }
     this.closeModal();
-    this.toast('Created', 'Client added & email sent', 'var(--up)');
+    this.toast('Client aangemaakt', f.email ? 'Account aangemaakt & uitnodiging verzonden' : 'Client toegevoegd', 'var(--up)');
   }
 
   async createAgent(f) {
@@ -758,6 +1199,37 @@ class Component extends DCLogic {
     if (res) { const norm = { ...row, id: res[0]?.id || 'a' + Date.now(), clients: [], rates: {}, lifetime: 0 }; this.mutLocal(d => d.agents.push(norm)); }
     this.closeModal();
     this.toast('Created', 'Agent added & email sent', 'var(--up)');
+  }
+
+  // Fire-and-forget: create auth account + send invite email for a client
+  _inviteClient(email, name, clientId) {
+    const token = SB.getSession()?.access_token;
+    if (!token || !email) return;
+    fetch('/api/create-account?action=invite-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ email, name, clientId }),
+    }).then(r => r.json()).then(d => {
+      if (!d.ok) console.warn('[invite-client] failed:', d);
+    }).catch(err => console.warn('[invite-client] error:', err));
+  }
+
+  async resendInvite(clientId) {
+    const cl = this.state.data.clients.find(x => x.id === clientId);
+    if (!cl || !cl.email) { this.toast('Fout', 'Geen e-mailadres gevonden voor deze client', 'var(--down)'); return; }
+    if (typeof SB !== 'undefined') await SB.ensureSession().catch(() => {});
+    const token = SB.getSession()?.access_token;
+    if (!token) { this.toast('Fout', 'Sessie verlopen — herlaad de pagina en probeer opnieuw', 'var(--down)'); return; }
+    this.toast('Bezig…', 'Uitnodiging wordt verzonden', 'var(--accent)');
+    const r = await fetch('/api/create-account?action=invite-client', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ email: cl.email, name: cl.name, clientId }),
+    });
+    const d = await r.json();
+    if (d.ok && d.emailSent) this.toast('Verstuurd ✓', 'Uitnodiging opnieuw gestuurd naar ' + cl.email, 'var(--up)');
+    else if (d.ok) this.toast('Account aangemaakt', 'E-mail kon niet worden verstuurd — check Resend', 'var(--warn)');
+    else this.toast('Fout', d.error || 'Uitnodiging mislukt', 'var(--down)');
   }
 
   async toggleAgent(id, active) {
@@ -772,53 +1244,212 @@ class Component extends DCLogic {
     this.toast('Client', 'Deactivated', 'var(--down)');
   }
 
+  async deleteClient(id, name) {
+    if (!confirm('Permanently delete "' + name + '"? This cannot be undone. Appointments linked to this client will remain in the system.')) return;
+    await API.deleteClient(id);
+    this.mutLocal(d => { d.clients = d.clients.filter(x => x.id !== id); });
+    this.closeModal();
+    this.toast('Client deleted', name + ' has been removed', 'var(--down)');
+  }
+
   async logAppointment() {
     const f = this.state.form;
+    if (f.apptSubmitting) return;
+    this.setState(s => ({ form: { ...s.form, apptSubmitting: true } }));
+    try {
     const isRenocheck = f.client === 'c15';
     const rnFullName = isRenocheck ? ((f.rnFirst || '') + ' ' + (f.rnLast || '')).trim() : f.lead;
+    const rnPhone = isRenocheck ? f.phone : f.phone;
     let apptError = null;
     if (!f.client || !f.dateAppt) apptError = 'Vul client en datum in.';
     else if (isRenocheck && !f.rnFirst) apptError = 'Voornaam is verplicht.';
     else if (isRenocheck && !f.rnCategory) apptError = 'Selecteer een Renocheck categorie.';
+    else if (isRenocheck && f.rnEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.rnEmail)) apptError = 'Ongeldig e-mailadres.';
     else if (!isRenocheck && !f.lead) apptError = 'Lead naam is verplicht.';
     else if (!String(f.phone || '').trim()) apptError = 'Telefoonnummer is verplicht.';
-    if (apptError) { this.setState(s => ({ form: { ...s.form, apptError } })); this.toast('Fout', apptError, 'var(--down)'); return; }
+    if (apptError) { this.setState(s => ({ form: { ...s.form, apptError, apptSubmitting: false } })); this.toast('Fout', apptError, 'var(--down)'); return; }
     this.setState(s => ({ form: { ...s.form, apptError: null } }));
     const c = this.state.data.clients.find(x => x.id === f.client);
-    let amount = c ? c.rate : 0;
+    let amount = c ? (c.rate ?? null) : null;
     if (f.sub && c && c.subclients) {
       const sc = c.subclients.find(s => s.id === f.sub);
-      if (sc) amount = sc.rate || amount;
+      if (sc) amount = sc.rate ?? amount;
     }
-    const RN_RATES = { 'Airco': { revenue: 25, payout: 10 }, 'Thuisbatt': { revenue: 40, payout: 15 }, 'Zonnepanelen': { revenue: 50, payout: 20 }, 'Keukens': { revenue: 55, payout: 20 }, 'Badkamers': { revenue: 55, payout: 20 }, 'Ramen en deuren': { revenue: 70, payout: 20 }, 'Crepi': { revenue: 70, payout: 15 }, 'Dak': { revenue: 80, payout: 20 } };
+    const RN_RATES = { 'Airco': { revenue: 25, payout: 8 }, 'Thuisbatt': { revenue: 40, payout: 12 }, 'Zonnepanelen': { revenue: 50, payout: 15 }, 'Keukens': { revenue: 55, payout: 15 }, 'Badkamers': { revenue: 55, payout: 15 }, 'Ramen en deuren': { revenue: 70, payout: 15 }, 'Crepi': { revenue: 70, payout: 15 }, 'Dak': { revenue: 80, payout: 20 }, 'Chapewerken': { revenue: 25, payout: 12 } };
     const dateLogged = this.iso(this.today());
     const leadName = isRenocheck ? rnFullName : f.lead;
-    if (isRenocheck && f.rnCategory && RN_RATES[f.rnCategory]) { amount = RN_RATES[f.rnCategory].payout; }
+    let agentRate = null;
+    if (isRenocheck && f.rnCategory && RN_RATES[f.rnCategory]) {
+      amount = RN_RATES[f.rnCategory].revenue;
+      agentRate = RN_RATES[f.rnCategory].payout;
+    }
+
     let clientFeedback = null;
     if (isRenocheck) {
       const c = f.rnCategory;
-      const intakeData = c === 'Dak' ? { eigenaar: f.rnEigenaar||'', type_dak: f.rnTypeDak||'', groote_dak: f.rnGrooteDak||'', zonnepanelen: f.rnZonnepanelen||'', zonnepanelen_gewenst: f.rnZonnepanelenGewenst||'', asbest: f.rnAsbest||'', lekkages: f.rnLekkages||'', isolatie_nodig: f.rnIsolatieNodig||'', dikte_isolatie: f.rnDikteIsolatie||'', kleur_dakpannen: f.rnKleurDakpannen||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', financiering: f.rnFinanciering||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : c === 'Crepi' ? { eigenaar: f.rnEigenaar||'', aantal_gevels: f.rnAantalGevels||'', voorgevel: f.rnVoorgevel||'', oprit: f.rnOprit||'', afmeting: f.rnAfmeting||'', isolatie_nodig: f.rnIsolatieNodig||'', dikte_isolatie: f.rnDikteIsolatie||'', kleur_crepi: f.rnKleurCrepi||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', financiering: f.rnFinanciering||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : c === 'Airco' ? { eigenaar: f.rnEigenaar||'', type_woning: f.rnTypeWoning||'', aantal_ruimtes: f.rnAantalRuimtes||'', grootte_ruimte: f.rnGrootteRuimte||'', merk: f.rnMerk||'', vergelijken: f.rnVergelijken||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : c === 'Ramen en deuren' ? { eigenaar: f.rnEigenaar||'', type_werk: f.rnTypeWerk||'', materiaal: f.rnMateriaal||'', type_glas: f.rnTypeGlas||'', kleur: f.rnKleur||'', rolluiken: f.rnRolluiken||'', vervanging: f.rnVervanging||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : c === 'Thuisbatt' ? { eigenaar: f.rnEigenaar||'', doel_batterij: f.rnDoelBatterij||'', jaarverbruik: f.rnJaarverbruik||'', piekverbruik: f.rnPiekverbruik||'', capaciteit: f.rnCapaciteit||'', digitale_meter: f.rnDigitaleMeter||'', merk: f.rnMerk||'', locatie: f.rnLocatie||'', laadpaal: f.rnLaadpaal||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : c === 'Zonnepanelen' ? { eigenaar: f.rnEigenaar||'', type_installatie: f.rnTypeInstallatie||'', jaarverbruik: f.rnJaarverbruik||'', type_dak: f.rnTypeDak||'', dakoppervlakte: f.rnGrooteDak||'', orientatie: f.rnOrientatie||'', schaduw: f.rnSchaduw||'', asbest: f.rnAsbest||'', digitale_meter: f.rnDigitaleMeter||'', thuisbatterij: f.rnThuisbatterij||'', capaciteit: f.rnCapaciteit||'', laadpaal: f.rnLaadpaal||'', airco: f.rnAirco||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : c === 'Badkamers' ? { eigenaar: f.rnEigenaar||'', type_project: f.rnTypeProject||'', afmeting: f.rnAfmeting||'', douche: f.rnDouche||'', bad: f.rnBad||'', lavabo: f.rnLavabo||'', toilet: f.rnToilet||'', tegelwerk: f.rnTegelwerk||'', sanitair: f.rnSanitair||'', loodgieterij: f.rnLoodgieterij||'', elektriciteit: f.rnElektriciteit||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : c === 'Keukens' ? { eigenaar: f.rnEigenaar||'', type_project: f.rnTypeProject||'', afmeting: f.rnAfmeting||'', financiering: f.rnFinanciering||'', info_project: f.rnInfoProject||'', timing: f.rnTiming||'', premie_aanvraag: f.rnPremie||'', voorkeur_belmoment: f.rnBelmoment||[] }
-        : null;
+      const intakeData = c === 'Dak' ? {
+        eigenaar: f.rnEigenaar || '', type_dak: f.rnTypeDak || '', groote_dak: f.rnGrooteDak || '',
+        zonnepanelen: f.rnZonnepanelen || '', zonnepanelen_gewenst: f.rnZonnepanelenGewenst || '',
+        asbest: f.rnAsbest || '', lekkages: f.rnLekkages || '', isolatie_nodig: f.rnIsolatieNodig || '',
+        dikte_isolatie: f.rnDikteIsolatie || '', kleur_dakpannen: f.rnKleurDakpannen || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        financiering: f.rnFinanciering || '', premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Crepi' ? {
+        eigenaar: f.rnEigenaar || '', aantal_gevels: f.rnAantalGevels || '', voorgevel: f.rnVoorgevel || '',
+        oprit: f.rnOprit || '', afmeting: f.rnAfmeting || '', isolatie_nodig: f.rnIsolatieNodig || '',
+        dikte_isolatie: f.rnDikteIsolatie || '', kleur_crepi: f.rnKleurCrepi || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        financiering: f.rnFinanciering || '', premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Airco' ? {
+        eigenaar: f.rnEigenaar || '', type_woning: f.rnTypeWoning || '', aantal_ruimtes: f.rnAantalRuimtes || '',
+        grootte_ruimte: f.rnGrootteRuimte || '', merk: f.rnMerk || '', vergelijken: f.rnVergelijken || '',
+        financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Ramen en deuren' ? {
+        eigenaar: f.rnEigenaar || '', type_werk: f.rnTypeWerk || '', materiaal: f.rnMateriaal || '',
+        type_glas: f.rnTypeGlas || '', kleur: f.rnKleur || '', rolluiken: f.rnRolluiken || '',
+        vervanging: f.rnVervanging || '', financiering: f.rnFinanciering || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Thuisbatt' ? {
+        eigenaar: f.rnEigenaar || '', doel_batterij: f.rnDoelBatterij || '', jaarverbruik: f.rnJaarverbruik || '',
+        piekverbruik: f.rnPiekverbruik || '', capaciteit: f.rnCapaciteit || '', digitale_meter: f.rnDigitaleMeter || '',
+        merk: f.rnMerk || '', locatie: f.rnLocatie || '', laadpaal: f.rnLaadpaal || '',
+        financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Zonnepanelen' ? {
+        eigenaar: f.rnEigenaar || '', type_installatie: f.rnTypeInstallatie || '', jaarverbruik: f.rnJaarverbruik || '',
+        type_dak: f.rnTypeDak || '', dakoppervlakte: f.rnGrooteDak || '', orientatie: f.rnOrientatie || '',
+        schaduw: f.rnSchaduw || '', asbest: f.rnAsbest || '', digitale_meter: f.rnDigitaleMeter || '',
+        thuisbatterij: f.rnThuisbatterij || '', capaciteit: f.rnCapaciteit || '', laadpaal: f.rnLaadpaal || '',
+        airco: f.rnAirco || '', financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '',
+        timing: f.rnTiming || '', premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Badkamers' ? {
+        eigenaar: f.rnEigenaar || '', type_project: f.rnTypeProject || '', afmeting: f.rnAfmeting || '',
+        douche: f.rnDouche || '', bad: f.rnBad || '', lavabo: f.rnLavabo || '', toilet: f.rnToilet || '',
+        tegelwerk: f.rnTegelwerk || '', sanitair: f.rnSanitair || '', loodgieterij: f.rnLoodgieterij || '',
+        elektriciteit: f.rnElektriciteit || '', financiering: f.rnFinanciering || '',
+        info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Keukens' ? {
+        eigenaar: f.rnEigenaar || '', type_project: f.rnTypeProject || '', afmeting: f.rnAfmeting || '',
+        financiering: f.rnFinanciering || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : c === 'Chapewerken' ? {
+        eigenaar: f.rnEigenaar || '', type_chape: f.rnTypeChape || '', oppervlakte: f.rnOppervlakte || '',
+        dikte_chape: f.rnDikteChape || '', vloerverwarming: f.rnVloerverwarming || '',
+        isolatie_nodig: f.rnIsolatieNodig || '', dikte_isolatie: f.rnDikteIsolatie || '',
+        polijsten: f.rnPolijsten || '', info_project: f.rnInfoProject || '', timing: f.rnTiming || '',
+        premie_aanvraag: f.rnPremie || '', voorkeur_belmoment: f.rnBelmoment || [],
+      } : null;
+      const description = intakeData ? (() => {
+        const parts = [];
+        if (intakeData.eigenaar) parts.push('Eigenaar: ' + intakeData.eigenaar);
+        // Category-specific fields
+        if (intakeData.type_woning) parts.push('Woning: ' + intakeData.type_woning);
+        if (intakeData.aantal_ruimtes) parts.push('Ruimtes: ' + intakeData.aantal_ruimtes);
+        if (intakeData.grootte_ruimte) parts.push('Grootte: ' + intakeData.grootte_ruimte);
+        if (intakeData.merk) parts.push('Merk: ' + intakeData.merk);
+        if (intakeData.vergelijken) parts.push('Vergelijken: ' + intakeData.vergelijken);
+        if (intakeData.type_dak) parts.push('Type dak: ' + intakeData.type_dak);
+        if (intakeData.groote_dak) parts.push('Grootte dak: ' + intakeData.groote_dak);
+        if (intakeData.dakoppervlakte) parts.push('Dakoppervlakte: ' + intakeData.dakoppervlakte);
+        if (intakeData.orientatie) parts.push('Oriëntatie: ' + intakeData.orientatie);
+        if (intakeData.zonnepanelen) parts.push('Zonnepanelen: ' + intakeData.zonnepanelen);
+        if (intakeData.zonnepanelen_gewenst) parts.push('ZP gewenst: ' + intakeData.zonnepanelen_gewenst);
+        if (intakeData.asbest) parts.push('Asbest: ' + intakeData.asbest);
+        if (intakeData.lekkages) parts.push('Lekkages: ' + intakeData.lekkages);
+        if (intakeData.schaduw) parts.push('Schaduw: ' + intakeData.schaduw);
+        if (intakeData.digitale_meter) parts.push('Digitale meter: ' + intakeData.digitale_meter);
+        if (intakeData.thuisbatterij) parts.push('Thuisbatterij: ' + intakeData.thuisbatterij);
+        if (intakeData.doel_batterij) parts.push('Doel batterij: ' + intakeData.doel_batterij);
+        if (intakeData.jaarverbruik) parts.push('Jaarverbruik: ' + intakeData.jaarverbruik);
+        if (intakeData.piekverbruik) parts.push('Piekverbruik: ' + intakeData.piekverbruik);
+        if (intakeData.capaciteit) parts.push('Capaciteit: ' + intakeData.capaciteit);
+        if (intakeData.locatie) parts.push('Locatie: ' + intakeData.locatie);
+        if (intakeData.laadpaal) parts.push('Laadpaal: ' + intakeData.laadpaal);
+        if (intakeData.airco) parts.push('Airco: ' + intakeData.airco);
+        if (intakeData.type_werk) parts.push('Type werk: ' + intakeData.type_werk);
+        if (intakeData.materiaal) parts.push('Materiaal: ' + intakeData.materiaal);
+        if (intakeData.type_glas) parts.push('Glas: ' + intakeData.type_glas);
+        if (intakeData.kleur) parts.push('Kleur: ' + intakeData.kleur);
+        if (intakeData.rolluiken) parts.push('Rolluiken: ' + intakeData.rolluiken);
+        if (intakeData.vervanging) parts.push('Vervanging: ' + intakeData.vervanging);
+        if (intakeData.type_project) parts.push('Type project: ' + intakeData.type_project);
+        if (intakeData.afmeting) parts.push('Afmeting: ' + intakeData.afmeting);
+        if (intakeData.douche) parts.push('Douche: ' + intakeData.douche);
+        if (intakeData.bad) parts.push('Bad: ' + intakeData.bad);
+        if (intakeData.lavabo) parts.push('Lavabo: ' + intakeData.lavabo);
+        if (intakeData.toilet) parts.push('Toilet: ' + intakeData.toilet);
+        if (intakeData.tegelwerk) parts.push('Tegelwerk: ' + intakeData.tegelwerk);
+        if (intakeData.sanitair) parts.push('Sanitair: ' + intakeData.sanitair);
+        if (intakeData.loodgieterij) parts.push('Loodgieterij: ' + intakeData.loodgieterij);
+        if (intakeData.elektriciteit) parts.push('Elektriciteit: ' + intakeData.elektriciteit);
+        if (intakeData.aantal_gevels) parts.push('Gevels: ' + intakeData.aantal_gevels);
+        if (intakeData.voorgevel) parts.push('Voorgevel: ' + intakeData.voorgevel);
+        if (intakeData.kleur_crepi) parts.push('Kleur Crepi: ' + intakeData.kleur_crepi);
+        if (intakeData.type_chape) parts.push('Type chape: ' + intakeData.type_chape);
+        if (intakeData.oppervlakte) parts.push('Oppervlakte: ' + intakeData.oppervlakte);
+        if (intakeData.dikte_chape) parts.push('Dikte chape: ' + intakeData.dikte_chape);
+        if (intakeData.vloerverwarming) parts.push('Vloerverwarming: ' + intakeData.vloerverwarming);
+        if (intakeData.polijsten) parts.push('Polijsten: ' + intakeData.polijsten);
+        if (intakeData.isolatie_nodig) parts.push('Isolatie: ' + intakeData.isolatie_nodig);
+        if (intakeData.dikte_isolatie) parts.push('Dikte isolatie: ' + intakeData.dikte_isolatie);
+        if (intakeData.kleur_dakpannen) parts.push('Kleur dakpannen: ' + intakeData.kleur_dakpannen);
+        if (intakeData.financiering) parts.push('Financiering: ' + intakeData.financiering);
+        if (intakeData.timing) parts.push('Timing: ' + intakeData.timing);
+        if (intakeData.premie_aanvraag) parts.push('Premie: ' + intakeData.premie_aanvraag);
+        if (intakeData.voorkeur_belmoment && intakeData.voorkeur_belmoment.length) parts.push('Belmoment: ' + (Array.isArray(intakeData.voorkeur_belmoment) ? intakeData.voorkeur_belmoment.join(', ') : intakeData.voorkeur_belmoment));
+        if (intakeData.info_project) parts.push('Info: ' + intakeData.info_project);
+        return parts.join(' | ');
+      })() : '';
+      const rnExternalId = 'IS-' + Date.now();
+      const rnPayload = {
+        category: f.rnCategory,
+        firstname: f.rnFirst || '',
+        lastname: f.rnLast || '',
+        email: f.rnEmail || '',
+        phonenumber: f.phone,
+        street: f.rnStreet || '',
+        number: f.rnNumber || '',
+        zipcode: f.rnPostal || '',
+        city: f.rnCity || '',
+        external_id: rnExternalId,
+        ...(description ? { description } : {}),
+        ...(intakeData ? { data: intakeData } : {}),
+      };
+      let rnLeadId = null;
+      try {
+        const rnRes = await fetch('/api/renocheck?action=lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) });
+        if (!rnRes.ok) {
+          const errText = await rnRes.text();
+          console.error('Renocheck API error:', errText);
+          this.setState(s => ({ form: { ...s.form, apptSubmitting: false } }));
+          this.toast('Renocheck fout', 'Lead kon niet naar Renocheck gestuurd worden: ' + errText.slice(0, 80), 'var(--down)');
+          return;
+        }
+        try { const rnJson = await rnRes.json(); rnLeadId = rnJson?.data?.id || rnJson?.id || null; } catch(_) {}
+      } catch (err) {
+        console.error('Renocheck fetch failed:', err);
+        this.setState(s => ({ form: { ...s.form, apptSubmitting: false } }));
+        this.toast('Renocheck fout', 'Kon Renocheck niet bereiken. Probeer opnieuw.', 'var(--down)');
+        return;
+      }
       const rnRev = (RN_RATES[f.rnCategory] || {}).revenue || 0;
-      clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail||'', street: f.rnStreet||'', number: f.rnNumber||'', zipcode: f.rnPostal||'', city: f.rnCity||'', ...(intakeData ? { data: intakeData } : {}) });
-      // Fire Renocheck API in background — appointment is saved regardless of outcome
-      const description = intakeData ? [intakeData.info_project||'', intakeData.timing||''].filter(Boolean).join(' — ') : '';
-      const rnPayload = { category: f.rnCategory, firstname: f.rnFirst||'', lastname: f.rnLast||'', email: f.rnEmail||'', phonenumber: f.phone, street: f.rnStreet||'', number: f.rnNumber||'', zipcode: f.rnPostal||'', city: f.rnCity||'', ...(description ? { description } : {}), ...(intakeData ? { data: intakeData } : {}) };
-      fetch('/api/renocheck?action=lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rnPayload) })
-        .then(r => { if (!r.ok) r.text().then(t => this.toast('Renocheck waarschuwing', 'Lead kon niet doorgestuurd worden: ' + t.slice(0, 80), 'var(--warn)')); })
-        .catch(() => this.toast('Renocheck waarschuwing', 'Kon Renocheck niet bereiken. Afspraak wél opgeslagen.', 'var(--warn)'));
+      clientFeedback = JSON.stringify({ _rn: true, revenue: rnRev, category: f.rnCategory, email: f.rnEmail || '', street: f.rnStreet || '', number: f.rnNumber || '', zipcode: f.rnPostal || '', city: f.rnCity || '', external_id: rnExternalId, ...(rnLeadId ? { rn_id: rnLeadId } : {}), ...(intakeData ? { data: intakeData } : {}) });
     }
+
     const dateAppt = f.dateAppt + (f.apptTime ? 'T' + f.apptTime : '');
-    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, dateAppt, dateLogged, amount, clientFeedback);
-    if (!result) { this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw.' } })); this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen.', 'var(--down)'); return; }
+    const result = await API.logAppointment(this.myAgentId, f.client, f.sub || null, leadName, f.phone, dateAppt, dateLogged, amount, clientFeedback, agentRate);
+    if (!result) {
+      this.setState(s => ({ form: { ...s.form, apptError: 'Opslaan mislukt — probeer opnieuw of contacteer de admin.', apptSubmitting: false } }));
+      this.toast('Fout bij opslaan', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
+      return;
+    }
     const saved = Array.isArray(result) ? result[0] : result;
+    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt, status: 'open', amount, agentRate: agentRate ?? null, invoiced: false, paid: false, clientFeedback: clientFeedback || '', loggedAt: new Date().toISOString() }));
+
+    // Fire-and-forget: WhatsApp confirmation (never blocks the submit flow)
     if (saved?.id && f.client && f.phone) {
       const _waSession = typeof SB !== 'undefined' ? SB.getSession() : null;
       const _waToken = _waSession?.access_token || '';
@@ -832,32 +1463,26 @@ class Component extends DCLogic {
         }).catch(err => console.error('[wa-confirm] fetch error:', err));
       }
     }
-    this.mutLocal(d => d.appointments.unshift({ id: saved?.id || ('ap' + Date.now()), agent: this.myAgentId, client: f.client, sub: f.sub || '', lead: leadName, phone: f.phone || '', dateLog: dateLogged, dateAppt, status: 'open', amount, invoiced: false, paid: false, clientFeedback: clientFeedback || '' }));
     this._logActivity('appointment_logged', 'Logged appointment — ' + (this.state.data.clients.find(x => x.id === f.client)?.name || f.client) + ' — Lead: ' + leadName + ' (€' + amount + ')');
     this.closeModal();
-    this.toast('Logged', isRenocheck ? 'Afspraak gelogd & lead verzonden naar Renocheck' : 'Appointment added', 'var(--up)');
+    this.toast('Logged', isRenocheck ? 'Lead verzonden naar Renocheck & afspraak gelogd' : 'Appointment added', 'var(--up)');
+    } catch (err) {
+      console.error('logAppointment error:', err);
+      this.setState(s => ({ form: { ...s.form, apptError: 'Er is een fout opgetreden. Probeer opnieuw.', apptSubmitting: false } }));
+      this.toast('Fout', 'Afspraak kon niet worden opgeslagen. Probeer opnieuw.', 'var(--down)');
+    }
   }
 
   async submitEOD() {
     const f = this.state.form;
     const date = this.iso(this.today());
-    const callBlocks = f.callBlocks || [];
-    this.mutLocal(d => d.eods.unshift({ id: 'e' + Date.now(), agent: this.myAgentId, date, clients: f.clients || [], calls: f.calls || {}, appts: f.appts || {}, well: f.well || '', bad: f.bad || '', goal: f.goal || '', callBlocks }));
-    await API.submitEOD(this.myAgentId, date, f.clients || [], f.calls || {}, f.appts || {}, f.well || '', f.bad || '', f.goal || '', callBlocks);
-    this._logActivity('eod_submitted', 'Submitted EOD report for ' + date + (callBlocks.length ? ' · ' + callBlocks.length + ' call block(s)' : ''));
+    this.mutLocal(d => d.eods.unshift({ id: 'e' + Date.now(), agent: this.myAgentId, date, clients: f.clients || [], calls: f.calls || {}, appts: f.appts || {}, well: f.well || '', bad: f.bad || '', goal: f.goal || '', callBlocks: f.callBlocks || [] }));
+    await API.submitEOD(this.myAgentId, date, f.clients || [], f.calls || {}, f.appts || {}, f.well || '', f.bad || '', f.goal || '', f.callBlocks || []);
+    const totalCalls = Object.values(f.calls || {}).reduce((a, b) => a + (parseInt(b) || 0), 0);
+    const totalAppts = Object.values(f.appts || {}).reduce((a, b) => a + (parseInt(b) || 0), 0);
+    this._logActivity('eod_submitted', 'Submitted EOD report — ' + totalCalls + ' calls, ' + totalAppts + ' appointments');
     this.closeModal();
     this.toast('Report', 'End-of-day report submitted', 'var(--up)');
-  }
-
-  async deleteAppointment(id) {
-    const result = await API.deleteAppointment(id);
-    if (result === null) {
-      this.toast('Error', 'Could not delete appointment. Check console for details.', 'var(--down)');
-      return;
-    }
-    this.mutLocal(d => { d.appointments = d.appointments.filter(a => a.id !== id); });
-    this.closeModal();
-    this.toast('Deleted', 'Appointment removed', 'var(--down)');
   }
 
   async submitTicket() {
@@ -865,33 +1490,52 @@ class Component extends DCLogic {
     if (!f.title) { this.toast('Error', 'Add a title first', 'var(--down)'); return; }
     this.mutLocal(d => d.tickets.push({ id: 'tk' + Date.now(), time: this.iso(this.today()) + ' ' + new Date().toTimeString().slice(0, 5), title: f.title, cat: f.cat || 'General', client: this.myClientId, desc: f.desc || '', status: 'open' }));
     await API.submitTicket(this.myClientId, f.title, f.cat || 'General', f.desc || '');
+    this._logActivity('ticket_submitted', 'Submitted support ticket — "' + f.title + '" (' + (f.cat || 'General') + ')');
     this.closeModal();
     this.toast('Support', 'Ticket submitted', 'var(--accent)');
   }
 
-  requestChange(id) { this.toast('Request sent', 'Status-change request sent to admin', 'var(--info)'); }
-  approveInvoice(...a) { return Component.prototype.approveInvoice ? Component.prototype.approveInvoice.call(this, ...a) : this.toast('Approved', 'Invoicing approved', 'var(--up)'); }
+  async requestChange(id, leadName) {
+    const cl = this._data ? this._data.clients.find(c => c.id === this.myClientId) : null;
+    const clName = cl ? cl.name : 'Client';
+    await API.submitTicket(this.myClientId, `Wijzigingsverzoek: ${leadName || id}`, 'change_request', `${clName} vraagt een wijziging voor afspraak met lead "${leadName || id}" (ID: ${id}).`);
+    await API.pushNotif('admin', `${clName} vraagt een wijziging voor een afspraak`, 'ticket', { route: 'support' });
+    this.toast('Verzonden', 'Wijzigingsverzoek verzonden naar admin', 'var(--info)');
+  }
+  async approveInvoice(agentId, ym) {
+    await API.approveAgentInvoice(agentId, ym);
+    this.mutLocal(d => d.appointments.forEach(a => { if (a.agent === agentId && (a.dateLog || '').slice(0, 7) === ym) a.invoiced = true; }));
+    this.toast('Approved', 'Invoicing approved — agent can now invoice', 'var(--up)');
+  }
   async sendContract() {
     const f = this.state.form;
-    if (!f.email) { this.toast('Fout', 'Voeg een e-mailadres toe', 'var(--down)'); return; }
+    if (!f.email) { this.toast('Error', 'Add a recipient email', 'var(--down)'); return; }
     const partyType = f.partyType || 'client';
-    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const signingLink = 'https://platform.infinite-scale.be/sign?token=' + token;
-    const party = partyType === 'agent' ? (f.agentName || '') : (f.company || '');
-    const contractType = f.ctype || 'Contract';
-    const contractValue = f.rate ? '€' + f.rate + ' / afspraak' : (f.duration || '—');
-    // Grab edited HTML from the editable iframe if available
-    const contractHtml = window._editedContractHtml || null;
-    window._editedContractHtml = null;
+    const isAddendum = partyType === 'addendum';
+    const contractId = 'ct' + Date.now();
+    const signingLink = 'https://platform.infinite-scale.be/sign?token=' + contractId;
+    const party = (partyType === 'agent' || isAddendum) ? (f.agentName || '') : (f.company || '');
+    const contractType = isAddendum ? ('Addendum — ' + (f.endClientName || f.endProject || 'Project')) : (f.ctype || 'Contract');
+    const payComps = isAddendum && Array.isArray(f.payComponents) ? f.payComponents : [];
+    const contractValue = isAddendum
+      ? (payComps.map(c => c.type + ': €' + (c.amount || '?')).join(' / ') || '—')
+      : (f.rate ? '€' + f.rate + ' / appointment' : (f.duration || '—'));
     const contract = {
-      id: 'ct' + Date.now(), party, party_type: partyType, type: contractType,
-      value: f.rate ? '€' + f.rate + '/afspraak' : (f.duration || ''),
-      sent: new Date().toISOString().slice(0, 10), status: 'sent',
-      email: f.email, vat: f.vat || '', address: f.address || '',
-      contact: f.contact || '', duration: f.duration || '', notes: f.notes || '',
-      setup_fee: f.setupFee ? Number(f.setupFee) : null,
-      sign_token: token, signing_link: signingLink,
-      contract_html: contractHtml,
+      id: contractId,
+      party,
+      party_type: isAddendum ? 'agent' : partyType,
+      type: contractType,
+      value: f.rate ? '€' + f.rate + '/appt' : (f.duration || ''),
+      sent: new Date().toISOString().slice(0, 10),
+      status: 'sent',
+      email: f.email,
+      vat: f.vat || '',
+      address: f.address || '',
+      contact: f.contact || '',
+      duration: f.duration || '',
+      notes: f.notes || '',
+      setup_fee: f.setup_fee || '',
+      signing_link: signingLink,
     };
     this.mutLocal(d => d.contracts.unshift(contract));
     this.closeModal();
@@ -903,704 +1547,90 @@ class Component extends DCLogic {
       this.toast('FOUT: Contract NIET opgeslagen', 'DB write mislukt — probeer opnieuw: ' + (e.message || e), 'var(--down)');
       return;
     }
-    API.sendContractEmail({ to: f.email, party, contractType, contractValue, signingLink, notes: f.notes || '' })
+    this._logActivity('contract_sent', 'Sent contract to ' + party + ' <' + f.email + '> — ' + contractType);
+    API.sendContractEmail({ to: f.email, party, contractType, contractValue, signingLink, notes: f.notes || '', contractId })
       .then(() => this.toast('Verzonden', 'Contract e-mail bezorgd aan ' + f.email, 'var(--up)'))
       .catch(() => this.toast('E-mail mislukt', 'Contract opgeslagen maar e-mail niet bezorgd', 'var(--down)'));
   }
 
-  // ---- Tour ----
-  tourData() {
-    const map = {
-      agent: [{ t: 'Welcome, ' + (this.state.data.agents.find(a => a.id === this.myAgentId) || {}).name?.split(' ')[0] || 'agent', b: 'This is your command center. Your most recent appointments sit up top, with live daily stats and your to-do list beside them.' }, { t: 'Flip the work switch', b: 'Use the green switch in the top bar when you start dialing. It logs your working time for the team.' }, { t: 'Log appointments fast', b: 'The floating button opens the form. Submit and it locks — instantly reflected in your stats and payments.' }, { t: 'Track your money', b: 'The Payments tab shows a live running total and your monthly approval of invoicing. You\'re all set.' }],
-      client: [{ t: 'Welcome to Infinite Scale', b: 'Every appointment your agents book lands here in real time — no more spreadsheets.' }, { t: 'Set the status', b: 'On each appointment choose Show, No-show or Cancel. This drives your monthly billing automatically.' }, { t: 'Billing made simple', b: 'Five days before month-end you get a reminder. When the month closes, your billing summary appears in the Billing tab.' }],
-      agency: [{ t: 'Welcome to your agency workspace', b: 'Your lead-agency dashboard shows every appointment across all of your clients in one login.' }, { t: 'Switch between clients', b: 'Use the selector in the top bar to view appointments and stats broken down per client.' }, { t: 'One billing relationship', b: 'You invoice as the agency — statuses you set across all clients roll into a single monthly summary.' }],
-    };
-    return map[this.state.role] || [];
-  }
+  async convertContractToClient(contract) {
+    // Parse rate from contract value string like "€140/afspraak"
+    const rateMatch = (contract.value || '').match(/[\d,]+/);
+    const rate = rateMatch ? +(rateMatch[0].replace(',', '.')) : 0;
+    const name = contract.party || '';
 
-  // ---- Main render ----
-  renderVals() {
-    const s = this.state, d = s.data, R = React.createElement;
+    const kickoff = await new Promise(resolve => {
+      const defaultDate = new Date().toISOString().slice(0, 10);
+      const input = prompt('Kickoff datum (YYYY-MM-DD):', defaultDate);
+      resolve(input || defaultDate);
+    });
+    if (kickoff === null) return; // cancelled
 
-    // Loading screen
-    if (s.loading) {
-      return {
-        loggedOut: false, loggedIn: false,
-        screen: R('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' } },
-          R('div', { style: { textAlign: 'center' } },
-            R('div', { style: { width: 40, height: 40, border: '3px solid var(--border)', borderTop: '3px solid var(--accent)', borderRadius: '50%', animation: 'isp-spin 1s linear infinite', margin: '0 auto 16px' } }),
-            R('div', { style: { color: 'var(--text-mute)', fontSize: 14 } }, 'Loading…'))),
-        modal: false, tourActive: false, toasts: [],
-      };
-    }
-
-    const out = {
-      loggedOut: !s.role, loggedIn: !!s.role,
-      stop: e => e.stopPropagation(),
-      onLogout: () => this._doLogout(),
-      onCloseModal: () => { if (s.modalKind !== 'wizard') this.closeModal(); },
-      onToggleSidebar: () => this.setState(x => ({ sidebarOpen: !x.sidebarOpen })),
-      onToggleNotif: () => this.setState(x => ({ notifOpen: !x.notifOpen })),
-      onMarkAllRead: () => this.markAllRead(),
-      sidebarOpen: s.sidebarOpen, notifOpen: s.notifOpen, modal: s.modal,
-      routeKey: (s.role || '') + '/' + s.route, sidebarCls: s.sidebarOpen ? 'isp-open' : '',
-      showFab: s.role === 'agent' && s.route !== 'log', onFabLog: () => this.openModal('log'),
+    const row = {
+      name,
+      type: 'direct',
+      status: 'starting',
+      crm: 'none',
+      crm_on: false,
+      kickoff,
+      rate,
+      contact_person: contract.contact || name,
+      email: contract.email || '',
+      company: name,
+      bill_status: 'pending',
+      subclients: [],
     };
 
-    // Login
-    out.loginError = s.loginError;
-    out.loginEmail = s.loginEmail;
-    out.loginPassword = s.loginPassword;
-    out.onLoginEmailChange = e => this.setState({ loginEmail: e.target.value });
-    out.onLoginPasswordChange = e => this.setState({ loginPassword: e.target.value });
-    out.onLoginSubmit = e => { e.preventDefault(); this._doLogin(s.loginEmail, s.loginPassword); };
-
-    if (!s.role) { return out; }
-
-    // Me
-    const roleLabels = { admin: 'Admin workspace', agency: 'Lead agency', client: 'Client portal', agent: 'Call agent' };
-    out.roleLabel = roleLabels[s.role];
-    const me = d.agents.find(a => a.id === this.myAgentId);
-    const cl = d.clients.find(c => c.id === this.myClientId);
-    const session = SB.getSession();
-    const profileName = me?.name || cl?.contactPerson || session?.user?.email?.split('@')[0] || 'User';
-    const scCl = d.clients.find(c => c.id === this.scClientId);
-    const scSub = scCl && (scCl.subclients || []).find(x => x.id === this.scSubId);
-    const meMap = { admin: { name: 'Quinten Eeckhoudt', sub: 'Admin', tint: 'oklch(0.30 0.06 295)', ink: 'var(--violet)' }, agency: { name: cl?.name || 'Agency', sub: 'Lead agency', tint: 'oklch(0.30 0.06 240)', ink: 'var(--info)' }, client: { name: cl?.name || 'Client', sub: 'Client', tint: 'oklch(0.30 0.11 194)', ink: 'var(--accent)' }, agent: { name: me?.name || 'Agent', sub: 'Call agent', tint: 'oklch(0.30 0.05 85)', ink: 'var(--warn)' }, subclient: { name: scSub?.name || scCl?.name || 'Subclient', sub: scCl?.name || 'Subclient', tint: 'oklch(0.30 0.06 160)', ink: 'var(--up)' } };
-    const meInfo = meMap[s.role];
-    out.meName = meInfo.name; out.meSub = meInfo.sub; out.initials = this.initialsOf(meInfo.name); out.avatarTint = meInfo.tint; out.avatarInk = meInfo.ink;
-
-    // Account switcher (admin + multi-account clients)
-    const isAdminUser = s._impersonate ? false : s.role === 'admin';
-    const _clientAccounts = s.clientAccounts || [];
-    const hasMultiAccounts = (s.role === 'client' || s.role === 'agency') && !s._impersonate && _clientAccounts.length > 1;
-    const canSwitch = isAdminUser || !!s._impersonate || hasMultiAccounts;
-    out.isAdmin = canSwitch;
-    out.switcherCursor = canSwitch ? 'pointer' : 'default';
-    out.switcherHover = canSwitch ? 'background:oklch(0.20 0.015 256 / .5)' : '';
-    out.onToggleSwitcher = () => {
-      if (!canSwitch) return;
-      this.setState(st => ({ showSwitcher: !st.showSwitcher, switcherSearch: '' }));
-    };
-    out.showSwitcher = s.showSwitcher;
-    out.switcherSearch = s.switcherSearch;
-    out.onSwitcherSearch = e => this.setState({ switcherSearch: e.target.value });
-    // Build switcher list React element
-    out.switcherList = (() => {
-      const R = React.createElement;
-      const q = (s.switcherSearch || '').toLowerCase();
-      const rowStyle = { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', cursor: 'pointer', transition: 'background .12s' };
-      const scRowStyle = { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 14px 6px 36px', cursor: 'pointer', transition: 'background .12s' };
-      const labelStyle = { fontSize: 10.5, fontWeight: 800, fontFamily: "'JetBrains Mono'", letterSpacing: '.07em', textTransform: 'uppercase', padding: '10px 14px 4px', color: 'var(--text-mute)' };
-      const dot = (color) => R('div', { style: { width: 8, height: 8, borderRadius: '50%', background: color, flex: 'none' } });
-      const rows = [];
-
-      // Multi-account client switcher (non-admin clients with multiple accounts)
-      if (hasMultiAccounts) {
-        const filteredAccounts = _clientAccounts.filter(c => !q || (c.name || '').toLowerCase().includes(q));
-        rows.push(R('div', { key: 'lbl-accounts', style: labelStyle }, 'Mijn accounts'));
-        filteredAccounts.forEach(c => {
-          const isCurrent = c.id === this.myClientId;
-          rows.push(R('div', { key: 'acc-' + c.id, style: { ...rowStyle, background: isCurrent ? 'oklch(0.20 0.015 256/.4)' : '' }, onClick: isCurrent ? undefined : () => this._switchClientAccount(c.id, c.name, c.type), onMouseEnter: ev => { if (!isCurrent) ev.currentTarget.style.background = 'oklch(0.20 0.015 256/.5)'; }, onMouseLeave: ev => { if (!isCurrent) ev.currentTarget.style.background = ''; } },
-            dot(c.type === 'agency' ? 'var(--info)' : 'var(--accent)'),
-            R('div', { style: { flex: 1, minWidth: 0 } },
-              R('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.2 } }, c.name || 'Account'),
-              R('div', { style: { fontSize: 11, color: 'var(--text-mute)' } }, c.type === 'agency' ? 'Lead agency' : 'Client')
-            ),
-            isCurrent ? R('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: "'JetBrains Mono'" } }, 'actief') : null
-          ));
-        });
-        if (!filteredAccounts.length) rows.push(R('div', { style: { padding: '24px 14px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen resultaten'));
-        return R('div', null, ...rows);
-      }
-
-      const agents = d.agents.filter(a => !q || (a.name || '').toLowerCase().includes(q));
-      const clients = d.clients.filter(c => !q || (c.name || '').toLowerCase().includes(q) || (c.subclients || []).some(sc => (sc.name || '').toLowerCase().includes(q)));
-      // Call agents section
-      if (agents.length) {
-        rows.push(R('div', { key: 'lbl-agents', style: labelStyle }, 'Call agents'));
-        agents.forEach(a => {
-          rows.push(R('div', { key: 'ag-' + a.id, style: rowStyle, onClick: () => this._switchToAccount('agent', a.id, null, null, a.name || 'Agent'), onMouseEnter: ev => ev.currentTarget.style.background = 'oklch(0.20 0.015 256/.5)', onMouseLeave: ev => ev.currentTarget.style.background = '' },
-            dot('var(--warn)'),
-            R('div', { style: { flex: 1, minWidth: 0 } },
-              R('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.2 } }, a.name || 'Agent'),
-              R('div', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Call agent')
-            )
-          ));
-        });
-      }
-      // Clients section
-      const agencyClients = clients.filter(c => c.type === 'agency');
-      const regularClients = clients.filter(c => c.type !== 'agency');
-      if (clients.length) {
-        rows.push(R('div', { key: 'lbl-clients', style: { ...labelStyle, paddingTop: agents.length ? 12 : 10, borderTop: agents.length ? '1px solid var(--border-soft)' : 'none', marginTop: agents.length ? 4 : 0 } }, 'Clients'));
-        // Agencies (lead agencies with subclients) — expandable
-        agencyClients.forEach(c => {
-          const parentMatchesQ = !q || (c.name || '').toLowerCase().includes(q);
-          const subs = (c.subclients || []).filter(sc => parentMatchesQ || (sc.name || '').toLowerCase().includes(q));
-          const hasMatchingSubs = subs.length > 0;
-          const expanded = s.switcherExpanded && s.switcherExpanded[c.id];
-          const hasSubs = (c.subclients || []).length > 0;
-          rows.push(R('div', { key: 'cl-' + c.id, style: { ...rowStyle, justifyContent: 'space-between' }, onMouseEnter: ev => ev.currentTarget.style.background = 'oklch(0.20 0.015 256/.5)', onMouseLeave: ev => ev.currentTarget.style.background = '' },
-            R('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }, onClick: () => this._switchToAccount('agency', null, c.id, null, c.name || 'Client') },
-              dot('var(--info)'),
-              R('div', { style: { flex: 1, minWidth: 0 } },
-                R('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.2 } }, c.name || 'Client'),
-                R('div', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Lead agency • ' + (c.subclients || []).length + ' subclients')
-              )
-            ),
-            hasSubs ? R('div', { onClick: ev => { ev.stopPropagation(); this.setState(st => ({ switcherExpanded: { ...(st.switcherExpanded || {}), [c.id]: !((st.switcherExpanded || {})[c.id]) } })); }, style: { padding: '4px 6px', cursor: 'pointer', color: 'var(--text-mute)', transition: 'transform .15s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' } },
-              R('svg', { width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' }, R('path', { d: 'M6 9l6 6 6-6' }))
-            ) : null
-          ));
-          if (expanded && hasSubs) {
-            subs.forEach(sc => {
-              rows.push(R('div', { key: 'sc-' + sc.id, style: scRowStyle, onClick: () => this._switchToAccount('subclient', null, c.id, sc.id, sc.name || c.name), onMouseEnter: ev => ev.currentTarget.style.background = 'oklch(0.20 0.015 256/.5)', onMouseLeave: ev => ev.currentTarget.style.background = '' },
-                dot('var(--up)'),
-                R('div', { style: { flex: 1, minWidth: 0 } },
-                  R('div', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', lineHeight: 1.2 } }, sc.name || 'Subclient'),
-                  R('div', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Subclient')
-                )
-              ));
-            });
-          }
-        });
-        // Regular clients
-        regularClients.forEach(c => {
-          rows.push(R('div', { key: 'cl-' + c.id, style: rowStyle, onClick: () => this._switchToAccount('client', null, c.id, null, c.name || 'Client'), onMouseEnter: ev => ev.currentTarget.style.background = 'oklch(0.20 0.015 256/.5)', onMouseLeave: ev => ev.currentTarget.style.background = '' },
-            dot('var(--accent)'),
-            R('div', { style: { flex: 1, minWidth: 0 } },
-              R('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.2 } }, c.name || 'Client'),
-              R('div', { style: { fontSize: 11, color: 'var(--text-mute)' } }, 'Client')
-            )
-          ));
-        });
-      }
-      if (!rows.length) return R('div', { style: { padding: '24px 14px', textAlign: 'center', color: 'var(--text-mute)', fontSize: 13 } }, 'Geen resultaten');
-      return R('div', null, ...rows);
-    })();
-    // Impersonating banner in switcher panel (back to admin button)
-    out.switcherImpersonatingBanner = s._impersonate ? R('div', { style: { padding: '10px 14px', background: 'oklch(0.22 0.05 295 / .8)', borderBottom: '1px solid oklch(0.35 0.08 295 / .6)', display: 'flex', alignItems: 'center', gap: 8 } },
-      R('svg', { width: 13, height: 13, viewBox: '0 0 24 24', fill: 'none', stroke: 'oklch(0.75 0.12 295)', strokeWidth: 2, strokeLinecap: 'round' }, R('path', { d: 'M15 18l-6-6 6-6' })),
-      R('span', { style: { fontSize: 12, color: 'oklch(0.75 0.12 295)', fontWeight: 700, flex: 1 } }, 'Bekijkt als ' + s._impersonate.displayName),
-      R('button', { onClick: () => this._switchBackToAdmin(), style: { background: 'oklch(0.40 0.10 295)', border: 'none', color: 'white', fontSize: 11, fontWeight: 800, padding: '4px 10px', borderRadius: 7, cursor: 'pointer', fontFamily: "'Manrope'" } }, 'Terug naar Admin')
-    ) : null;
-    // Impersonating banner in main content area
-    out.impersonatingBanner = s._impersonate ? R('div', { style: { background: 'oklch(0.22 0.05 295 / .9)', borderBottom: '2px solid oklch(0.45 0.10 295 / .8)', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 12, backdropFilter: 'blur(8px)' } },
-      R('div', { style: { width: 7, height: 7, borderRadius: '50%', background: 'oklch(0.75 0.12 295)', flex: 'none', animation: 'isp-pulse 2s infinite' } }),
-      R('span', { style: { fontSize: 12.5, color: 'oklch(0.80 0.10 295)', fontWeight: 700 } }, 'Admin view: ' + s._impersonate.displayName),
-      R('div', { style: { flex: 1 } }),
-      R('button', { onClick: () => this._switchBackToAdmin(), style: { background: 'none', border: '1px solid oklch(0.45 0.10 295)', color: 'oklch(0.80 0.10 295)', fontSize: 12, fontWeight: 800, padding: '4px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: "'Manrope'", display: 'flex', alignItems: 'center', gap: 6 } },
-        R('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' }, R('path', { d: 'M15 18l-6-6 6-6' })),
-        'Terug naar Admin'
-      )
-    ) : null;
-
-    // Nav
-    const navDefs = {
-      agent: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['log', 'Appointment Log', 'M5 3h14v18H5zM9 9h6M9 13h6M9 17h4'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['followup', 'Opvolging', 'M4 6h16M4 12h10M4 18h6M17 15l2 2 4-4'], ['eod', 'End of Day', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['payments', 'Payments', 'M3 6h18v12H3zM3 10h18M7 15h3'], ['clients', 'My Clients', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Rooster', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['tickets', 'Tickets', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12v4M10 14h4'], ['coaching', 'Coaching', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['opleiding', 'Opleiding', 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
-      client: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['stats', 'Statistieken', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
-      agency: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['stats', 'Statistieken', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
-      subclient: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z']],
-      admin: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['followup', 'Opvolging', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M20 8v4M22 10h-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['salespeople', 'Salespeople', 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M12 14c-4.418 0-8 1.79-8 4v1h16v-1c0-2.21-3.582-4-8-4M20 8v6M17 11h6'], ['managers', 'Managers', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6M12 3h9M12 7h9'], ['targets', 'Targets', 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'], ['opa', 'OPA', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M22 8h-6M22 12h-5M22 16h-6'], ['clientsuccess', 'Client Success', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['coaching', 'Coaching', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['opleiding', 'Opleiding', 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['whatsapp', 'WhatsApp', 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['tickets', 'Tickets', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12v4M10 14h4'], ['roadmap', '€100K Roadmap', 'M3 17l4-8 4 4 4-6 4 10M3 3h18v18H3z'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
-    };
-    const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
-    // Coaching unread badge for agents — lazy background count
-    if (s.role === 'agent' && me) {
-      if (s._cfNewCount === undefined && !s._cfNewCountLoading) {
-        this.setState({ _cfNewCountLoading: true });
-        const _lastSeen = (() => { try { return localStorage.getItem('cf_seen_' + me.id) || '1970-01-01T00:00:00.000Z'; } catch(_) { return '1970-01-01T00:00:00.000Z'; } })();
-        fetch(SC_DB + '/rest/v1/coaching_feed?agent_id=in.(' + encodeURIComponent(me.id + ',all') + ')&created_at=gt.' + encodeURIComponent(_lastSeen) + '&select=id&limit=50', { headers: { apikey: SC_KEY, Authorization: 'Bearer ' + SC_KEY } })
-          .then(r => r.json())
-          .then(items => this.setState({ _cfNewCount: Array.isArray(items) ? items.length : 0, _cfNewCountLoading: false }))
-          .catch(() => this.setState({ _cfNewCount: 0, _cfNewCountLoading: false }));
-      }
-      if ((s._cfNewCount || 0) > 0) badges.agent.coaching = String(s._cfNewCount);
-    }
-    const _rp = (d.settings || {}).role_permissions;
-    const _rolePerms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
-    const DEFAULT_ADMIN_SECTIONS = [
-      { key: 'overview',    label: 'Overzicht',          items: ['dashboard', 'finances', 'stats', 'activity'] },
-      { key: 'floor',       label: 'Floor',              items: ['apptadmin', 'eodadmin', 'rooster', 'todos', 'tickets'] },
-      { key: 'acquisition', label: 'Acquisitie',         items: ['prospects', 'recruitment', 'targets', 'roadmap'] },
-      { key: 'team_ops',    label: 'Team Operations',    items: ['agents', 'salespeople', 'managers', 'opa', 'coaching', 'opleiding'] },
-      { key: 'client_ops',  label: 'Client Operations',  items: ['clients', 'clientsuccess', 'whatsapp', 'timeline'] },
-      { key: 'legal',       label: 'Legal',              items: ['contracts'] },
-    ];
-    const ADMIN_SECTIONS = (() => {
-      const raw = (d.settings || {}).nav_sections_config;
-      if (Array.isArray(raw) && raw.length) return raw;
-      if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(_) {} }
-      return DEFAULT_ADMIN_SECTIONS;
-    })();
-    let _secState;
-    try { _secState = JSON.parse(localStorage.getItem('isp-nav-sections') || 'null'); } catch(_) { _secState = null; }
-    if (!_secState || typeof _secState !== 'object') _secState = Object.fromEntries(ADMIN_SECTIONS.map(sec2 => [sec2.key, true]));
-    const navSectionOpen = s.navSectionOpen || _secState;
-    const allNavItems = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false));
-    const itemsByKey = Object.fromEntries(allNavItems.map(x => [x[0], x]));
-    const BADGE_STYLE = 'font-size:11px; font-weight:700; font-family:JetBrains Mono,monospace; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 7px;';
-    const pushNavItem = (key, label, icon, badge, active, indented) => {
-      const pad = indented ? 'padding:8px 12px 8px 24px;' : 'padding:9px 12px;';
-      const fs = indented ? 'font-size:13px;' : 'font-size:13.5px;';
-      const activeStyle = 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);';
-      const idleStyle = 'background:transparent; color:var(--text-mute);';
-      out.nav.push({
-        label, icon, badge: badge || '',
-        onClick: () => this.go(key),
-        style: `display:flex; align-items:center; gap:11px; ${pad} border-radius:10px; border:none; cursor:pointer; ${fs} font-weight:600; transition:all .12s; ${active ? activeStyle : idleStyle}`,
-        hoverStyle: 'background:var(--surface); color:var(--text);',
-        iconStyle: 'flex:none;',
-        labelStyle: 'flex:1; text-align:left;',
-        badgeStyle: BADGE_STYLE,
-      });
-    };
-    out.nav = [];
-    if (s.role === 'admin') {
-      ADMIN_SECTIONS.forEach(sec => {
-        const open = navSectionOpen[sec.key] !== false;
-        const secBadgeNum = !open ? sec.items.reduce((acc, k) => acc + (badges.admin[k] ? parseInt(badges.admin[k]) || 0 : 0), 0) : 0;
-        const badgeText = (secBadgeNum > 0 ? secBadgeNum + ' ' : '') + (open ? '▾' : '▸');
-        out.nav.push({
-          label: sec.label, icon: '', badge: badgeText,
-          onClick: () => {
-            const next = { ...navSectionOpen, [sec.key]: !open };
-            try { localStorage.setItem('isp-nav-sections', JSON.stringify(next)); } catch(_) {}
-            this.setState({ navSectionOpen: next });
-          },
-          style: 'display:flex; align-items:center; gap:6px; width:100%; padding:5px 8px 5px 10px; margin-top:8px; border-radius:7px; border:none; background:transparent; cursor:pointer; color:var(--text-mute); transition:color .12s;',
-          hoverStyle: 'color:var(--text);',
-          iconStyle: 'display:none;',
-          labelStyle: 'font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; flex:1; text-align:left; font-family:JetBrains Mono,monospace;',
-          badgeStyle: 'font-size:10.5px; font-weight:700; font-family:monospace; background:transparent; color:inherit; padding:0 2px; border-radius:0;',
-        });
-        if (open) {
-          sec.items.forEach(key => {
-            const item = itemsByKey[key];
-            if (!item) return;
-            const [, label, icon] = item;
-            pushNavItem(key, label, icon, badges.admin[key], s.route === key, true);
-          });
-        }
-      });
-      const settingsItem = itemsByKey['settings'];
-      if (settingsItem) {
-        const [, label, icon] = settingsItem;
-        pushNavItem('settings', label, icon, '', s.route === 'settings', false);
-      }
+    const res = await API.createClient(row);
+    if (res) {
+      const clientId = res[0]?.id || 'c' + Date.now();
+      const norm = { ...row, id: clientId, agents: [], clients: [], crmOn: false, contactPerson: row.contact_person, billStatus: row.bill_status };
+      this.mutLocal(d => d.clients.push(norm));
+      this._logActivity('client_created', 'Client aangemaakt vanuit contract: ' + name);
+      // Auto-invite: create auth account and send password setup email (or link if account already exists)
+      if (row.email) this._inviteClient(row.email, name, clientId);
+      this.closeModal();
+      this.toast('Client aangemaakt ✓', name + (row.email ? ' — uitnodiging wordt verzonden' : ' toegevoegd'), 'var(--up)');
+      await this._loadData(false);
+      this.openModal('clientProfile', { id: clientId });
     } else {
-      allNavItems.forEach(([key, label, icon]) => {
-        pushNavItem(key, label, icon, (badges[s.role] && badges[s.role][key]) || '', s.route === key, false);
-      });
+      this.toast('Fout', 'Client aanmaken mislukt', 'var(--down)');
     }
-
-    // Notifications
-    const myNotifs = d.notifs[s.role] || [];
-    out.hasUnread = myNotifs.some(n => !n.read);
-    const ndot = { appt: 'var(--accent)', pay: 'var(--warn)', todo: 'var(--info)', remind: 'var(--warn)', bill: 'var(--accent)', eod: 'var(--info)', recruit: 'var(--violet)', ticket: 'var(--down)', contract: 'var(--accent)' };
-    const nicon = {
-      appt: '<path d="M8 2v4M16 2v4M3 10h18M3 6h18a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z"/>',
-      pay: '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
-      todo: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
-      remind: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
-      bill: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
-      eod: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
-      recruit: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>',
-      ticket: '<path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1s1 .4 1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1h6a1 1 0 0 0 1-1v-2c0-.6.4-1 1-1s1-.4 1-1v-2c0-.6-.4-1-1-1s-1-.4-1-1V3a1 1 0 0 0-1-1z"/>',
-      contract: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
-      info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
-    };
-    const nibg = { appt: 'oklch(0.22 0.04 256 / .8)', pay: 'oklch(0.24 0.05 80 / .8)', todo: 'oklch(0.22 0.07 194 / .8)', remind: 'oklch(0.24 0.05 80 / .8)', bill: 'oklch(0.22 0.04 256 / .8)', eod: 'oklch(0.22 0.04 200 / .8)', recruit: 'oklch(0.22 0.04 290 / .8)', ticket: 'oklch(0.22 0.05 25 / .8)', contract: 'oklch(0.22 0.04 256 / .8)', info: 'oklch(0.22 0.04 200 / .8)' };
-    out.notifications = myNotifs.map(n => ({ text: n.text, time: n.time, dot: ndot[n.kind] || 'var(--accent)', iconPath: nicon[n.kind] || nicon.info, iconBg: nibg[n.kind] || 'oklch(0.22 0.04 256 / .8)', unread: !n.read, hasAction: !!n.action, onClick: n.action ? () => this.handleNotifClick(n) : null, onMarkRead: !n.read ? (ev => { ev.stopPropagation(); this.markOneRead(n.id); }) : null, style: 'display:flex; align-items:flex-start; gap:12px; padding:11px 16px; cursor:' + (n.action ? 'pointer' : 'default') + '; ' + (!n.read ? 'background:oklch(0.18 0.015 256 / .5);' : 'opacity:.7;') }));
-
-    out.onOpenNotifs = () => this.setState({ notifOpen: true });
-    out.toasts = s.toasts;
-
-    // Working switch
-    out.showWorkingSwitch = s.role === 'agent';
-    if (s.role === 'agent' && me) {
-      out.workingLabel = me.working ? 'Working' : 'Offline';
-      out.workingDot = me.working ? 'var(--up)' : 'var(--text-mute)';
-      out.workingDotRing = me.working ? 'oklch(0.84 0.16 194 / .25)' : 'transparent';
-      out.workingDotAnim = me.working ? 'animation:isp-pulse 2s infinite;' : '';
-      out.workingTime = me.working && me.workSince ? ('since ' + (me.workSince || '').slice(11, 16)) : '';
-      out.workingBtnStyle = 'display:flex; align-items:center; gap:9px; padding:8px 14px; border-radius:11px; cursor:pointer; border:1px solid ' + (me.working ? 'oklch(0.84 0.16 194 / .4)' : 'var(--border)') + '; background:' + (me.working ? 'oklch(0.30 0.10 194 / .4)' : 'var(--surface)') + '; color:var(--text);';
-      out.onToggleWorking = () => this.toggleWorking();
-    }
-
-    // Agency switch
-    out.showAgencySwitch = s.role === 'agency';
-    if (s.role === 'agency' && cl) {
-      out.agencyClients = [{ value: 'all', label: 'All clients' }, ...(cl.subclients || []).map(sc => ({ value: sc.id, label: sc.name }))];
-      out.agencyView = s.agencyView;
-      out.onAgencyClientChange = e => this.setState({ agencyView: e.target.value });
-    }
-
-    // Page title
-    const titles = { dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', apptadmin: 'Appointments', eod: 'End of Day Report', payments: 'Payments', clients: s.role === 'admin' ? 'Clients' : 'My Clients', stats: 'Statistics', settings: 'Settings', billing: 'Billing', legal: 'Legal & Contracts', support: 'Support', finances: 'Finances', agents: 'Call Agents', eodadmin: 'End of Day Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', contracts: 'Contracts', whatsapp: 'WhatsApp', todos: 'To-Do', targets: 'Targets', clientsuccess: 'Client Success', coaching: 'Coaching', roadmap: '€100K Roadmap', tickets: 'Tickets', activity: 'Activity', opleiding: 'Opleiding' };
-    out.pageTitle = titles[s.route] || 'Dashboard';
-    const subMap = { dashboard: { agent: 'Welcome back', client: 'Live appointment overview', agency: 'All clients, one view', admin: 'Everything, in real time' } };
-    out.pageSub = (subMap[s.route] && subMap[s.route][s.role]) || roleLabels[s.role];
-
-    // Tour
-    const tour = this.tourData();
-    out.tourActive = s.tourStep != null && tour.length > 0 && s.tourStep < tour.length;
-    if (out.tourActive) {
-      out.tourTitle = tour[s.tourStep].t; out.tourBody = tour[s.tourStep].b;
-      out.tourCounter = 'Quick tour · ' + (s.tourStep + 1) + ' of ' + tour.length;
-      out.tourNextLabel = s.tourStep === tour.length - 1 ? 'Get started' : 'Next';
-      out.onTourNext = () => this.setState(x => {
-        const done = x.tourStep + 1 >= tour.length;
-        if (done) this._markTourSeen(session?.user?.id);
-        return { tourStep: done ? null : x.tourStep + 1 };
-      });
-      out.onTourSkip = () => { this._markTourSeen(session?.user?.id); this.setState({ tourStep: null }); };
-    }
-
-    // Screen render
-    try { out.screen = this.renderScreen(R, d, s); } catch (err) { out.screen = R('div', { style: { color: 'var(--down)', padding: 20 } }, 'Render error: ' + err.message + ' — ' + err.stack?.split('\n')[0]); }
-
-    const mod = this.renderModalBody(R, d, s);
-    out.modalBody = mod ? mod.body : null;
-    out.modalWidth = mod ? mod.width : '520px';
-
-    return out;
   }
 
-  renderScreen(R, d, s) {
-    if (s.role === 'agent') return ScreenAgent.scrAgent.call(this, d, s);
-    if (s.role === 'client' || s.role === 'agency') return ScreenClient.scrClient.call(this, d, s);
-    if (s.role === 'admin') return ScreenAdmin.scrAdmin.call(this, d, s);
-    if (s.role === 'subclient') return ScreenSubclient.scrSubclient.call(this, d, s);
-    return R('div', null, '');
+  async updateContract(contractId, updates) {
+    const existing = this.state.data.contracts.find(x => x.id === contractId);
+    this.mutLocal(d => { const c = d.contracts.find(x => x.id === contractId); if (c) Object.assign(c, updates); });
+    const ok = await API.updateContract(contractId, updates);
+    if (!ok) { this.toast('Fout', 'Contract opslaan mislukt — probeer opnieuw', 'var(--down)'); return false; }
+    if (updates.status) this._logActivity('contract_updated', 'Changed contract status → ' + updates.status + (existing ? ' (' + existing.party + ')' : ''));
+    this.toast('Saved', 'Contract updated', 'var(--up)');
+    return true;
   }
 
-  renderModalBody(R, d, s) { return Modals.renderModalBody.call(this, R, d, s); }
-
-  // Delegate mixin methods
-  euro(n) { return Helpers.euro.call(this, n); }
-  pad(n) { return Helpers.pad.call(this, n); }
-  iso(d) { return Helpers.iso.call(this, d); }
-  today() { return Helpers.today.call(this); }
-  daysAgo(n) { return Helpers.daysAgo.call(this, n); }
-  fmtDate(s) { return Helpers.fmtDate.call(this, s); }
-  fmtFull(s) { return Helpers.fmtFull.call(this, s); }
-  initialsOf(n) { return Helpers.initialsOf.call(this, n); }
-  toast(tag, text, color) { return Helpers.toast.call(this, tag, text, color); }
-  clientName(id, d) { return Helpers.clientName.call(this, id, d); }
-  agentName(id, d) { return Helpers.agentName.call(this, id, d); }
-  _kv(k, v) { return Helpers._kv.call(this, k, v); }
-  C(...a) { return UI.C(...a); }
-  Row(...a) { return UI.Row(...a); }
-  Col(...a) { return UI.Col(...a); }
-  Grid(...a) { return UI.Grid(...a); }
-  Hd(...a) { return UI.Hd(...a); }
-  Sub(...a) { return UI.Sub(...a); }
-  Mono(...a) { return UI.Mono(...a); }
-  Pill(...a) { return UI.Pill(...a); }
-  statusPill(st) { return UI.statusPill(st); }
-  Btn(...a) { return UI.Btn(...a); }
-  Field(...a) { return UI.Field(...a); }
-  Input(...a) { return UI.Input(...a); }
-  Select(...a) { return UI.Select(...a); }
-  Area(...a) { return UI.Area(...a); }
-  Stat(...a) { return UI.Stat(...a); }
-  Donut(...a) { return UI.Donut(...a); }
-  Bars(...a) { return UI.Bars(...a); }
-  Line(...a) { return UI.Line(...a); }
-  Table(...a) { return UI.Table(...a); }
-  SectionHd(...a) { return UI.SectionHd(...a); }
-  Seg(...a) { return UI.Seg(...a); }
-  _settings(...a) { return ScreenShared._settings.call(this, ...a); }
-  _apptToolbar(...a) { return ScreenShared._apptToolbar.call(this, ...a); }
-  _filterAppts(...a) { return ScreenShared._filterAppts.call(this, ...a); }
-  _finCard(...a) { return ScreenAdmin._finCard.call(this, ...a); }
-  _fin(d) { return ScreenAdmin._fin.call(this, d); }
-  _agentDash(...a) { return ScreenAgent._agentDash.call(this, ...a); }
-  _agentLog(...a) { return ScreenAgent._agentLog.call(this, ...a); }
-  _agentAppointments(...a) { return ScreenAgent._agentAppointments.call(this, ...a); }
-  _agentFollowup(...a) { return ScreenAgent._agentFollowup.call(this, ...a); }
-  _agentEod(...a) { return ScreenAgent._agentEod.call(this, ...a); }
-  _agentPayments(...a) { return ScreenAgent._agentPayments.call(this, ...a); }
-  _agentClients(...a) { return ScreenAgent._agentClients.call(this, ...a); }
-  _agentStats(...a) { return ScreenAgent._agentStats.call(this, ...a); }
-  _admDash(...a) { return ScreenAdmin._admDash.call(this, ...a); }
-  _admFin(...a) { return ScreenAdmin._admFin.call(this, ...a); }
-  _admStats(...a) { return ScreenAdmin._admStats.call(this, ...a); }
-  _admClients(...a) { return ScreenAdmin._admClients.call(this, ...a); }
-  _admAgents(...a) { return ScreenAdmin._admAgents.call(this, ...a); }
-  _admEod(...a) { return ScreenAdmin._admEod.call(this, ...a); }
-  _admTimeline(...a) { return ScreenAdmin._admTimeline.call(this, ...a); }
-  _admProspects(...a) { return ScreenAdmin._admProspects.call(this, ...a); }
-  _admRecruit(...a) { return ScreenAdmin._admRecruit.call(this, ...a); }
-  _admAppointments(...a) { return ScreenAdmin._admAppointments.call(this, ...a); }
-  _admContracts(...a) { return ScreenAdmin._admContracts.call(this, ...a); }
-  _admWhatsApp(...a) { return ScreenAdmin._admWhatsApp.call(this, ...a); }
-  _admSalespeople(...a) { return ScreenAdmin._admSalespeople.call(this, ...a); }
-  _admManagers(...a) { return ScreenAdmin._admManagers.call(this, ...a); }
-  _admMetaAds(...a) { return ScreenAdmin._admMetaAds.call(this, ...a); }
-  _admContractTemplates(...a) { return ScreenAdmin._admContractTemplates.call(this, ...a); }
-  _admFollowup(...a) { return ScreenAdmin._admFollowup.call(this, ...a); }
-  _admRooster(...a) { return ScreenAdmin._admRooster.call(this, ...a); }
-  _admActivity(...a) { return ScreenAdmin._admActivity.call(this, ...a); }
-  _admTodos(...a) { return ScreenAdmin._admTodos.call(this, ...a); }
-  _admTickets(...a) { return ScreenAdmin._admTickets.call(this, ...a); }
-  get _M() { return ScreenRoadmap._M; }
-  _defaultTargets(...a) { return ScreenRoadmap._defaultTargets.call(this, ...a); }
-  _getTargets(...a) { return ScreenRoadmap._getTargets.call(this, ...a); }
-  _card(...a) { return ScreenRoadmap._card.call(this, ...a); }
-  _tip(...a) { return ScreenRoadmap._tip.call(this, ...a); }
-  _statusDot(...a) { return ScreenRoadmap._statusDot.call(this, ...a); }
-  _section(...a) { return ScreenRoadmap._section.call(this, ...a); }
-  _tabCommand(...a) { return ScreenRoadmap._tabCommand.call(this, ...a); }
-  _detectBottleneck(...a) { return ScreenRoadmap._detectBottleneck.call(this, ...a); }
-  _tabAcquisition(...a) { return ScreenRoadmap._tabAcquisition.call(this, ...a); }
-  _tabSales(...a) { return ScreenRoadmap._tabSales.call(this, ...a); }
-  _tabFulfillment(...a) { return ScreenRoadmap._tabFulfillment.call(this, ...a); }
-  _agentBreakdownTable(...a) { return ScreenRoadmap._agentBreakdownTable.call(this, ...a); }
-  _tabClients(...a) { return ScreenRoadmap._tabClients.call(this, ...a); }
-  _tabAgents(...a) { return ScreenRoadmap._tabAgents.call(this, ...a); }
-  _tabFinance(...a) { return ScreenRoadmap._tabFinance.call(this, ...a); }
-  _tabRoadmap(...a) { return ScreenRoadmap._tabRoadmap.call(this, ...a); }
-  _tabHealth(...a) { return ScreenRoadmap._tabHealth.call(this, ...a); }
-  _agentRooster(...a) { return ScreenAgent._agentRooster.call(this, ...a); }
-  _agentTickets(...a) { return ScreenAgent._agentTickets.call(this, ...a); }
-  _agentCoaching(...a) { return ScreenAgent._agentCoaching.call(this, ...a); }
-  _admTargets(...a) { return ScreenAdmin._admTargets.call(this, ...a); }
-  _admClientSuccess(...a) { return ScreenAdmin._admClientSuccess.call(this, ...a); }
-  _admCoaching(...a) { return ScreenAdmin._admCoaching.call(this, ...a); }
-  _admOpleiding(...a) { return ScreenAdmin._admOpleiding.call(this, ...a); }
-  _admOpa(...a) { return ScreenAdmin._admOpa.call(this, ...a); }
-  _weekStart(dateStr) { const d = new Date((dateStr || new Date().toISOString().slice(0,10)) + 'T12:00:00'); const day = d.getDay(); d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day)); return d.toISOString().slice(0, 10); }
-  _logActivity(action, details, extra) { const s = this.state; if (!s.role || s.loading) return; let userName = ''; if (s.role === 'agent' && this.myAgentId) { const me = (s.data.agents || []).find(a => a.id === this.myAgentId); userName = me?.name || ''; } else if ((s.role === 'client' || s.role === 'agency') && this.myClientId) { const me = (s.data.clients || []).find(c => c.id === this.myClientId); userName = me?.name || ''; } else if (s.role === 'admin') { const sess = SB.getSession(); userName = sess?.user?.email?.split('@')[0] || 'Admin'; } API.logActivity(userName, s.role, action, details, this._sessionId || null, extra || null); }
-
-  _startClickTracking() {
-    if (this._clickTracker) document.removeEventListener('click', this._clickTracker, true);
-    const self = this;
-    let lastClickTime = 0;
-    this._clickTracker = function(ev) {
-      const now = Date.now();
-      if (now - lastClickTime < 300) return; // debounce
-      lastClickTime = now;
-      const t = ev.target;
-      const el = t.closest('button,a,[data-track],[role="row"],[role="button"]') || t;
-      let label = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-      if (!label || label.length < 2) return;
-      const route = self.state.route || '';
-      self._logActivity('click', label, { route });
-    };
-    document.addEventListener('click', this._clickTracker, true);
+  async sendFollowupEmail(prospectId, templateName, body) {
+    await this.updateProspectDetail(prospectId, { last_followup: new Date().toISOString().slice(0, 10), last_followup_type: templateName });
+    this.closeModal();
+    this.toast('Email sent', templateName + ' sent', 'var(--accent)');
   }
-  _startPolling() {
-    if (this._pollTimer) return;
-    this._pollTimer = setInterval(() => this._poll(), 30000);
-    if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
-    this._heartbeatTimer = setInterval(() => this._updatePresence(this.state.route), 30000);
-    this._startRealtime();
-  }
-  _startRealtime() {
-    if (this._rtChannel || typeof supabase === 'undefined') return;
-    try {
-      const rtClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-      this._rtChannel = rtClient.channel('rt-platform')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, p => this._onRtAppointment(p))
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'agents' }, p => this._onRtAgent(p))
-        .subscribe();
-    } catch(e) {}
-  }
-  _onRtAppointment(payload) {
-    if (this.state.role !== 'admin') return;
-    try {
-      const rec = payload.new || {};
-      const d = this.state.data;
-      if (payload.eventType === 'INSERT') {
-        const existing = d.appointments.find(a => a.id === rec.id);
-        if (existing) {
-          // Optimistic add exists — patch loggedAt so it sorts to top
-          if (!existing.loggedAt && rec.created_at) this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === rec.id); if (a) a.loggedAt = rec.created_at; });
-          return;
-        }
-        const appt = { id: rec.id, agent: rec.agent_id, client: rec.client_id, sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '', dateLog: rec.date_logged, dateAppt: rec.date_appt, status: rec.status, amount: rec.amount != null ? rec.amount : null, invoiced: rec.invoiced || false, paid: rec.paid || false, agentRate: rec.agent_rate != null ? rec.agent_rate : null, loggedAt: rec.created_at || null, updatedAt: rec.updated_at || null };
-        const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
-        const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
-        this.mutLocal(dd => dd.appointments.unshift(appt));
-      } else if (payload.eventType === 'UPDATE') {
-        const cf = rec.client_feedback;
-        const fields = { status: rec.status, amount: rec.amount != null ? rec.amount : null, invoiced: rec.invoiced || false, paid: rec.paid || false, agentRate: rec.agent_rate != null ? rec.agent_rate : null, dateAppt: rec.date_appt, rescheduled: rec.rescheduled || false, adminNotes: rec.admin_notes || '', clientFeedback: cf ? (typeof cf === 'string' ? JSON.parse(cf) : cf) : null, updatedAt: rec.updated_at || null };
-        this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === rec.id); if (a) Object.assign(a, fields); });
-      } else if (payload.eventType === 'DELETE') {
-        const id = (payload.old || {}).id;
-        if (id) this.mutLocal(dd => { dd.appointments = dd.appointments.filter(a => a.id !== id); });
-      }
-    } catch(e) {}
-  }
-  _onRtAgent(payload) {
-    if (this.state.role !== 'admin') return;
-    try {
-      const rec = payload.new || {};
-      const d = this.state.data;
-      const cur = d.agents.find(a => a.id === rec.id);
-      if (cur && cur.working !== rec.working) {
-        this.mutLocal(dd => { const a = dd.agents.find(x => x.id === rec.id); if (a) { a.working = rec.working; a.workSince = rec.work_since || null; } });
-        this._pushAdminNotif(cur.name + ' is now ' + (rec.working ? 'online' : 'offline'));
-        this.toast(cur.name, rec.working ? 'Now online' : 'Now offline', rec.working ? 'var(--up)' : 'var(--text-mute)');
-      }
-    } catch(e) {}
-  }
-  async _poll() {
-    if (this.state.role !== 'admin') return;
-    try {
-      const [rawAppts, rawAgents, rawPresence] = await Promise.all([
-        SB.get('appointments', '?order=date_logged.desc'),
-        SB.get('agents', '?order=name'),
-        SB.get('presence', '').catch(() => []),
-      ]);
-      const d = this.state.data;
-      for (const rec of (rawAppts || [])) {
-        if (!d.appointments.find(a => a.id === rec.id)) {
-          const appt = { id: rec.id, agent: rec.agent_id, client: rec.client_id, sub: rec.sub_client_id || '', lead: rec.lead_name, phone: rec.phone || '', dateLog: rec.date_logged, dateAppt: rec.date_appt, status: rec.status, amount: rec.amount != null ? rec.amount : null, invoiced: rec.invoiced || false, paid: rec.paid || false, agentRate: rec.agent_rate != null ? rec.agent_rate : null };
-          const agentName = (d.agents.find(a => a.id === appt.agent) || {}).name || 'Agent';
-          const clientName = (d.clients.find(c => c.id === appt.client) || {}).name || 'Client';
-          this.mutLocal(dd => dd.appointments.unshift(appt));
-        }
-      }
-      for (const rec of (rawAgents || [])) {
-        const cur = d.agents.find(a => a.id === rec.id);
-        if (cur && cur.working !== rec.working) {
-          this.mutLocal(dd => { const a = dd.agents.find(x => x.id === rec.id); if (a) { a.working = rec.working; a.workSince = rec.work_since || null; } });
-          this._pushAdminNotif(cur.name + ' is now ' + (rec.working ? 'online' : 'offline'));
-          this.toast(cur.name, rec.working ? 'Now online' : 'Now offline', rec.working ? 'var(--up)' : 'var(--text-mute)');
-        }
-      }
-      if (rawPresence) this.mutLocal(dd => { dd.presence = rawPresence; });
-    } catch(e) {}
-  }
-  _pushAdminNotif(text) {
-    const n = { id: 'rt' + Date.now(), text, time: new Date().toISOString().slice(0, 16).replace('T', ' '), read: false, kind: 'info' };
-    this.mutLocal(d => { if (!d.notifs.admin) d.notifs.admin = []; d.notifs.admin.unshift(n); });
-  }
-  _clientDash(...a) { return ScreenClient._clientDash.call(this, ...a); }
-  _clientAppointments(...a) { return ScreenClient._clientAppointments.call(this, ...a); }
-  _clientStats(...a) { return ScreenClient._clientStats.call(this, ...a); }
-  _clientBilling(...a) { return ScreenClient._clientBilling.call(this, ...a); }
-  _clientLegal(...a) { return ScreenClient._clientLegal.call(this, ...a); }
-  _clientSupport(...a) { return ScreenClient._clientSupport.call(this, ...a); }
-  _adminModals(...a) { return Modals._adminModals.call(this, ...a); }
-  _admUploadContract(...a) { return Modals._admUploadContract.call(this, ...a); }
-  _admUploadClientContract(...a) { return Modals._admUploadClientContract.call(this, ...a); }
 
   async saveDials(count) {
     const today = this.iso(this.today());
     const n = Math.max(0, parseInt(count) || 0);
     this.mutLocal(d => { if (!d.dials[this.myAgentId]) d.dials[this.myAgentId] = {}; d.dials[this.myAgentId][today] = n; });
     await API.upsertDials(this.myAgentId, today, n);
+    this._logActivity('dials_updated', 'Updated dial count to ' + n);
     this.toast('Dials', 'Logged ' + n + ' dials', 'var(--accent)');
   }
 
-  async saveApptFeedback(id, feedback) {
-    this.mutLocal(d => { const a = d.appointments.find(x => x.id === id); if (a) a.clientFeedback = feedback; });
-    await API.saveApptFeedback(id, feedback);
-    this.toast('Saved', 'Feedback saved', 'var(--up)');
-  }
-
-  async saveAdminNotes(id, notes) {
-    this.mutLocal(d => { const a = d.appointments.find(x => x.id === id); if (a) a.adminNotes = notes; });
-    await API.saveAdminNotes(id, notes);
-    this.toast('Saved', 'Notes saved', 'var(--up)');
-  }
-
-  async mergeAdminNotes(id, updates) {
-    const appt = this.state.data.appointments.find(x => x.id === id);
-    const existing = appt ? (appt.adminNotes || '') : '';
-    let obj = {};
-    try { obj = existing ? JSON.parse(existing) : {}; } catch(_) { if (existing) obj.nt = existing; }
-    Object.assign(obj, updates);
-    const newNotes = JSON.stringify(obj);
-    this.mutLocal(dd => { const a = dd.appointments.find(x => x.id === id); if (a) a.adminNotes = newNotes; });
-    await API.saveAdminNotes(id, newNotes);
-  }
-
-  async rescheduleAppointment(id, newDate) {
-    await SB.patch('appointments', `?id=eq.${id}`, { date_appt: newDate, status: 'open', rescheduled: true });
-    this.mutLocal(dd => {
-      const a = dd.appointments.find(x => x.id === id);
-      if (a) { a.dateAppt = newDate; a.status = 'open'; a.rescheduled = true; }
-    });
-    this.setForm('reschedulingAppt', false);
-    this.setForm('rescheduleDate', '');
-    this.toast('Herpland', 'Afspraak succesvol herpland', 'var(--accent)');
-  }
-
-  async saveDealStatus(id, quoteSent, quoteApproved, revenueStr) {
-    const dealAmount = revenueStr !== null && revenueStr !== '' ? parseFloat(revenueStr) : null;
-    this.mutLocal(d => {
-      const a = d.appointments.find(x => x.id === id);
-      if (a) { a.quoteSent = quoteSent; a.quoteApproved = quoteApproved; a.dealAmount = isNaN(dealAmount) ? a.dealAmount : dealAmount; }
-    });
-    const fields = { quote_sent: quoteSent, quote_approved: quoteApproved };
-    if (dealAmount !== null && !isNaN(dealAmount)) fields.deal_amount = dealAmount;
-    await SB.patch('appointments', `?id=eq.${id}`, fields);
-    this.setState(st => { const f = { ...st.form }; delete f.dealQuoteSent; delete f.dealQuoteApproved; delete f.dealRevenueDraft; return { form: f }; });
-    this.toast('Saved', 'Deal status updated', 'var(--up)');
-  }
-
-  async updateContract(contractId, updates) {
-    this.mutLocal(d => { const c = d.contracts.find(x => x.id === contractId); if (c) Object.assign(c, updates); });
-    await API.updateContract(contractId, updates);
-  }
-
-  async saveApptEdits(id) {
-    const f = this.state.form;
-    const d = this.state.data;
-    const ap = d.appointments.find(x => x.id === id); if (!ap) return;
-    const rawAgentRate = f.eApptAgentRate !== undefined ? f.eApptAgentRate : (ap.agentRate != null ? String(ap.agentRate) : '');
-    const rawCommission = f.eApptCommission !== undefined ? f.eApptCommission : (ap.dealCommission != null ? String(ap.dealCommission) : '');
-    const rawDealAmount = f.eApptDealAmount !== undefined ? f.eApptDealAmount : (ap.dealAmount != null ? String(ap.dealAmount) : '');
-    const fields = {
-      lead_name: f.eApptLead !== undefined ? f.eApptLead.trim() : ap.lead,
-      phone: f.eApptPhone !== undefined ? f.eApptPhone : (ap.phone || ''),
-      client_id: f.eApptClient !== undefined ? f.eApptClient : ap.client,
-      sub_client_id: f.eApptSub !== undefined ? (f.eApptSub || null) : (ap.sub || null),
-      agent_id: f.eApptAgent !== undefined ? f.eApptAgent : ap.agent,
-      amount: f.eApptAmount !== undefined ? (f.eApptAmount === '' ? null : (parseFloat(f.eApptAmount) ?? 0)) : ap.amount,
-      date_appt: (() => { const d = f.eApptDate !== undefined ? f.eApptDate : (ap.dateAppt || '').slice(0, 10); const t = f.eApptTime !== undefined ? f.eApptTime : (ap.dateAppt?.includes('T') ? ap.dateAppt.slice(11, 16) : ''); return d + (t ? 'T' + t : ''); })(),
-      date_logged: f.eApptDateLog !== undefined ? f.eApptDateLog : ap.dateLog,
-      agent_rate: rawAgentRate !== '' ? (parseFloat(rawAgentRate) ?? null) : null,
-      deal_commission: rawCommission !== '' ? (parseFloat(rawCommission) || null) : null,
-      deal_amount: rawDealAmount !== '' ? (parseFloat(rawDealAmount) || null) : null,
-    };
-    this.mutLocal(dd => {
-      const a = dd.appointments.find(x => x.id === id); if (!a) return;
-      a.lead = fields.lead_name; a.phone = fields.phone;
-      a.client = fields.client_id; a.sub = fields.sub_client_id || '';
-      a.agent = fields.agent_id; a.amount = fields.amount;
-      a.dateAppt = fields.date_appt; a.dateLog = fields.date_logged;
-      a.agentRate = fields.agent_rate;
-      a.dealCommission = fields.deal_commission;
-      a.dealAmount = fields.deal_amount;
-    });
-    const ok = await API.patchAppointment(id, fields);
-    this.setState(st => ({ form: { ...st.form, apptEditing: false, eApptLead: undefined, eApptPhone: undefined, eApptClient: undefined, eApptSub: undefined, eApptAgent: undefined, eApptAmount: undefined, eApptDate: undefined, eApptTime: undefined, eApptDateLog: undefined, eApptAgentRate: undefined, eApptCommission: undefined, eApptDealAmount: undefined } }));
-    if (ok && ok.ok !== false) this.toast('Saved ✓', 'Appointment updated', 'var(--up)');
-    else this.toast('Fout', 'Opslaan mislukt', 'var(--down)');
-  }
-
-  async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus) {
-    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed' };
-    this.mutLocal(d => {
-      const c = d.clients.find(x => x.id === clientId); if (!c) return;
-      c.agentStartDate = agentStartDate; c.linkedAgentId = linkedAgentId; c.linkedRecruitId = linkedRecruitId; c.agentVacancy = agentStatus;
-    });
-    await API.updateClient(clientId, updates);
-    this.toast('Saved', 'Timeline updated', 'var(--up)');
-  }
-
   async saveClientEdits() {
+    window.__saveClientEditsVersion = 'v20260723d-NEW';
     const f = this.state.form;
     const id = f.id;
     const d = this.state.data;
     const c = d.clients.find(x => x.id === id);
     if (!c) return;
+    // Always include all fields — use form value if changed, else current client value
     const name = f.editName !== undefined ? f.editName : c.name;
     const contact = f.editContact !== undefined ? f.editContact : (c.contactPerson || '');
     const email = f.editEmail !== undefined ? f.editEmail : (c.email || '');
@@ -1619,18 +1649,16 @@ class Component extends DCLogic {
     const koTime = f.editKickoffTime !== undefined ? f.editKickoffTime : ((c.kickoff || '').slice(11, 16) || '09:00');
     const kickoff = koDate ? koDate + 'T' + koTime : null;
     const type = f.editType !== undefined ? f.editType : (c.type || 'direct');
-    let subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
-    if (f._newScName && f._newScName.trim()) {
-      const entry = { id: 'sc-' + Date.now(), name: f._newScName.trim(), rate: +(String(f._newScRate || '0').replace(/\D/g, '')) || 0 };
-      subclients = [...subclients, entry];
-    }
-    const waEnabled = f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false);
+    const subclients = f.editSubclients !== undefined ? f.editSubclients : (c.subclients || []);
+    const whatsappEnabled = f.editWhatsappEnabled !== undefined ? f.editWhatsappEnabled : (c.whatsapp_enabled || false);
+    console.log('[saveClientEdits] closeFee=', closeFee, 'editCloseFee=', f.editCloseFee, 'c.close_fee=', c.close_fee);
+    window.__sceDebug = { closeFee, editCloseFee: f.editCloseFee, cCloseFee: c.close_fee, id };
     const updates = {
       name, contact_person: contact, email, phone, vat, rate,
       per_hour: perHour, monthly_fee: monthly, commission, close_fee: closeFee, setup_fee: setupFee, pay_days: payDays,
       status, crm, crm_on: crm !== 'none', kickoff, type,
       subclients: type === 'agency' ? subclients : (c.subclients || []),
-      whatsapp_enabled: waEnabled,
+      whatsapp_enabled: whatsappEnabled,
     };
     this.mutLocal(dd => {
       const cl = dd.clients.find(x => x.id === id); if (!cl) return;
@@ -1640,12 +1668,75 @@ class Component extends DCLogic {
       cl.close_fee = closeFee; cl.closeFee = closeFee;
       cl.setup_fee = setupFee; cl.pay_days = payDays;
       cl.status = status; cl.crm = crm; cl.crmOn = crm !== 'none'; cl.kickoff = kickoff;
-      cl.type = type; cl.whatsapp_enabled = waEnabled; if (type === 'agency') cl.subclients = subclients;
+      cl.type = type; if (type === 'agency') cl.subclients = subclients;
+      cl.whatsapp_enabled = whatsappEnabled;
     });
     this.setState(s => ({ form: { id: s.form.id } }));
     const ok = await API.updateClient(id, updates);
     if (ok !== null) this.toast('Saved ✓', 'Client updated', 'var(--up)');
     else this.toast('Fout', 'Opslaan mislukt — check console', 'var(--down)');
+  }
+
+  async saveTimelineData(clientId, agentStartDate, linkedAgentId, linkedRecruitId, agentStatus, kickoff, subclients, needsLeadlist, tlChecklist) {
+    const checklistJson = tlChecklist ? JSON.stringify(tlChecklist) : null;
+    const updates = { agent_start_date: agentStartDate || null, linked_agent_id: linkedAgentId || null, linked_recruit_id: linkedRecruitId || null, agent_vacancy: agentStatus || 'needed', ...(kickoff !== undefined ? { kickoff: kickoff || null } : {}), ...(kickoff === '' ? { timeline_stage: null } : {}), ...(subclients ? { subclients } : {}), ...(needsLeadlist !== undefined ? { needs_leadlist: !!needsLeadlist } : {}), ...(checklistJson !== null ? { timeline_checklist: checklistJson } : {}) };
+    this.mutLocal(d => {
+      const c = d.clients.find(x => x.id === clientId); if (!c) return;
+      c.agentStartDate = agentStartDate; c.linkedAgentId = linkedAgentId; c.linkedRecruitId = linkedRecruitId; c.agentVacancy = agentStatus;
+      if (kickoff !== undefined) c.kickoff = kickoff || null;
+      if (subclients) c.subclients = subclients;
+      if (needsLeadlist !== undefined) c.needsLeadlist = !!needsLeadlist;
+      if (tlChecklist !== undefined) c.timelineChecklist = checklistJson;
+    });
+    await API.updateClient(clientId, updates);
+    this.toast('Saved', 'Timeline updated', 'var(--up)');
+  }
+
+  async createSubclientAccount(clientId, subclientId, email, name) {
+    const KEY = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogInNlcnZpY2Vfcm9sZSIsICJpc3MiOiAic3VwYWJhc2UiLCAiaWF0IjogMTc4MjQ1NDUxOCwgImV4cCI6IDE5NDAxMzQ1MTh9.d7t6XFTyksADGN-ZaER4bNhc85TSn0g12FRsLGEbaU0';
+    // Create Supabase auth user
+    const res = await fetch('https://database.infinite-scale.be/auth/v1/admin/users', {
+      method: 'POST',
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'InfiniteScale2026!', email_confirm: true }),
+    });
+    const user = await res.json();
+    if (!user.id) throw new Error(user.msg || user.error_description || 'Failed to create user');
+    const uid = user.id;
+    // Create profile row with role=subclient
+    await fetch('https://database.infinite-scale.be/rest/v1/profiles', {
+      method: 'POST',
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ id: uid, name, email, role: 'subclient' }),
+    });
+    // Store user_id + email in the subclient JSON
+    const cl = this.state.data.clients.find(c => c.id === clientId);
+    const newSubs = (cl.subclients || []).map(sc => sc.id === subclientId ? { ...sc, email, user_id: uid } : sc);
+    await API.updateClient(clientId, { subclients: newSubs });
+    this.mutLocal(d => { const c = d.clients.find(x => x.id === clientId); if (c) c.subclients = newSubs; });
+    this.toast('Account created', name + ' can now log in', 'var(--up)');
+  }
+
+  async deleteSubclientAccount(clientId, subclientId) {
+    const KEY = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogInNlcnZpY2Vfcm9sZSIsICJpc3MiOiAic3VwYWJhc2UiLCAiaWF0IjogMTc4MjQ1NDUxOCwgImV4cCI6IDE5NDAxMzQ1MTh9.d7t6XFTyksADGN-ZaER4bNhc85TSn0g12FRsLGEbaU0';
+    const cl = this.state.data.clients.find(c => c.id === clientId);
+    const sc = (cl.subclients || []).find(x => x.id === subclientId);
+    if (!sc || !sc.user_id) return;
+    // Delete auth user
+    await fetch('https://database.infinite-scale.be/auth/v1/admin/users/' + sc.user_id, {
+      method: 'DELETE',
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY },
+    });
+    // Delete profile
+    await fetch('https://database.infinite-scale.be/rest/v1/profiles?id=eq.' + sc.user_id, {
+      method: 'DELETE',
+      headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY },
+    });
+    // Remove user_id + email from subclient JSON
+    const newSubs = (cl.subclients || []).map(x => x.id === subclientId ? { ...x, email: undefined, user_id: undefined } : x);
+    await API.updateClient(clientId, { subclients: newSubs });
+    this.mutLocal(d => { const c = d.clients.find(x => x.id === clientId); if (c) c.subclients = newSubs; });
+    this.toast('Account removed', sc.name + ' can no longer log in', 'var(--text-mute)');
   }
 
   async saveAgentEdits() {
@@ -1710,12 +1801,12 @@ class Component extends DCLogic {
     this.toast('Saved', 'Rate updated', 'var(--up)');
   }
 
-  async addEvent(title, tag, date, desc) {
+  async addEvent(title, tag, date) {
     if (!title || !date) { this.toast('Error', 'Add title and date', 'var(--down)'); return; }
-    const ev = { id: 'ev' + Date.now(), title, tag: tag || 'Update', date, desc: desc || '' };
+    const ev = { id: 'ev' + Date.now(), title, tag: tag || 'Update', date };
     this.mutLocal(d => d.events.push(ev));
-    await API.addEvent({ title, tag: tag || 'Update', event_date: date, description: desc || '' });
-    this.setForm('evTitle', ''); this.setForm('evDate', ''); this.setForm('evTag', ''); this.setForm('evDesc', '');
+    await API.addEvent({ title, tag: tag || 'Update', event_date: date });
+    this.setForm('evTitle', ''); this.setForm('evDate', ''); this.setForm('evTag', '');
     this.toast('Added', 'Event created', 'var(--accent)');
   }
 
@@ -1727,7 +1818,9 @@ class Component extends DCLogic {
 
   async updateProspectDetail(id, data) {
     this.mutLocal(d => { const p = d.prospects.find(x => x.id === id); if (p) Object.assign(p, data); });
-    await API.updateProspect(id, data);
+    const ok = await API.updateProspect(id, data);
+    if (!ok) this.toast('Fout', 'Prospect kon niet worden opgeslagen', 'var(--down)');
+    else this._lastProspectRefresh = Date.now();
   }
 
   async saveSettings() {
@@ -1752,7 +1845,390 @@ class Component extends DCLogic {
     this.setState({ form: {} });
     this.toast('Saved', 'Settings updated', 'var(--up)');
   }
+
+  // ---- Tour ----
+  tourData() {
+    const map = {
+      agent: [{ t: 'Welcome, ' + (this.state.data.agents.find(a => a.id === this.myAgentId) || {}).name?.split(' ')[0] || 'agent', b: 'This is your command center. Your most recent appointments sit up top, with live daily stats and your to-do list beside them.' }, { t: 'Flip the work switch', b: 'Use the green switch in the top bar when you start dialing. It logs your working time for the team.' }, { t: 'Log appointments fast', b: 'The floating button opens the form. Submit and it locks — instantly reflected in your stats and payments.' }, { t: 'Track your money', b: 'The Payments tab shows a live running total and your monthly approval of invoicing. You\'re all set.' }],
+      client: [{ t: 'Welcome to Infinite Scale', b: 'Every appointment your agents book lands here in real time — no more spreadsheets.' }, { t: 'Set the status', b: 'On each appointment choose Show, No-show or Cancel. This drives your monthly billing automatically.' }, { t: 'Billing made simple', b: 'Five days before month-end you get a reminder. When the month closes, your billing summary appears in the Billing tab.' }],
+      agency: [{ t: 'Welcome to your agency workspace', b: 'Your lead-agency dashboard shows every appointment across all of your clients in one login.' }, { t: 'Switch between clients', b: 'Use the selector in the top bar to view appointments and stats broken down per client.' }, { t: 'One billing relationship', b: 'You invoice as the agency — statuses you set across all clients roll into a single monthly summary.' }],
+    };
+    return map[this.state.role] || [];
+  }
+
+  // ---- Main render ----
+  renderVals() {
+    const s = this.state, d = s.data, R = React.createElement;
+
+    // Loading screen
+    if (s.loading) {
+      return {
+        loggedOut: false, loggedIn: false,
+        screen: R('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' } },
+          R('div', { style: { textAlign: 'center' } },
+            R('div', { style: { width: 40, height: 40, border: '3px solid var(--border)', borderTop: '3px solid var(--accent)', borderRadius: '50%', animation: 'isp-spin 1s linear infinite', margin: '0 auto 16px' } }),
+            R('div', { style: { color: 'var(--text-mute)', fontSize: 14 } }, 'Loading…'))),
+        modal: false, tourActive: false, toasts: [],
+      };
+    }
+
+    const out = {
+      loggedOut: !s.role, loggedIn: !!s.role,
+      stop: e => e.stopPropagation(),
+      onLogout: () => this._doLogout(),
+      onCloseModal: () => this.closeModal(),
+      onToggleSidebar: () => this.setState(x => ({ sidebarOpen: !x.sidebarOpen })),
+      onToggleNotif: () => this.setState(x => ({ notifOpen: !x.notifOpen })),
+      onMarkAllRead: () => this.markAllRead(),
+      sidebarOpen: s.sidebarOpen, notifOpen: s.notifOpen, modal: s.modal,
+      routeKey: (s.role || '') + '/' + s.route, sidebarCls: s.sidebarOpen ? 'isp-open' : '',
+      showFab: s.role === 'agent' && s.route !== 'log', onFabLog: () => this.openModal('log'),
+    };
+
+    // Login
+    out.loginError = s.loginError;
+    out.loginEmail = s.loginEmail;
+    out.loginPassword = s.loginPassword;
+    out.onLoginEmailChange = e => this.setState({ loginEmail: e.target.value });
+    out.onLoginPasswordChange = e => this.setState({ loginPassword: e.target.value });
+    out.onLoginSubmit = e => { e.preventDefault(); this._doLogin(s.loginEmail, s.loginPassword); };
+
+    if (!s.role) { return out; }
+
+    // Me
+    const roleLabels = { admin: 'Admin workspace', agency: 'Lead agency', client: 'Client portal', agent: 'Call agent', salesperson: 'Sales workspace', manager: 'Manager workspace' };
+    out.roleLabel = roleLabels[s.role];
+    const me = d.agents.find(a => a.id === this.myAgentId);
+    const cl = d.clients.find(c => c.id === this.myClientId);
+    const session = SB.getSession();
+    const profileName = me?.name || cl?.contactPerson || session?.user?.email?.split('@')[0] || 'User';
+    const scCl = d.clients.find(c => c.id === this.scClientId);
+    const scSub = scCl && (scCl.subclients || []).find(x => x.id === this.scSubId);
+    const mySalesperson = (d.salespeople || []).find(sp => sp.user_id === session?.user?.id);
+    const myManager = (d.managers || []).find(mg => mg.user_id === session?.user?.id);
+    const meMap = { admin: { name: 'Quinten Eeckhoudt', sub: 'Admin', tint: 'oklch(0.30 0.06 295)', ink: 'var(--violet)' }, agency: { name: cl?.name || 'Agency', sub: 'Lead agency', tint: 'oklch(0.30 0.06 240)', ink: 'var(--info)' }, client: { name: cl?.name || 'Client', sub: 'Client', tint: 'oklch(0.30 0.11 194)', ink: 'var(--accent)' }, agent: { name: me?.name || 'Agent', sub: 'Call agent', tint: 'oklch(0.30 0.05 85)', ink: 'var(--warn)' }, subclient: { name: scSub?.name || scCl?.name || 'Subclient', sub: scCl?.name || 'Subclient', tint: 'oklch(0.30 0.06 160)', ink: 'var(--up)' }, salesperson: { name: mySalesperson?.name || profileName, sub: 'Salesperson', tint: 'oklch(0.30 0.08 25)', ink: 'oklch(0.75 0.17 25)' }, manager: { name: myManager?.name || profileName, sub: 'Manager', tint: 'oklch(0.30 0.06 280)', ink: 'oklch(0.75 0.14 280)' } };
+    const meInfo = meMap[s.role];
+    out.meName = meInfo.name; out.meSub = meInfo.sub; out.initials = this.initialsOf(meInfo.name); out.avatarTint = meInfo.tint; out.avatarInk = meInfo.ink;
+
+    // Nav
+    const navDefs = {
+      agent: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['log', 'Appointment Log', 'M5 3h14v18H5zM9 9h6M9 13h6M9 17h4'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['eod', 'End of Day', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['payments', 'Payments', 'M3 6h18v12H3zM3 10h18M7 15h3'], ['clients', 'My Clients', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['rooster', 'Rooster', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['tickets', 'Tickets', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12v4M10 14h4'], ['coaching', 'Coaching', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      client: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['stats', 'Statistieken', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['resources', 'Resources', 'M3 3h7v7H3zM14 3h7v4M14 10h7M3 14h7v7H3zM14 14h7v7h-7z'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      agency: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['appointments', 'Appointments', 'M4 6h16M4 12h16M4 18h16'], ['stats', 'Statistieken', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['billing', 'Billing', 'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'], ['resources', 'Resources', 'M3 3h7v7H3zM14 3h7v4M14 10h7M3 14h7v7H3zM14 14h7v7h-7z'], ['legal', 'Legal', 'M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z'], ['support', 'Support', 'M4 5h16v11H9l-4 4z'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      admin: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['finances', 'Finances', 'M3 7h18v12H3zM3 11h18M7 15h4'], ['followup', 'Opvolging', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M20 8v4M22 10h-4'], ['stats', 'Statistics', 'M4 20V10M10 20V4M16 20v-7M22 20H2'], ['apptadmin', 'Appointments', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['clients', 'Clients', 'M3 9l9-6 9 6v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 21V12h6v9'], ['resources', 'Resources', 'M3 3h7v7H3zM14 3h7v4M14 10h7M3 14h7v7H3zM14 14h7v7h-7z'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['salespeople', 'Salespeople', 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M12 14c-4.418 0-8 1.79-8 4v1h16v-1c0-2.21-3.582-4-8-4M20 8v6M17 11h6'], ['managers', 'Managers', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6M12 3h9M12 7h9'], ['targets', 'Targets', 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'], ['opa', 'OPA', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M22 8h-6M22 12h-5M22 16h-6'], ['clientsuccess', 'Client Success', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['coaching', 'Coaching', 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'], ['rooster', 'Roosters', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM10 16l2 2 4-4'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['timeline', 'Project Timeline', 'M4 5h16v15H4zM4 9h16M8 3v4M16 3v4'], ['prospects', 'Prospect CRM', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['recruitment', 'Recruitment', 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M2 20a6 6 0 0 1 12 0M18 8v6M15 11h6'], ['contracts', 'Contracts', 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h2'], ['whatsapp', 'WhatsApp', 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['tickets', 'Tickets', 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12v4M10 14h4'], ['roadmap', '€100K Roadmap', 'M3 17l4-8 4 4 4-6 4 10M3 3h18v18H3z'], ['activity', 'Activity', 'M22 12h-4l-3 9L9 3l-3 9H2'], ['settings', 'Settings', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      salesperson: [['prospects', 'Mijn Leads', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10'], ['apptadmin', 'Afspraken', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['settings', 'Instellingen', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+      manager: [['dashboard', 'Dashboard', 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'], ['eodadmin', 'EOD Reports', 'M8 4h8M7 4h10v17H7zM10 10h4M10 14h4'], ['agents', 'Call Agents', 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M3 20a6 6 0 0 1 12 0M17 11a3 3 0 0 0 0-6M21 20a6 6 0 0 0-4-5.6'], ['todos', 'To-Do', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'], ['settings', 'Instellingen', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M12 2v3M12 19v3M2 12h3M19 12h3']],
+    };
+    const badges = { admin: { recruitment: String(d.recruits.filter(r => r.stage === 'new').length || ''), eodadmin: '' }, agent: {} };
+    // Coaching unread badge for agents — lazy background count
+    if (s.role === 'agent' && me) {
+      if (s._cfNewCount === undefined && !s._cfNewCountLoading) {
+        this.setState({ _cfNewCountLoading: true });
+        const _lastSeen = (() => { try { return localStorage.getItem('cf_seen_' + me.id) || '1970-01-01T00:00:00.000Z'; } catch(_) { return '1970-01-01T00:00:00.000Z'; } })();
+        fetch(SC_DB + '/rest/v1/coaching_feed?agent_id=in.(' + encodeURIComponent(me.id + ',all') + ')&created_at=gt.' + encodeURIComponent(_lastSeen) + '&select=id&limit=50', { headers: { apikey: SC_KEY, Authorization: 'Bearer ' + SC_KEY } })
+          .then(r => r.json())
+          .then(items => this.setState({ _cfNewCount: Array.isArray(items) ? items.length : 0, _cfNewCountLoading: false }))
+          .catch(() => this.setState({ _cfNewCount: 0, _cfNewCountLoading: false }));
+      }
+      if ((s._cfNewCount || 0) > 0) badges.agent.coaching = String(s._cfNewCount);
+    }
+    const _rp = (d.settings || {}).role_permissions;
+    const _rolePerms = _rp && typeof _rp === 'object' ? _rp : (() => { try { return JSON.parse(_rp || '{}'); } catch(_) { return {}; } })();
+
+    // Admin sidebar sections — only applied for admin role
+    const DEFAULT_ADMIN_SECTIONS = [
+      { key: 'overview',    label: 'Overzicht',          items: ['dashboard', 'finances', 'stats', 'activity'] },
+      { key: 'floor',       label: 'Floor',              items: ['apptadmin', 'followup', 'eodadmin', 'rooster', 'todos', 'tickets'] },
+      { key: 'acquisition', label: 'Acquisitie',         items: ['prospects', 'recruitment', 'targets', 'roadmap'] },
+      { key: 'team_ops',    label: 'Team Operations',    items: ['agents', 'salespeople', 'managers', 'opa', 'coaching'] },
+      { key: 'client_ops',  label: 'Client Operations',  items: ['clients', 'resources', 'clientsuccess', 'whatsapp', 'timeline'] },
+      { key: 'legal',       label: 'Legal',              items: ['contracts'] },
+    ];
+    const ADMIN_SECTIONS = (() => {
+      const raw = (d.settings || {}).nav_sections_config;
+      if (Array.isArray(raw) && raw.length) return raw;
+      if (raw) { try { const p = JSON.parse(raw); if (Array.isArray(p) && p.length) return p; } catch(_) {} }
+      return DEFAULT_ADMIN_SECTIONS;
+    })();
+
+    // Load section collapse state from localStorage (true = open)
+    let _secState;
+    try { _secState = JSON.parse(localStorage.getItem('isp-nav-sections') || 'null'); } catch(_) { _secState = null; }
+    if (!_secState || typeof _secState !== 'object') _secState = Object.fromEntries(ADMIN_SECTIONS.map(s => [s.key, true]));
+    const navSectionOpen = s.navSectionOpen || _secState;
+
+    const allNavItems = (navDefs[s.role] || []).filter(([key]) => key === 'settings' || !(_rolePerms[s.role] && _rolePerms[s.role][key] === false));
+    const itemsByKey = Object.fromEntries(allNavItems.map(x => [x[0], x]));
+
+    // Shared style helpers
+    const BADGE_STYLE = 'font-size:11px; font-weight:700; font-family:JetBrains Mono,monospace; background:var(--accent); color:var(--accent-ink); border-radius:20px; padding:1px 7px;';
+    const pushNavItem = (key, label, icon, badge, active, indented) => {
+      const pad = indented ? 'padding:8px 12px 8px 24px;' : 'padding:9px 12px;';
+      const fs = indented ? 'font-size:13px;' : 'font-size:13.5px;';
+      const activeStyle = 'background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--border);';
+      const idleStyle = 'background:transparent; color:var(--text-mute);';
+      out.nav.push({
+        label, icon, badge: badge || '',
+        onClick: () => this.go(key),
+        style: `display:flex; align-items:center; gap:11px; ${pad} border-radius:10px; border:none; cursor:pointer; ${fs} font-weight:600; transition:all .12s; ${active ? activeStyle : idleStyle}`,
+        hoverStyle: 'background:var(--surface); color:var(--text);',
+        iconStyle: 'flex:none;',
+        labelStyle: 'flex:1; text-align:left;',
+        badgeStyle: BADGE_STYLE,
+      });
+    };
+
+    out.nav = [];
+    if (s.role === 'admin') {
+      ADMIN_SECTIONS.forEach(sec => {
+        const open = navSectionOpen[sec.key] !== false;
+        const secBadgeNum = !open ? sec.items.reduce((acc, k) => acc + (badges.admin[k] ? parseInt(badges.admin[k]) || 0 : 0), 0) : 0;
+        const badgeText = (secBadgeNum > 0 ? secBadgeNum + ' ' : '') + (open ? '▾' : '▸');
+        out.nav.push({
+          label: sec.label, icon: '', badge: badgeText,
+          onClick: () => {
+            const next = { ...navSectionOpen, [sec.key]: !open };
+            try { localStorage.setItem('isp-nav-sections', JSON.stringify(next)); } catch(_) {}
+            this.setState({ navSectionOpen: next });
+          },
+          style: 'display:flex; align-items:center; gap:6px; width:100%; padding:5px 8px 5px 10px; margin-top:8px; border-radius:7px; border:none; background:transparent; cursor:pointer; color:var(--text-mute); transition:color .12s;',
+          hoverStyle: 'color:var(--text);',
+          iconStyle: 'display:none;',
+          labelStyle: 'font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; flex:1; text-align:left; font-family:JetBrains Mono,monospace;',
+          badgeStyle: 'font-size:10.5px; font-weight:700; font-family:monospace; background:transparent; color:inherit; padding:0 2px; border-radius:0;',
+        });
+        if (open) {
+          sec.items.forEach(key => {
+            const item = itemsByKey[key];
+            if (!item) return;
+            const [, label, icon] = item;
+            pushNavItem(key, label, icon, badges.admin[key], s.route === key, true);
+          });
+        }
+      });
+      // Settings always at bottom, outside sections
+      const settingsItem = itemsByKey['settings'];
+      if (settingsItem) {
+        const [, label, icon] = settingsItem;
+        pushNavItem('settings', label, icon, '', s.route === 'settings', false);
+      }
+    } else {
+      allNavItems.forEach(([key, label, icon]) => {
+        pushNavItem(key, label, icon, (badges[s.role] && badges[s.role][key]) || '', s.route === key, false);
+      });
+    }
+
+    // Notifications
+    const myNotifs = d.notifs[s.role] || [];
+    out.hasUnread = myNotifs.some(n => !n.read);
+    const ndot = { appt: 'var(--accent)', pay: 'var(--warn)', todo: 'var(--info)', remind: 'var(--warn)', bill: 'var(--accent)', eod: 'var(--info)', recruit: 'var(--violet)', ticket: 'var(--down)', contract: 'var(--accent)' };
+    const nicon = { appt: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', pay: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', todo: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>', remind: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', bill: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', eod: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', recruit: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', ticket: '<path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1s1 .4 1 1v2c0 .6-.4 1-1 1s-1 .4-1 1v2c0 .6.4 1 1 1h6a1 1 0 0 0 1-1v-2c0-.6.4-1 1-1s1-.4 1-1v-2c0-.6-.4-1-1-1s-1-.4-1-1V3a1 1 0 0 0-1-1z"/>', contract: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' };
+    const nibg = { appt: 'oklch(0.22 0.04 256 / .8)', pay: 'oklch(0.24 0.05 80 / .8)', todo: 'oklch(0.22 0.07 194 / .8)', remind: 'oklch(0.24 0.05 80 / .8)', bill: 'oklch(0.22 0.04 256 / .8)', eod: 'oklch(0.22 0.04 200 / .8)', recruit: 'oklch(0.22 0.04 290 / .8)', ticket: 'oklch(0.22 0.05 25 / .8)', contract: 'oklch(0.22 0.04 256 / .8)', info: 'oklch(0.22 0.04 200 / .8)' };
+    out.notifications = myNotifs.map(n => ({ text: n.text, time: n.time, dot: ndot[n.kind] || 'var(--accent)', iconPath: nicon[n.kind] || nicon.info, iconBg: nibg[n.kind] || 'oklch(0.22 0.04 256 / .8)', unread: !n.read, hasAction: !!n.action, onClick: n.action ? () => this.handleNotifClick(n) : null, onMarkRead: !n.read ? (ev => { ev.stopPropagation(); this.markOneRead(n.id); }) : null, style: 'display:flex; align-items:flex-start; gap:12px; padding:11px 16px; cursor:' + (n.action ? 'pointer' : 'default') + '; ' + (!n.read ? 'background:oklch(0.18 0.015 256 / .5);' : 'opacity:.7;') }));
+
+    out.toasts = s.toasts;
+
+    // Working switch
+    out.showWorkingSwitch = s.role === 'agent';
+    if (s.role === 'agent' && me) {
+      out.workingLabel = me.working ? 'Working' : 'Offline';
+      out.workingDot = me.working ? 'var(--up)' : 'var(--text-mute)';
+      out.workingDotRing = me.working ? 'oklch(0.84 0.16 194 / .25)' : 'transparent';
+      out.workingDotAnim = me.working ? 'animation:isp-pulse 2s infinite;' : '';
+      out.workingTime = me.working && me.workSince ? ('since ' + new Date(me.workSince).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })) : '';
+      out.workingBtnStyle = 'display:flex; align-items:center; gap:9px; padding:8px 14px; border-radius:11px; cursor:pointer; border:1px solid ' + (me.working ? 'oklch(0.84 0.16 194 / .4)' : 'var(--border)') + '; background:' + (me.working ? 'oklch(0.30 0.10 194 / .4)' : 'var(--surface)') + '; color:var(--text);';
+      out.onToggleWorking = () => this.toggleWorking();
+    }
+
+    // Agency switch
+    out.showAgencySwitch = s.role === 'agency';
+    if (s.role === 'agency' && cl) {
+      out.agencyClients = [{ value: 'all', label: 'All clients' }, ...(cl.subclients || []).map(sc => ({ value: sc.id, label: sc.name }))];
+      out.agencyView = s.agencyView;
+      out.onAgencyClientChange = e => this.setState({ agencyView: e.target.value });
+    }
+
+    // Page title
+    const titles = { roadmap: '€100K Roadmap', dashboard: 'Dashboard', log: 'Appointment Log', appointments: 'Appointments', apptadmin: 'Appointments', eod: 'End of Day Report', payments: 'Payments', clients: s.role === 'admin' ? 'Clients' : 'My Clients', resources: 'Resources', stats: 'Statistics', settings: 'Settings', billing: 'Billing', legal: 'Legal & Contracts', support: 'Support', finances: 'Finances', agents: 'Call Agents', eodadmin: 'End of Day Reports', timeline: 'Project Timeline', prospects: 'Prospect CRM', recruitment: 'Recruitment', contracts: 'Contracts', todos: 'To-Do', whatsapp: 'WhatsApp', targets: 'Targets', clientsuccess: 'Client Success', coaching: 'Coaching', salespeople: 'Salespeople', managers: 'Managers' };
+    out.pageTitle = titles[s.route] || 'Dashboard';
+    const subMap = { dashboard: { agent: 'Welcome back', client: 'Live appointment overview', agency: 'All clients, one view', admin: 'Everything, in real time' } };
+    out.pageSub = (subMap[s.route] && subMap[s.route][s.role]) || roleLabels[s.role];
+
+    // Tour — rendered as a React element so it never exists in the DOM unless active
+    const tour = this.tourData();
+    const tourActive = s.tourStep != null && tour.length > 0 && s.tourStep < tour.length;
+    if (tourActive) {
+      const step = tour[s.tourStep];
+      const isLast = s.tourStep === tour.length - 1;
+      const onNext = () => this.setState(x => {
+        const done = x.tourStep + 1 >= tour.length;
+        if (done) this._markTourSeen(session?.user?.id);
+        return { tourStep: done ? null : x.tourStep + 1 };
+      });
+      const onSkip = () => { this._markTourSeen(session?.user?.id); this.setState({ tourStep: null }); };
+      out.tourOverlay = R('div', { style: { position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,.66)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 } },
+        R('div', { style: { width: '100%', maxWidth: 420, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: 'var(--shadow)', padding: 26 } },
+          R('div', { style: { fontFamily: "'JetBrains Mono'", fontSize: 11.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 12 } }, 'Quick tour · ' + (s.tourStep + 1) + ' of ' + tour.length),
+          R('h3', { style: { fontFamily: "'Space Grotesk'", fontWeight: 600, fontSize: 21, margin: '0 0 10px' } }, step.t),
+          R('p', { style: { fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-dim)', margin: '0 0 22px' } }, step.b),
+          R('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+            R('button', { onClick: onSkip, style: { background: 'none', border: 'none', color: 'var(--text-mute)', fontSize: 13, fontWeight: 600, cursor: 'pointer' } }, 'Skip tour'),
+            R('button', { onClick: onNext, style: { padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--accent-ink)', fontWeight: 800, fontSize: 13.5, cursor: 'pointer' } }, isLast ? 'Get started' : 'Next')
+          )
+        )
+      );
+    } else {
+      out.tourOverlay = null;
+    }
+
+    // Screen render
+    try { out.screen = this.renderScreen(R, d, s); } catch (err) { out.screen = R('div', { style: { color: 'var(--down)', padding: 20 } }, 'Render error: ' + err.message + ' — ' + err.stack?.split('\n')[0]); }
+
+    const mod = this.renderModalBody(R, d, s);
+    out.modalBody = mod ? mod.body : null;
+    out.modalWidth = mod ? mod.width : '520px';
+
+    return out;
+  }
+
+  renderScreen(R, d, s) {
+    if (s.role === 'agent') return ScreenAgent.scrAgent.call(this, d, s);
+    if (s.role === 'client' || s.role === 'agency') return ScreenClient.scrClient.call(this, d, s);
+    if (s.role === 'subclient') return ScreenSubclient.scrSubclient.call(this, d, s);
+    if (s.role === 'admin') return ScreenAdmin.scrAdmin.call(this, d, s);
+    if (s.role === 'salesperson') return ScreenAdmin.scrAdmin.call(this, d, s);
+    if (s.role === 'manager') return ScreenAdmin.scrAdmin.call(this, d, s);
+    return R('div', null, '');
+  }
+
+  renderModalBody(R, d, s) { return Modals.renderModalBody.call(this, R, d, s); }
+
+  // Inject signature block into stored contract HTML for admin preview / PDF
+  _signedContractHtml(c) {
+    const html = c.contract_html || '';
+    if (c.status !== 'signed' || !c.signer_name) return html;
+    const d = c.signed_at
+      ? new Date(c.signed_at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' })
+      : new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+    const sigBlock = `<div style="margin-top:40px;page-break-inside:avoid;font-family:Arial,Helvetica,sans-serif;">
+      <p style="font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#555;margin-bottom:16px;">Handtekening</p>
+      ${c.signature_image ? `<img src="${c.signature_image}" style="max-width:200px;max-height:60px;display:block;margin-bottom:6px;" alt="Handtekening">` : ''}
+      <div style="border-top:1px solid #333;padding-top:6px;font-size:9.5pt;color:#444;min-width:260px;display:inline-block;">${c.signer_name}<br>Ondertekend op ${d}</div>
+    </div>`;
+    return html.replace(/<\/body>/i, sigBlock + '</body>');
+  }
+
+  // Delegate mixin methods
+  euro(n) { return Helpers.euro.call(this, n); }
+  pad(n) { return Helpers.pad.call(this, n); }
+  iso(d) { return Helpers.iso.call(this, d); }
+  today() { return Helpers.today.call(this); }
+  daysAgo(n) { return Helpers.daysAgo.call(this, n); }
+  fmtDate(s) { return Helpers.fmtDate.call(this, s); }
+  fmtFull(s) { return Helpers.fmtFull.call(this, s); }
+  initialsOf(n) { return Helpers.initialsOf.call(this, n); }
+  toast(tag, text, color) { return Helpers.toast.call(this, tag, text, color); }
+  clientName(id, d) { return Helpers.clientName.call(this, id, d); }
+  agentName(id, d) { return Helpers.agentName.call(this, id, d); }
+  _kv(k, v) { return Helpers._kv.call(this, k, v); }
+  C(...a) { return UI.C(...a); }
+  Row(...a) { return UI.Row(...a); }
+  Col(...a) { return UI.Col(...a); }
+  Grid(...a) { return UI.Grid(...a); }
+  Hd(...a) { return UI.Hd(...a); }
+  Sub(...a) { return UI.Sub(...a); }
+  Mono(...a) { return UI.Mono(...a); }
+  Pill(...a) { return UI.Pill(...a); }
+  statusPill(st) { return UI.statusPill(st); }
+  Btn(...a) { return UI.Btn(...a); }
+  Field(...a) { return UI.Field(...a); }
+  Input(...a) { return UI.Input(...a); }
+  Select(...a) { return UI.Select(...a); }
+  Area(...a) { return UI.Area(...a); }
+  Stat(...a) { return UI.Stat(...a); }
+  Donut(...a) { return UI.Donut(...a); }
+  Bars(...a) { return UI.Bars(...a); }
+  Line(...a) { return UI.Line(...a); }
+  LineDual(...a) { return UI.LineDual(...a); }
+  Table(...a) { return UI.Table(...a); }
+  SectionHd(...a) { return UI.SectionHd(...a); }
+  Seg(...a) { return UI.Seg(...a); }
+  _settings(...a) { return ScreenShared._settings.call(this, ...a); }
+  _apptToolbar(...a) { return ScreenShared._apptToolbar.call(this, ...a); }
+  _filterAppts(...a) { return ScreenShared._filterAppts.call(this, ...a); }
+  _finCard(...a) { return ScreenAdmin._finCard.call(this, ...a); }
+  _fin(d) { return ScreenAdmin._fin.call(this, d); }
+  _agentDash(...a) { return ScreenAgent._agentDash.call(this, ...a); }
+  _agentLog(...a) { return ScreenAgent._agentLog.call(this, ...a); }
+  _agentAppointments(...a) { return ScreenAgent._agentAppointments.call(this, ...a); }
+  _agentFollowup(...a) { return ScreenAgent._agentFollowup.call(this, ...a); }
+  _agentEod(...a) { return ScreenAgent._agentEod.call(this, ...a); }
+  _agentPayments(...a) { return ScreenAgent._agentPayments.call(this, ...a); }
+  _agentClients(...a) { return ScreenAgent._agentClients.call(this, ...a); }
+  _agentStats(...a) { return ScreenAgent._agentStats.call(this, ...a); }
+  _admDash(...a) { return ScreenAdmin._admDash.call(this, ...a); }
+  _admFin(...a) { return ScreenAdmin._admFin.call(this, ...a); }
+  _admStats(...a) { return ScreenAdmin._admStats.call(this, ...a); }
+  _admClients(...a) { return ScreenAdmin._admClients.call(this, ...a); }
+  _admAgents(...a) { return ScreenAdmin._admAgents.call(this, ...a); }
+  _admEod(...a) { return ScreenAdmin._admEod.call(this, ...a); }
+  _admTimeline(...a) { return ScreenAdmin._admTimeline.call(this, ...a); }
+  _admProspects(...a) { return ScreenAdmin._admProspects.call(this, ...a); }
+  _admRecruit(...a) { return ScreenAdmin._admRecruit.call(this, ...a); }
+  _admAppointments(...a) { return ScreenAdmin._admAppointments.call(this, ...a); }
+  _admContracts(...a) { return ScreenAdmin._admContracts.call(this, ...a); }
+  _admWhatsApp(...a) { return ScreenAdmin._admWhatsApp.call(this, ...a); }
+  _admSalespeople(...a) { return ScreenAdmin._admSalespeople.call(this, ...a); }
+  _admManagers(...a) { return ScreenAdmin._admManagers.call(this, ...a); }
+  _admMetaAds(...a) { return ScreenAdmin._admMetaAds.call(this, ...a); }
+  _agentRooster(...a) { return ScreenAgent._agentRooster.call(this, ...a); }
+  _admRooster(...a) { return ScreenAdmin._admRooster.call(this, ...a); }
+  _admActivity(...a) { return ScreenAdmin._admActivity.call(this, ...a); }
+  _admTodos(...a) { return ScreenAdmin._admTodos.call(this, ...a); }
+  _admTargets(...a) { return ScreenAdmin._admTargets.call(this, ...a); }
+  _admClientSuccess(...a) { return ScreenAdmin._admClientSuccess.call(this, ...a); }
+  _admCoaching(...a) { return ScreenAdmin._admCoaching.call(this, ...a); }
+  _admOpa(...a) { return ScreenAdmin._admOpa.call(this, ...a); }
+  _admFollowup(...a) { return ScreenAdmin._admFollowup.call(this, ...a); }
+  _admResources(...a) { return ScreenAdmin._admResources.call(this, ...a); }
+  _agentCoaching(...a) { return ScreenAgent._agentCoaching.call(this, ...a); }
+  _admTickets(...a) { return ScreenAdmin._admTickets.call(this, ...a); }
+  _agentTickets(...a) { return ScreenAgent._agentTickets.call(this, ...a); }
+  get _M() { return ScreenRoadmap._M; }
+  _defaultTargets(...a) { return ScreenRoadmap._defaultTargets.call(this, ...a); }
+  _getTargets(...a) { return ScreenRoadmap._getTargets.call(this, ...a); }
+  _card(...a) { return ScreenRoadmap._card.call(this, ...a); }
+  _tip(...a) { return ScreenRoadmap._tip.call(this, ...a); }
+  _statusDot(...a) { return ScreenRoadmap._statusDot.call(this, ...a); }
+  _section(...a) { return ScreenRoadmap._section.call(this, ...a); }
+  _tabCommand(...a) { return ScreenRoadmap._tabCommand.call(this, ...a); }
+  _detectBottleneck(...a) { return ScreenRoadmap._detectBottleneck.call(this, ...a); }
+  _tabAcquisition(...a) { return ScreenRoadmap._tabAcquisition.call(this, ...a); }
+  _tabSales(...a) { return ScreenRoadmap._tabSales.call(this, ...a); }
+  _tabFulfillment(...a) { return ScreenRoadmap._tabFulfillment.call(this, ...a); }
+  _agentBreakdownTable(...a) { return ScreenRoadmap._agentBreakdownTable.call(this, ...a); }
+  _tabClients(...a) { return ScreenRoadmap._tabClients.call(this, ...a); }
+  _tabAgents(...a) { return ScreenRoadmap._tabAgents.call(this, ...a); }
+  _tabFinance(...a) { return ScreenRoadmap._tabFinance.call(this, ...a); }
+  _tabRoadmap(...a) { return ScreenRoadmap._tabRoadmap.call(this, ...a); }
+  _tabHealth(...a) { return ScreenRoadmap._tabHealth.call(this, ...a); }
+  _weekStart(dateStr) {
+    const d = new Date((dateStr || new Date().toISOString().slice(0,10)) + 'T12:00:00');
+    const day = d.getDay();
+    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+    return d.toISOString().slice(0, 10);
+  }
+  _scrSubclient(...a) { return ScreenSubclient.scrSubclient.call(this, ...a); }
+  _clientDash(...a) { return ScreenClient._clientDash.call(this, ...a); }
+  _clientAppointments(...a) { return ScreenClient._clientAppointments.call(this, ...a); }
+  _clientBilling(...a) { return ScreenClient._clientBilling.call(this, ...a); }
+  _clientLegal(...a) { return ScreenClient._clientLegal.call(this, ...a); }
+  _clientSupport(...a) { return ScreenClient._clientSupport.call(this, ...a); }
+  _adminModals(...a) { return Modals._adminModals.call(this, ...a); }
+  _admUploadContract(...a) { return Modals._admUploadContract.call(this, ...a); }
+  _admUploadClientContract(...a) { return Modals._admUploadClientContract.call(this, ...a); }
 }
+
 </script>
 </body>
 </html>
