@@ -186,6 +186,7 @@ const ScreenAdmin = {
     if (r === 'settings') { const session = typeof SB !== 'undefined' ? SB.getSession() : null; return this._settings(d, s, { name: (session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'Admin'), email: session?.user?.email || 'quinten@infinite-scale.be' }); }
     if (r === 'rights') return this._admRights(d, s);
     if (r === 'meta') return this._admMetaAds(d, s);
+    if (r === 'marketing') return this._admMarketing(d, s);
     return e('div', null, '');
   },
 
@@ -5486,12 +5487,12 @@ const ScreenAdmin = {
       fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` }, body: JSON.stringify({ to: emailRecipients, subject: `📋 Nieuwe taak voor ${ownerLabel}: "${title}"${prioLabel}`, html: emailHtml }) }).catch(() => {});
     };
 
-    const addTodoFor = async ownerId => {
+    const addTodoFor = async (ownerId, extraOwnerId) => {
       const tk = 'todosAddTitle_' + ownerId, ck = 'todosAddCat_' + ownerId, dk = 'todosAddDl_' + ownerId, nk = 'todosAddNotes_' + ownerId, pk = 'todosAddPri_' + ownerId, fk = 'todosAddFiles_' + ownerId;
       const title = (s[tk] || '').trim(); if (!title) return;
       const priority = s[pk] || 'normal';
-      const userActive = (todos || []).filter(t => t.created_by === ownerId && !t.completed_at);
-      const maxIdx = userActive.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
+      const category = s[ck] || null;
+      const deadline = s[dk] || null;
       // Upload pending attachments
       const pendingFiles = s[fk] || [];
       const uploaded = [];
@@ -5505,18 +5506,27 @@ const ScreenAdmin = {
         obj.a = uploaded;
         notesEncoded = JSON.stringify(obj);
       }
-      const res = await fetch(`${SB_URL}/rest/v1/todos`, {
-        method: 'POST',
-        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-        body: JSON.stringify({ title, category: s[ck] || null, deadline: s[dk] || null, notes: notesEncoded, created_by: ownerId, day, order_idx: maxIdx + 1 })
-      });
-      const rows = await res.json();
-      if (Array.isArray(rows) && rows[0]) {
-        const clear = { [tk]: '', [ck]: '', [dk]: '', [nk]: '', [pk]: 'normal', [fk]: [], ['todosAddOpen_' + ownerId]: false };
-        this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]], ...clear }));
 
-        notifyTodo(ownerId, title, s[ck], priority, s[dk]);
-      }
+      const createFor = async (targetId) => {
+        const userActive = (todos || []).filter(t => t.created_by === targetId && !t.completed_at);
+        const maxIdx = userActive.reduce((m, t) => Math.max(m, t.order_idx || 0), -1);
+        const res = await fetch(`${SB_URL}/rest/v1/todos`, {
+          method: 'POST',
+          headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+          body: JSON.stringify({ title, category, deadline, notes: notesEncoded, created_by: targetId, day, order_idx: maxIdx + 1 })
+        });
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows[0]) {
+          this.setState(st => ({ todosList: [...(st.todosList || []), rows[0]] }));
+          notifyTodo(targetId, title, category, priority, deadline);
+        }
+      };
+
+      await createFor(ownerId);
+      if (extraOwnerId && extraOwnerId !== ownerId) await createFor(extraOwnerId);
+
+      const clear = { [tk]: '', [ck]: '', [dk]: '', [nk]: '', [pk]: 'normal', [fk]: [], ['todosAddOpen_' + ownerId]: false };
+      this.setState(clear);
     };
 
     const reorderForUser = async (newList, allTodos) => {
@@ -5694,9 +5704,13 @@ const ScreenAdmin = {
               f.name.slice(0, 20),
               e('button', { onClick: () => this.setState(st => ({ ['todosAddFiles_' + col]: (st['todosAddFiles_' + col] || []).filter((_, j) => j !== i) })), style: { background: 'none', border: 'none', color: 'var(--text-mute)', cursor: 'pointer', fontSize: 13, padding: '0 0 0 2px', lineHeight: 1 } }, '×'))));
         })(),
-        e('div', { style: { display: 'flex', gap: 6 } },
-          e('button', { onClick: () => addTodoFor(col), style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: isMe ? 'var(--accent)' : 'var(--info)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Add'),
-          e('button', { onClick: () => this.setState({ [addOpenKey]: false, ['todosAddTitle_' + col]: '', ['todosAddFiles_' + col]: [] }), style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Cancel'))) : null;
+        (() => {
+          const otherUser = USERS.find(u => u.id !== col);
+          return e('div', { style: { display: 'flex', gap: 6 } },
+            e('button', { onClick: () => addTodoFor(col), style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: isMe ? 'var(--accent)' : 'var(--info)', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Add'),
+            otherUser ? e('button', { onClick: () => addTodoFor(col, otherUser.id), title: 'Voeg toe voor ' + user.label + ' én ' + otherUser.label, style: { padding: '6px 14px', borderRadius: 8, border: 'none', background: 'linear-gradient(90deg, ' + (isMe ? 'var(--accent)' : 'var(--info)') + ', var(--warn))', color: 'oklch(0.12 0 0)', fontWeight: 700, fontSize: 12, cursor: 'pointer' } }, 'Beiden') : null,
+            e('button', { onClick: () => this.setState({ [addOpenKey]: false, ['todosAddTitle_' + col]: '', ['todosAddFiles_' + col]: [] }), style: { padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 12, cursor: 'pointer' } }, 'Cancel'));
+        })())) : null;
 
       const accentColor = isMe ? 'var(--accent)' : 'var(--info)';
       return e('div', { key: col, style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 } },
@@ -5974,6 +5988,8 @@ const ScreenAdmin = {
     const SB_KEY = SC_KEY;
     const SB_URL = SC_DB;
     const today = new Date().toISOString().slice(0, 10);
+    const isAgent = s.role === 'agent';
+    const myAgentId = s.agentId || this.myAgentId;
     const agents = (d.agents || []).filter(a => a.active !== false);
 
     // CloudTalk account assignments (from user config)
@@ -6140,11 +6156,69 @@ const ScreenAdmin = {
     const hitTarget = monthlyActual >= monthlyTarget && monthlyTarget > 0;
     const monthLabel = new Date(vmY, vmM - 1, 1).toLocaleString('nl-BE', { month: 'long', year: 'numeric' });
 
+    // ── AGENT VIEW: only show personal earnings target ───────────────────────
+    if (isAgent && myAgentId) {
+      const myTarget = agentTargets[myAgentId] || {};
+      const myAgent = agents.find(a => a.id === myAgentId) || {};
+      const agentRateOf = (a) => {
+        try { const fb = a.clientFeedback ? JSON.parse(a.clientFeedback) : null; if (fb && fb._rn) { const RN = { 'Airco': 8, 'Thuisbatt': 12, 'Zonnepanelen': 15, 'Keukens': 15, 'Badkamers': 15, 'Ramen en deuren': 15, 'Crepi': 15, 'Dak': 20, 'Chapewerken': 12 }; return RN[fb.category] || 0; } } catch(_) {}
+        const ag = (d.agents || []).find(g => g.id === a.agent); const agRates = (ag || {}).rates || {};
+        return a.agentRate != null ? a.agentRate : (agRates[a.sub] ?? agRates[a.client] ?? 0);
+      };
+      const myMonthlyEarnings = (d.appointments || [])
+        .filter(a => a.agent === myAgentId && a.dateLog && a.dateLog.startsWith(monthStr) && a.status !== 'cancel' && a.status !== 'no_show')
+        .reduce((sum, a) => sum + agentRateOf(a), 0);
+      const myRevenueTarget = myTarget.revenue || 0;
+      const earningsPct = myRevenueTarget > 0 ? Math.min(100, Math.round(myMonthlyEarnings / myRevenueTarget * 100)) : 0;
+      const earningsHit = myMonthlyEarnings >= myRevenueTarget && myRevenueTarget > 0;
+      const myDialsActual = dialsMap[myAgentId] || 0;
+      const myDialsTarget = myTarget.dials || 0;
+      const dialsPct = myDialsTarget > 0 ? Math.min(100, Math.round(myDialsActual / myDialsTarget * 100)) : 0;
+      const fmtE = (n) => '€' + Math.round(n).toLocaleString('nl-BE');
+
+      return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+        // Month nav
+        e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          e('button', { onClick: () => shiftMonth(-1), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' } }, '‹'),
+          e('span', { style: { fontSize: 13, fontWeight: 600, color: 'var(--text)', minWidth: 120, textAlign: 'center' } }, monthLabel),
+          e('button', { onClick: () => shiftMonth(1), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' } }, '›'),
+          !isCurrentMonth ? e('button', { onClick: () => this.setState({ _viewMonth: today.slice(0, 7) }), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 11, cursor: 'pointer' } }, 'Nu') : null),
+
+        // Earnings bar
+        e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 24px' } },
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 16 } }, '💰 Mijn omzet (wat ik verdien)'),
+          e('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 12 } },
+            e('div', null,
+              e('div', { style: { fontSize: 36, fontWeight: 800, color: earningsHit ? 'var(--up)' : 'var(--text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1, letterSpacing: '-1px' } }, fmtE(myMonthlyEarnings)),
+              e('div', { style: { fontSize: 13, color: 'var(--text-mute)', marginTop: 4 } }, 'van ' + (myRevenueTarget > 0 ? fmtE(myRevenueTarget) : '—') + ' target · ' + earningsPct + '%')),
+            isCurrentMonth && workdayOfMonth > 0 && myMonthlyEarnings > 0
+              ? e('div', { style: { textAlign: 'right' } },
+                  e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.06em' } }, 'EOM forecast'),
+                  e('div', { style: { fontSize: 22, fontWeight: 700, color: Math.round(myMonthlyEarnings / workdayOfMonth * workdaysInMonth) >= myRevenueTarget ? 'var(--up)' : 'var(--text)', fontVariantNumeric: 'tabular-nums' } },
+                    fmtE(Math.round(myMonthlyEarnings / workdayOfMonth * workdaysInMonth))))
+              : null),
+          e('div', { style: { height: 14, borderRadius: 7, background: 'var(--border)', overflow: 'hidden', marginBottom: 4 } },
+            e('div', { style: { height: '100%', width: earningsPct + '%', background: earningsHit ? 'var(--up)' : 'linear-gradient(90deg, var(--accent), var(--info))', borderRadius: 7, transition: 'width .6s' } })),
+          e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-mute)' } },
+            e('span', null, earningsPct + '% van target'),
+            isCurrentMonth ? e('span', null, workdaysLeft + ' werkdag' + (workdaysLeft !== 1 ? 'en' : '') + ' te gaan') : null)),
+
+        // Dials bar
+        e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 24px' } },
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 } }, '📞 Dials vandaag'),
+          e('div', { style: { fontSize: 30, fontWeight: 800, color: 'var(--info)', fontVariantNumeric: 'tabular-nums', marginBottom: 10 } }, myDialsActual + (myDialsTarget > 0 ? ' / ' + myDialsTarget : '')),
+          myDialsTarget > 0 ? e('div', null,
+            e('div', { style: { height: 10, borderRadius: 5, background: 'var(--border)', overflow: 'hidden' } },
+              e('div', { style: { height: '100%', width: dialsPct + '%', background: 'var(--info)', borderRadius: 5, transition: 'width .5s' } })),
+            e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 4 } }, dialsPct + '%')) : null));
+    }
+
+    // ── ADMIN VIEW (unchanged below) ─────────────────────────────────────────
     return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 24 } },
       // Monthly grand target — hero card
       e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' } },
         e('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px 8px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } },
-          e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.08em', textTransform: 'uppercase' } }, '📊 Maandelijkse omzet target'),
+          e('span', { style: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-mute)', letterSpacing: '.08em', textTransform: 'uppercase' } }, '📊 IS Maandelijkse omzet (bedrijf)'),
           e('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
             e('button', { onClick: () => shiftMonth(-1), style: { padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' } }, '‹'),
             e('span', { style: { fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 110, textAlign: 'center' } }, monthLabel),
@@ -7394,6 +7468,222 @@ const ScreenAdmin = {
           e('div', { style: { fontSize: 17, fontWeight: 700, color: 'var(--text)' } }, 'Rechtenbeheer'),
           e('div', { style: { fontSize: 12.5, color: 'var(--text-mute)', marginTop: 1 } }, 'Bepaal per accounttype welke pagina\'s zichtbaar zijn. Wijzigingen worden direct opgeslagen.'))),
       ...Object.keys(ROLE_ROUTES).map(RoleSection));
+  },
+
+  _admMarketing(d, s) {
+    const e = React.createElement;
+    const SB_KEY = SC_KEY;
+    const SB_URL = SC_DB;
+    const today = new Date().toISOString().slice(0, 10);
+    const viewMonth = s._mktMonth || today.slice(0, 7);
+    const [vmY, vmM] = viewMonth.split('-').map(Number);
+    const monthLabel = new Date(vmY, vmM - 1, 1).toLocaleString('nl-BE', { month: 'long', year: 'numeric' });
+    const shiftMktMonth = (delta) => {
+      const d2 = new Date(vmY, vmM - 1 + delta, 1);
+      this.setState({ _mktMonth: `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,'0')}`, _mktInsights: undefined });
+    };
+
+    const authHdr = () => ({ Authorization: 'Bearer ' + (typeof SB !== 'undefined' ? SB.getSession()?.access_token || '' : '') });
+
+    // Load insights
+    const insights = s._mktInsights;
+    const insightsLoading = s._mktInsightsLoading;
+    const insightsError = s._mktInsightsError;
+
+    const loadInsights = () => {
+      if (insightsLoading) return;
+      const since = viewMonth + '-01';
+      const lastDay = new Date(vmY, vmM, 0).getDate();
+      const until = viewMonth === today.slice(0, 7) ? today : `${viewMonth}-${String(lastDay).padStart(2,'0')}`;
+      this.setState({ _mktInsightsLoading: true, _mktInsightsError: null });
+      fetch(`/api/meta?action=insights&since=${since}&until=${until}`, { headers: authHdr() })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) this.setState({ _mktInsightsLoading: false, _mktInsightsError: data.error, _mktInsights: null });
+          else this.setState({ _mktInsightsLoading: false, _mktInsights: data, _mktInsightsError: null });
+        })
+        .catch(err => this.setState({ _mktInsightsLoading: false, _mktInsightsError: err.message, _mktInsights: null }));
+    };
+
+    if (insights === undefined && !insightsLoading) loadInsights();
+
+    // Ad account setup
+    const adAccountId = s._mktAdAccountId !== undefined ? s._mktAdAccountId : (s._mktAdAccountSaved || '');
+    const saveAdAccount = async () => {
+      const id = (s._mktAdAccountInput || '').trim();
+      if (!id) return;
+      const r = await fetch('/api/meta?action=save_ad_account', {
+        method: 'POST', headers: { ...authHdr(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ad_account_id: id }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (data.ok) {
+        this.setState({ _mktAdAccountSaved: data.id, _mktAdAccountInput: '', _mktInsights: undefined });
+        this.toast('Marketing', 'Ad account opgeslagen', 'var(--up)');
+      } else this.toast('Fout', data.error || 'Kon niet opslaan', 'var(--down)');
+    };
+
+    // Load ad account ID from platform_settings once
+    if (s._mktAdAccountSaved === undefined && !s._mktAdAccountLoading) {
+      this.setState({ _mktAdAccountLoading: true });
+      fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.meta_ad_account&select=value`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } })
+        .then(r => r.json()).then(rows => {
+          const id = rows[0]?.value?.id || '';
+          this.setState({ _mktAdAccountSaved: id, _mktAdAccountLoading: false });
+        }).catch(() => this.setState({ _mktAdAccountSaved: '', _mktAdAccountLoading: false }));
+    }
+
+    // Won prospects from meta_ads pipeline this month
+    const wonProspects = (d.prospects || []).filter(p =>
+      p.pipeline_id === 'meta_ads' && p.stage === 'gewonnen'
+    );
+    const wonThisMonth = wonProspects.filter(p => (p.created_at || '').startsWith(viewMonth));
+
+    // Revenue from won leads: find matching contracts/clients
+    const getWonRevenue = (p) => {
+      const email = p.email || p.contact_email || '';
+      const client = email ? (d.clients || []).find(c => (c.email || '').toLowerCase() === email.toLowerCase()) : null;
+      if (client) {
+        const setup = client.setup_fee || 0;
+        const monthly = client.rate || 0;
+        return { setup, monthly, total: setup + monthly * 3 }; // estimate 3 months
+      }
+      return { setup: 0, monthly: 0, total: 0 };
+    };
+    const totalWonRevenue = wonThisMonth.reduce((s2, p) => s2 + getWonRevenue(p).setup + getWonRevenue(p).monthly * 3, 0);
+
+    const account = insights?.account || {};
+    const spend = parseFloat(account.spend || 0);
+    const leadsAction = (account.actions || []).find(a => a.action_type === 'lead');
+    const leadsCount = parseInt(leadsAction?.value || 0);
+    const cpl = leadsCount > 0 ? spend / leadsCount : 0;
+    const roas = spend > 0 ? totalWonRevenue / spend : 0;
+    const clicks = parseInt(account.clicks || 0);
+    const impressions = parseInt(account.impressions || 0);
+    const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+
+    const campaigns = insights?.campaigns || [];
+    const monthly = insights?.monthly || [];
+
+    const fmt = (n) => '€' + Math.round(n).toLocaleString('nl-BE');
+    const fmtN = (n) => Number(n).toLocaleString('nl-BE');
+
+    const kpiCard = (label, value, sub, color) => e('div', {
+      style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px', flex: '1 1 140px', minWidth: 130 }
+    },
+      e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 6 } }, label),
+      e('div', { style: { fontSize: 26, fontWeight: 800, color: color || 'var(--text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 } }, value),
+      sub ? e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 4 } }, sub) : null
+    );
+
+    const sectionHdr = (label) => e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', padding: '8px 16px 6px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } }, label);
+
+    return e('div', { style: { display: 'flex', flexDirection: 'column', gap: 20 } },
+
+      // Month picker + refresh
+      e('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+        e('button', { onClick: () => shiftMktMonth(-1), style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' } }, '‹'),
+        e('span', { style: { fontSize: 14, fontWeight: 700, color: 'var(--text)', minWidth: 120, textAlign: 'center' } }, monthLabel),
+        e('button', { onClick: () => shiftMktMonth(1), style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' } }, '›'),
+        viewMonth !== today.slice(0, 7) ? e('button', { onClick: () => this.setState({ _mktMonth: today.slice(0, 7), _mktInsights: undefined }), style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 11, cursor: 'pointer' } }, 'Deze maand') : null,
+        e('button', { onClick: () => { this.setState({ _mktInsights: undefined }); }, style: { padding: '4px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-mute)', fontSize: 11, cursor: 'pointer', marginLeft: 'auto' } }, '↻ Refresh')),
+
+      // Ad Account setup
+      !s._mktAdAccountSaved && !s._mktAdAccountLoading ? e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' } },
+        e('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 } }, '⚙️ Meta Ad Account instellen'),
+        e('div', { style: { fontSize: 12, color: 'var(--text-mute)', marginBottom: 12 } }, 'Vul jouw Meta Ad Account ID in (vind je via Meta Business Suite → Ad Accounts, formaat: act_XXXXXXXXX)'),
+        e('div', { style: { display: 'flex', gap: 8 } },
+          e('input', { type: 'text', placeholder: 'act_XXXXXXXXX of enkel het nummer', value: s._mktAdAccountInput || '',
+            onChange: ev => this.setState({ _mktAdAccountInput: ev.target.value }),
+            onKeyDown: ev => { if (ev.key === 'Enter') saveAdAccount(); },
+            style: { flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)', color: 'var(--text)', fontSize: 13, outline: 'none' } }),
+          e('button', { onClick: saveAdAccount, style: { padding: '8px 16px', borderRadius: 8, background: 'var(--accent)', color: 'var(--bg)', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' } }, 'Opslaan'))) : null,
+
+      s._mktAdAccountSaved ? e('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-mute)' } },
+        e('span', null, '📡 Ad account: ' + s._mktAdAccountSaved),
+        e('button', { onClick: () => this.setState({ _mktAdAccountSaved: '', _mktAdAccountInput: s._mktAdAccountSaved }), style: { padding: '2px 8px', borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-mute)', fontSize: 11, cursor: 'pointer' } }, 'Wijzigen')) : null,
+
+      // Loading / error
+      insightsLoading ? e('div', { style: { textAlign: 'center', padding: 40, color: 'var(--text-mute)', fontSize: 13 } }, 'Ads data ophalen…') :
+      insightsError === 'no_ad_account' ? e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, textAlign: 'center', color: 'var(--text-mute)' } },
+        e('div', { style: { fontSize: 32, marginBottom: 8 } }, '📊'),
+        e('div', { style: { fontWeight: 700, marginBottom: 4 } }, 'Ad Account nog niet ingesteld'),
+        e('div', { style: { fontSize: 12 } }, 'Vul hierboven je Meta Ad Account ID in om data te laden.')) :
+      insightsError ? e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border-error, #f87171)', borderRadius: 12, padding: 16, color: 'var(--down)' } },
+        e('div', { style: { fontWeight: 700, marginBottom: 4 } }, '⚠️ Fout bij laden'),
+        e('div', { style: { fontSize: 12 } }, insightsError),
+        insightsError.includes('OAuthException') || insightsError.includes('token') ? e('div', { style: { fontSize: 11, marginTop: 8, color: 'var(--text-mute)' } }, 'Tip: herverbind Meta via de Meta Ads tab om ads_read permissie te activeren.') : null) :
+
+      insights ? e('div', { style: { display: 'flex', flexDirection: 'column', gap: 16 } },
+
+        // KPI cards
+        e('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap' } },
+          kpiCard('Ad spend', fmt(spend), viewMonth === today.slice(0,7) ? 'MTD' : monthLabel, 'var(--down)'),
+          kpiCard('Leads', fmtN(leadsCount), 'via Meta Ads', 'var(--info)'),
+          kpiCard('CPL', leadsCount > 0 ? fmt(cpl) : '—', 'cost per lead', 'var(--warn)'),
+          kpiCard('ROAS', roas > 0 ? roas.toFixed(1) + 'x' : '—', wonThisMonth.length + ' gewonnen leads', roas >= 3 ? 'var(--up)' : roas > 0 ? 'var(--warn)' : 'var(--text-mute)'),
+          kpiCard('CTR', ctr.toFixed(2) + '%', fmtN(impressions) + ' impressies', 'var(--text)')),
+
+        // Won leads this month
+        e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' } },
+          sectionHdr('✅ Gewonnen leads ' + (wonThisMonth.length > 0 ? '(' + wonThisMonth.length + ')' : '— geen')),
+          wonThisMonth.length === 0
+            ? e('div', { style: { padding: '20px 16px', fontSize: 12.5, color: 'var(--text-mute)', textAlign: 'center' } }, 'Nog geen gewonnen leads deze maand')
+            : wonThisMonth.map((p, i) => {
+                const rev = getWonRevenue(p);
+                return e('div', { key: p.id, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: i < wonThisMonth.length - 1 ? '1px solid var(--border-soft)' : 'none' } },
+                  e('div', null,
+                    e('div', { style: { fontWeight: 600, fontSize: 13, color: 'var(--text)' } }, p.contact || p.company || '—'),
+                    e('div', { style: { fontSize: 11, color: 'var(--text-mute)', marginTop: 2 } }, p.company ? p.company + ' · ' : '', (p.created_at || '').slice(0, 10))),
+                  e('div', { style: { textAlign: 'right' } },
+                    rev.setup > 0 || rev.monthly > 0
+                      ? e('div', null,
+                          e('div', { style: { fontSize: 13, fontWeight: 700, color: 'var(--up)' } }, fmt(rev.setup + rev.monthly * 3)),
+                          e('div', { style: { fontSize: 10.5, color: 'var(--text-mute)' } }, rev.setup > 0 ? 'setup ' + fmt(rev.setup) + ' + ' : '', rev.monthly > 0 ? fmt(rev.monthly) + '/m × 3m' : ''))
+                      : e('div', { style: { fontSize: 12, color: 'var(--text-mute)' } }, 'Waarde onbekend')));
+              })),
+
+        // Campaign breakdown
+        campaigns.length > 0 ? e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' } },
+          sectionHdr('📣 Campagnes'),
+          e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 80px 70px 70px 70px', gap: 8, padding: '8px 16px', background: 'var(--bg-2)', borderBottom: '1px solid var(--border-soft)' } },
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase' } }, 'Campagne'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textAlign: 'right', textTransform: 'uppercase' } }, 'Spend'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textAlign: 'right', textTransform: 'uppercase' } }, 'Leads'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textAlign: 'right', textTransform: 'uppercase' } }, 'Clicks'),
+            e('span', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textAlign: 'right', textTransform: 'uppercase' } }, 'CPL')),
+          campaigns.sort((a, b) => parseFloat(b.spend || 0) - parseFloat(a.spend || 0)).map((c, i) => {
+            const cSpend = parseFloat(c.spend || 0);
+            const cLeads = parseInt((c.actions || []).find(a => a.action_type === 'lead')?.value || 0);
+            const cCpl = cLeads > 0 ? cSpend / cLeads : 0;
+            return e('div', { key: i, style: { display: 'grid', gridTemplateColumns: '1fr 80px 70px 70px 70px', gap: 8, padding: '9px 16px', borderBottom: i < campaigns.length - 1 ? '1px solid var(--border-soft)' : 'none', alignItems: 'center' } },
+              e('div', { style: { fontSize: 12.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, c.campaign_name || '—'),
+              e('div', { style: { fontSize: 12.5, color: 'var(--down)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, fmt(cSpend)),
+              e('div', { style: { fontSize: 12.5, textAlign: 'right', color: cLeads > 0 ? 'var(--info)' : 'var(--text-mute)', fontVariantNumeric: 'tabular-nums' } }, cLeads || '—'),
+              e('div', { style: { fontSize: 12, color: 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, fmtN(c.clicks || 0)),
+              e('div', { style: { fontSize: 12, color: cCpl > 0 ? (cCpl < 20 ? 'var(--up)' : cCpl < 50 ? 'var(--warn)' : 'var(--down)') : 'var(--text-mute)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' } }, cLeads > 0 ? fmt(cCpl) : '—'));
+          })) : null,
+
+        // Monthly trend bars
+        monthly.length > 0 ? e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 } },
+          e('div', { style: { fontSize: 11, fontWeight: 700, color: 'var(--text-mute)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 12 } }, '📈 Maandelijkse trend (spend)'),
+          (() => {
+            const maxSpend = Math.max(...monthly.map(m => m.spend), 1);
+            return e('div', { style: { display: 'flex', alignItems: 'flex-end', gap: 8, height: 80 } },
+              monthly.map((m, i) => {
+                const h = Math.round(m.spend / maxSpend * 72);
+                const isThis = m.month === viewMonth;
+                return e('div', { key: i, style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 } },
+                  e('div', { style: { fontSize: 9, color: 'var(--text-mute)', fontVariantNumeric: 'tabular-nums', textAlign: 'center' } }, m.spend > 0 ? '€' + Math.round(m.spend) : ''),
+                  e('div', { style: { width: '100%', background: isThis ? 'var(--accent)' : 'var(--border)', borderRadius: '3px 3px 0 0', height: Math.max(h, 2) + 'px', transition: 'height .3s' } }),
+                  e('div', { style: { fontSize: 9, color: isThis ? 'var(--accent)' : 'var(--text-mute)', fontWeight: isThis ? 700 : 400 } }, m.month.slice(5)));
+              }));
+          })()) : null
+
+      ) : e('div', { style: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 40, textAlign: 'center', color: 'var(--text-mute)' } },
+        e('div', { style: { fontSize: 32, marginBottom: 8 } }, '📊'),
+        e('div', { style: { fontWeight: 700 } }, 'Geen data beschikbaar'),
+        e('div', { style: { fontSize: 12, marginTop: 4 } }, 'Zorg dat Meta verbonden is en een ad account ingesteld is.')));
   },
 
   _admMetaAds(d, s) {

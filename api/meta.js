@@ -33,6 +33,7 @@ const SCOPES = [
   'pages_manage_metadata',
   'pages_read_engagement',
   'business_management',
+  'ads_read',
 ].join(',');
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
@@ -548,6 +549,72 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({ ok: true, synced: synced.length, forms: synced });
+  }
+
+  // ── Save ad account ID ───────────────────────────────────────────────────
+  if (action === 'save_ad_account') {
+    const { ad_account_id } = req.body || {};
+    if (!ad_account_id) return res.status(400).json({ error: 'ad_account_id required' });
+    const id = ad_account_id.startsWith('act_') ? ad_account_id : 'act_' + ad_account_id;
+    await fetch(`${SB_URL}/rest/v1/platform_settings?on_conflict=key`, {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ key: 'meta_ad_account', value: { id } }),
+    });
+    return res.status(200).json({ ok: true, id });
+  }
+
+  // ── Meta Ads Insights ────────────────────────────────────────────────────
+  if (action === 'insights') {
+    const conn = await getConnection();
+    if (!conn?.access_token) return res.status(401).json({ error: 'Meta not connected' });
+
+    const psR = await fetch(`${SB_URL}/rest/v1/platform_settings?key=eq.meta_ad_account&select=value`, { headers: sbHeaders() });
+    const psData = await psR.json();
+    const adAccountId = psData[0]?.value?.id;
+    if (!adAccountId) return res.status(400).json({ error: 'no_ad_account' });
+
+    const since = req.query.since || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+    const until = req.query.until || new Date().toISOString().slice(0, 10);
+
+    // Account-level totals
+    const accountR = await fetch(
+      `https://graph.facebook.com/v19.0/${adAccountId}/insights?fields=spend,impressions,clicks,actions,reach&time_range={"since":"${since}","until":"${until}"}&level=account&access_token=${conn.access_token}`
+    );
+    if (!accountR.ok) {
+      const err = await accountR.json().catch(() => ({}));
+      return res.status(400).json({ error: err.error?.message || 'Meta API error', code: err.error?.code });
+    }
+    const accountData = await accountR.json();
+
+    // Campaign-level breakdown
+    const campaignR = await fetch(
+      `https://graph.facebook.com/v19.0/${adAccountId}/insights?fields=campaign_name,spend,impressions,clicks,actions,reach&time_range={"since":"${since}","until":"${until}"}&level=campaign&access_token=${conn.access_token}&limit=50`
+    );
+    const campaignData = campaignR.ok ? await campaignR.json() : { data: [] };
+
+    // Monthly breakdown (last 6 months)
+    const monthlyRows = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const s2 = d.toISOString().slice(0, 10);
+      const e2 = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+      const mR = await fetch(
+        `https://graph.facebook.com/v19.0/${adAccountId}/insights?fields=spend,actions&time_range={"since":"${s2}","until":"${e2}"}&level=account&access_token=${conn.access_token}`
+      );
+      const mData = mR.ok ? await mR.json() : { data: [] };
+      const row = mData.data?.[0] || {};
+      const leads = (row.actions || []).find(a => a.action_type === 'lead')?.value || 0;
+      monthlyRows.push({ month: s2.slice(0, 7), spend: parseFloat(row.spend || 0), leads: parseInt(leads) });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      account: accountData.data?.[0] || {},
+      campaigns: campaignData.data || [],
+      monthly: monthlyRows,
+    });
   }
 
   return res.status(400).json({ ok: false, error: `Unknown action: ${action}` });
